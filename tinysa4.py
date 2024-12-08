@@ -2,6 +2,7 @@
 
 import serial
 import struct
+import sys
 from optparse import OptionParser
 from serial.tools import list_ports
 
@@ -265,6 +266,11 @@ def main():
                       help="list SD card files", metavar="LIST")
     parser.add_option("-r", dest="read",
                       help="read SD card files", metavar="READ")
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        return
+
     (opt, args) = parser.parse_args()
 
     nv = TinySA(opt.device or getport())
