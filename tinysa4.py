@@ -36,7 +36,14 @@ class TinySA:
     def set_frequencies(self, start=1e6, stop=350e6, points=None):
         if points:
             self.points = points
-        self._frequencies = np.linspace(start, stop, self.points)
+
+        if start > stop:
+            start, stop = stop, start
+        elif self.points < 2:
+            self._frequencies = [start + (stop - start) / 2]
+            self.points = 1
+        else:
+            self._frequencies = [start + x * (stop - start) / (self.points - 1) for x in range(self.points)]
 
     def open(self):
         if self.serial is None:
@@ -274,6 +281,7 @@ def main():
     (opt, args) = parser.parse_args()
 
     nv = TinySA(opt.device or getport())
+    nv.set_frequencies(opt.start, opt.stop, opt.points)
 
     if opt.command:
         for c in opt.command:
@@ -297,8 +305,6 @@ def main():
             f.close()
         else:
             print(data)
-    elif opt.start or opt.stop or opt.points:
-        nv.set_frequencies(opt.start, opt.stop, opt.points)
     elif opt.save or opt.scan:
         p = int(opt.port) if opt.port else 0
 
