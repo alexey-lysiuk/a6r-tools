@@ -6,26 +6,15 @@ import sys
 from optparse import OptionParser
 from serial.tools import list_ports
 
-VID = 0x0483  # 1155
-PID = 0x5740  # 22336
-
-
-# Get tinysa device automatically
-def getport() -> str:
-    device_list = list_ports.comports()
-
-    for device in device_list:
-        if device.vid == VID and device.pid == PID:
-            return device.device
-
-    raise OSError("device not found")
-
 
 class TinySA:
+    VID = 0x0483  # 1155
+    PID = 0x5740  # 22336
+
     MINIMUM_POINT_COUNT = 101
 
     def __init__(self, dev=None):
-        self.dev = dev or getport()
+        self.dev = dev or self._getport()
         self.serial = None
         self.frequencies = None
         self.points = 0
@@ -242,6 +231,16 @@ class TinySA:
         for i in range(len(x)):
             print("%d, " % self.frequencies[i], "%2.2f" % x[i], file=f)
 
+    @staticmethod
+    def _getport() -> str:
+        device_list = list_ports.comports()
+
+        for device in device_list:
+            if device.vid == TinySA.VID and device.pid == TinySA.PID:
+                return device.device
+
+        raise OSError("device not found")
+
 
 def main():
     parser = OptionParser(usage="%prog: [options]")
@@ -281,7 +280,7 @@ def main():
 
     (opt, args) = parser.parse_args()
 
-    nv = TinySA(opt.device or getport())
+    nv = TinySA(opt.device)
     nv.set_frequencies(opt.start, opt.stop, opt.points)
 
     if opt.command:
