@@ -51,59 +51,59 @@ class TinySA:
 
     def cmd(self, text):
         self.open()
-        self.serial.write((text + "\r").encode())
+        self.serial.write((text + '\r').encode())
         self.serial.readline()  # discard empty line
         data = self.fetch_data()
         return data
 
     def set_sweep(self, start, stop):
         if start is not None:
-            self.send_command("sweep start %d\r" % start)
+            self.send_command('sweep start %d\r' % start)
         if stop is not None:
-            self.send_command("sweep stop %d\r" % stop)
+            self.send_command('sweep stop %d\r' % stop)
 
     def set_span(self, span):
         if span is not None:
-            self.send_command("sweep span %d\r" % span)
+            self.send_command('sweep span %d\r' % span)
 
     def set_center(self, center):
         if center is not None:
-            self.send_command("sweep center %d\r" % center)
+            self.send_command('sweep center %d\r' % center)
 
     def set_level(self, level):
         if level is not None:
-            self.send_command("level %d\r" % level)
+            self.send_command('level %d\r' % level)
 
     def set_output(self, on):
         if on is not None:
             if on:
-                self.send_command("output on\r")
+                self.send_command('output on\r')
             else:
-                self.send_command("output off\r")
+                self.send_command('output off\r')
 
     def set_low_output(self):
-        self.send_command("mode low output\r")
+        self.send_command('mode low output\r')
 
     def set_low_input(self):
-        self.send_command("mode low input\r")
+        self.send_command('mode low input\r')
 
     def set_high_input(self):
-        self.send_command("mode high input\r")
+        self.send_command('mode high input\r')
 
     def set_frequency(self, freq):
         if freq is not None:
-            self.send_command("freq %d\r" % freq)
+            self.send_command('freq %d\r' % freq)
 
     def measure(self, freq):
         if freq is not None:
-            self.send_command("hop %d 2\r" % freq)
+            self.send_command('hop %d 2\r' % freq)
             data = self.fetch_data()
             for line in data.split('\n'):
                 if line:
                     return float(line)
 
     def temperature(self):
-        self.send_command("k\r")
+        self.send_command('k\r')
         data = self.fetch_data()
         for line in data.split('\n'):
             if line:
@@ -111,13 +111,13 @@ class TinySA:
 
     def rbw(self, data=0):
         if data == 0:
-            self.send_command("rbw auto\r")
+            self.send_command('rbw auto\r')
             return
         if data < 1:
-            self.send_command("rbw %f\r" % data)
+            self.send_command('rbw %f\r' % data)
             return
         if data >= 1:
-            self.send_command("rbw %d\r" % data)
+            self.send_command('rbw %d\r' % data)
 
     def fetch_data(self):
         result = ''
@@ -137,13 +137,13 @@ class TinySA:
         return result
 
     def resume(self):
-        self.send_command("resume\r")
+        self.send_command('resume\r')
 
     def pause(self):
-        self.send_command("pause\r")
+        self.send_command('pause\r')
 
     def marker_value(self, nr=1):
-        self.send_command("marker %d\r" % nr)
+        self.send_command('marker %d\r' % nr)
         data = self.fetch_data()
         line = data.split('\n')[0]
         if line:
@@ -153,14 +153,14 @@ class TinySA:
                 return float(d)
         return 0
 
-    def list(self, file=""):
-        self.send_command("sd_list %s\r" % file)
+    def list(self, file=''):
+        self.send_command('sd_list %s\r' % file)
         data = self.fetch_data()
         return data
 
     def read(self, file):
-        self.send_command("sd_read %s\r" % file)
-        f = "<1i"
+        self.send_command('sd_read %s\r' % file)
+        f = '<1i'
         b = self.serial.read(4)
         size = struct.unpack(f, b)
         size = size[0]
@@ -169,7 +169,7 @@ class TinySA:
         return data
 
     def data(self, array=2):
-        self.send_command("data %d\r" % array)
+        self.send_command('data %d\r' % array)
         data = self.fetch_data()
         x = []
         for line in data.split('\n'):
@@ -178,7 +178,7 @@ class TinySA:
         return np.array(x)
 
     def fetch_frequencies(self):
-        self.send_command("frequencies\r")
+        self.send_command('frequencies\r')
         data = self.fetch_data()
         x = []
         for line in data.split('\n'):
@@ -188,9 +188,9 @@ class TinySA:
 
     def send_scan(self, start=1e6, stop=900e6, points=None):
         if points:
-            self.send_command("scan %d %d %d\r" % (start, stop, points))
+            self.send_command('scan %d %d %d\r' % (start, stop, points))
         else:
-            self.send_command("scan %d %d\r" % (start, stop))
+            self.send_command('scan %d %d\r' % (start, stop))
 
     def scan(self):
         segment_length = 101
@@ -215,10 +215,10 @@ class TinySA:
         width = 480
         height = 320
         if width == 320:
-            f = ">76800H"
+            f = '>76800H'
         else:
-            f = ">153600H"
-        self.send_command("capture\r")
+            f = '>153600H'
+        self.send_command('capture\r')
         b = self.serial.read(width * height * 2)
         x = struct.unpack(f, b)
         # convert pixel format from 565(RGB) to 8888(RGBA)
@@ -227,9 +227,9 @@ class TinySA:
         return Image.frombuffer('RGBA', (width, height), arr, 'raw', 'RGBA', 0, 1)
 
     def write_csv(self, x, name):
-        f = open(name, "w")
+        f = open(name, 'w')
         for i in range(len(x)):
-            print("%d, " % self.frequencies[i], "%2.2f" % x[i], file=f)
+            print('%d, ' % self.frequencies[i], '%2.2f' % x[i], file=f)
 
     @staticmethod
     def _getport() -> str:
@@ -239,40 +239,40 @@ class TinySA:
             if device.vid == TinySA.VID and device.pid == TinySA.PID:
                 return device.device
 
-        raise OSError("device not found")
+        raise OSError('device not found')
 
 
 def main():
-    parser = OptionParser(usage="%prog: [options]")
-    parser.add_option("-c", "--scan", dest="scan",
-                      action="store_true", default=False,
-                      help="scan by script", metavar="SCAN")
-    parser.add_option("-S", "--start", dest="start",
-                      type="float", default=1e6,
-                      help="start frequency", metavar="START")
-    parser.add_option("-E", "--stop", dest="stop",
-                      type="float", default=900e6,
-                      help="stop frequency", metavar="STOP")
-    parser.add_option("-N", "--points", dest="points",
-                      type="int", default=101,
-                      help="scan points", metavar="POINTS")
-    parser.add_option("-P", "--port", type="int", dest="port",
-                      help="port", metavar="PORT")
-    parser.add_option("-d", "--dev", dest="device",
-                      help="device node", metavar="DEV")
-    parser.add_option("-v", "--verbose",
-                      action="store_true", dest="verbose", default=False,
-                      help="verbose output")
-    parser.add_option("-C", "--capture", dest="capture",
-                      help="capture current display to FILE", metavar="FILE")
-    parser.add_option("-e", dest="command", action="append",
-                      help="send raw command", metavar="COMMAND")
-    parser.add_option("-o", dest="save",
-                      help="write CSV file", metavar="SAVE")
-    parser.add_option("-l", dest="list",
-                      help="list SD card files", metavar="LIST")
-    parser.add_option("-r", dest="read",
-                      help="read SD card files", metavar="READ")
+    parser = OptionParser(usage='%prog: [options]')
+    parser.add_option('-c', '--scan', dest='scan',
+                      action='store_true', default=False,
+                      help='scan by script', metavar='SCAN')
+    parser.add_option('-S', '--start', dest='start',
+                      type='float', default=1e6,
+                      help='start frequency', metavar='START')
+    parser.add_option('-E', '--stop', dest='stop',
+                      type='float', default=900e6,
+                      help='stop frequency', metavar='STOP')
+    parser.add_option('-N', '--points', dest='points',
+                      type='int', default=101,
+                      help='scan points', metavar='POINTS')
+    parser.add_option('-P', '--port', type='int', dest='port',
+                      help='port', metavar='PORT')
+    parser.add_option('-d', '--dev', dest='device',
+                      help='device node', metavar='DEV')
+    parser.add_option('-v', '--verbose',
+                      action='store_true', dest='verbose', default=False,
+                      help='verbose output')
+    parser.add_option('-C', '--capture', dest='capture',
+                      help='capture current display to FILE', metavar='FILE')
+    parser.add_option('-e', dest='command', action='append',
+                      help='send raw command', metavar='COMMAND')
+    parser.add_option('-o', dest='save',
+                      help='write CSV file', metavar='SAVE')
+    parser.add_option('-l', dest='list',
+                      help='list SD card files', metavar='LIST')
+    parser.add_option('-r', dest='read',
+                      help='read SD card files', metavar='READ')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -285,12 +285,12 @@ def main():
 
     if opt.command:
         for c in opt.command:
-            nv.send_command(c + "\r")
+            nv.send_command(c + '\r')
 
         data = nv.fetch_data()
         print(data)
     elif opt.capture:
-        print("capturing...")
+        print('capturing...')
         img = nv.capture()
         img.save(opt.capture)
     elif opt.list:
@@ -300,7 +300,7 @@ def main():
         data = nv.read(opt.read)
 
         if len(args) > 0:
-            f = open(args[0], "wb")
+            f = open(args[0], 'wb')
             f.write(data)
             f.close()
         else:
