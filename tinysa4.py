@@ -197,7 +197,7 @@ class TinySA(object):
         for line in data.split('\n'):
             if line:
                 x.append(float(line))
-        return np.array(x)
+        return x
 
     def fetch_frequencies(self):
         self.send_command('frequencies\r')
@@ -206,7 +206,7 @@ class TinySA(object):
         for line in data.split('\n'):
             if line:
                 x.append(float(line))
-        self.frequencies = np.array(x)
+        self.frequencies = x
 
     def send_scan(self, start=1e6, stop=900e6, points=None):
         if points:
@@ -233,19 +233,14 @@ class TinySA(object):
         return array0, array1
 
     def capture(self):
-        from PIL import Image
         width = 480
         height = 320
-        if width == 320:
-            f = '>76800H'
-        else:
-            f = '>153600H'
+        f = '>153600H'
         self.send_command('capture\r')
         b = self.serial.read(width * height * 2)
         x = struct.unpack(f, b)
         # convert pixel format from 565(RGB) to 8888(RGBA)
-        arr = np.array(x, dtype=np.uint32)
-        arr = 0xFF000000 + ((arr & 0xF800) >> 8) + ((arr & 0x07E0) << 5) + ((arr & 0x001F) << 19)
+        arr = [0xFF000000 + ((p & 0xF800) >> 8) + ((p & 0x07E0) << 5) + ((p & 0x001F) << 19) for p in x]
         return Image.frombuffer('RGBA', (width, height), arr, 'raw', 'RGBA', 0, 1)
 
     def write_csv(self, x, name):
