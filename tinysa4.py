@@ -265,13 +265,13 @@ def main():
                       help='verbose output')
     parser.add_option('-C', '--capture', dest='capture',
                       help='capture current display to FILE', metavar='FILE')
-    parser.add_option('-e', dest='command', action='append',
+    parser.add_option('-e', '--command', dest='command', action='append',
                       help='send raw command', metavar='COMMAND')
-    parser.add_option('-o', dest='save',
+    parser.add_option('-o', '--write', dest='save',
                       help='write CSV file', metavar='SAVE')
-    parser.add_option('-l', dest='list',
+    parser.add_option('-l', '--list', dest='list',
                       help='list SD card files', metavar='LIST')
-    parser.add_option('-r', dest='read',
+    parser.add_option('-r', '--read', dest='read',
                       help='read SD card files', metavar='READ')
 
     if len(sys.argv) == 1:
