@@ -22,27 +22,29 @@ def getport() -> str:
 
 
 class TinySA:
+    MINIMUM_POINT_COUNT = 101
+
     def __init__(self, dev=None):
         self.dev = dev or getport()
         self.serial = None
-        self._frequencies = None
-        self.points = 101
+        self.frequencies = None
+        self.points = 0
 
-    @property
-    def frequencies(self):
-        return self._frequencies
+    def set_frequencies(self, start=1e6, stop=350e6, points=MINIMUM_POINT_COUNT):
+        if points < self.MINIMUM_POINT_COUNT:
+            points = self.MINIMUM_POINT_COUNT
 
-    def set_frequencies(self, start=1e6, stop=350e6, points=None):
-        if points:
-            self.points = points
+        if start < 0:
+            start = 0
+
+        if stop < 0:
+            stop = 0
 
         if start > stop:
             start, stop = stop, start
-        elif self.points < 2:
-            self._frequencies = [start + (stop - start) / 2]
-            self.points = 1
-        else:
-            self._frequencies = [start + x * (stop - start) / (self.points - 1) for x in range(self.points)]
+
+        self.frequencies = [start + x * (stop - start) / (points - 1) for x in range(points)]
+        self.points = points
 
     def open(self):
         if self.serial is None:
@@ -193,7 +195,7 @@ class TinySA:
         for line in data.split('\n'):
             if line:
                 x.append(float(line))
-        self._frequencies = np.array(x)
+        self.frequencies = np.array(x)
 
     def send_scan(self, start=1e6, stop=900e6, points=None):
         if points:
@@ -205,9 +207,9 @@ class TinySA:
         segment_length = 101
         array0 = []
         array1 = []
-        if self._frequencies is None:
+        if self.frequencies is None:
             self.fetch_frequencies()
-        freqs = self._frequencies
+        freqs = self.frequencies
         while len(freqs) > 0:
             seg_start = freqs[0]
             seg_stop = freqs[segment_length - 1] if len(freqs) >= segment_length else freqs[-1]
