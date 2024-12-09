@@ -7,7 +7,29 @@ from optparse import OptionParser
 from serial.tools import list_ports
 
 
-class TinySA:
+class Image(object):
+    def __init__(self):
+        self.mode = None
+        self.size = None
+        self.data = None
+        self.args = None
+
+    @staticmethod
+    def frombuffer(mode: str, size: tuple[int, int], data, *args):
+        image = Image()
+        image.mode = mode
+        image.size = size
+        image.data = data
+        image.args = args
+
+        return image
+
+    def save(self, path: str):
+        # TODO
+        pass
+
+
+class TinySA(object):
     VID = 0x0483  # 1155
     PID = 0x5740  # 22336
 
