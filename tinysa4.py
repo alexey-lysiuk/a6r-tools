@@ -8,7 +8,6 @@ from serial.tools import list_ports
 
 VID = 0x0483  # 1155
 PID = 0x5740  # 22336
-REF_LEVEL = 1 << 9
 
 
 # Get tinysa device automatically
