@@ -28,15 +28,15 @@ else()
 	)
 endif()
 
-if(MSVC)
-	set(PLATFORM_DEFINITIONS
-		LIBSERIALPORT_MSBUILD
-	)
-else()
-	set(PLATFORM_DEFINITIONS
-		LIBSERIALPORT_ATBUILD
-	)
-endif()
+# if(MSVC)
+# 	set(PLATFORM_DEFINITIONS
+# 		LIBSERIALPORT_MSBUILD
+# 	)
+# else()
+# 	set(PLATFORM_DEFINITIONS
+# 		LIBSERIALPORT_ATBUILD
+# 	)
+# endif()
 
 include_directories("${CMAKE_SOURCE_DIR}")
 
@@ -47,7 +47,8 @@ add_library(serialport STATIC
 	timing.c
 	${PLATFORM_SOURCES}
 )
-target_compile_definitions(serialport PRIVATE ${PLATFORM_DEFINITIONS})
+# target_compile_definitions(serialport PRIVATE ${PLATFORM_DEFINITIONS})
+target_compile_definitions(serialport PRIVATE LIBSERIALPORT_ATBUILD)
 
 add_executable(list_ports list_ports.c)
 target_link_libraries(list_ports PRIVATE serialport ${PLATFORM_LINKER_FLAGS})
