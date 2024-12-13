@@ -31,7 +31,7 @@ else()
 	)
 endif()
 
-include_directories("${CMAKE_SOURCE_DIR}")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_library(serialport STATIC
 	serialport.c
@@ -41,6 +41,7 @@ add_library(serialport STATIC
 	${PLATFORM_SOURCES}
 )
 target_compile_definitions(serialport PRIVATE LIBSERIALPORT_ATBUILD)
+set_target_properties(serialport PROPERTIES INTERFACE_LINK_LIBRARIES "${PLATFORM_LINKER_FLAGS}")
 
 set(SERIALPORT_TESTS
 	list_ports
@@ -50,5 +51,5 @@ set(SERIALPORT_TESTS
 
 foreach(SERIALPORT_TEST IN LISTS SERIALPORT_TESTS)
 	add_executable(${SERIALPORT_TEST} ${SERIALPORT_TEST}.c)
-	target_link_libraries(${SERIALPORT_TEST} PRIVATE serialport ${PLATFORM_LINKER_FLAGS})
+	target_link_libraries(${SERIALPORT_TEST} PRIVATE serialport)
 endforeach()
