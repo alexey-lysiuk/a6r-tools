@@ -42,8 +42,13 @@ add_library(serialport STATIC
 )
 target_compile_definitions(serialport PRIVATE LIBSERIALPORT_ATBUILD)
 
-add_executable(list_ports list_ports.c)
-target_link_libraries(list_ports PRIVATE serialport ${PLATFORM_LINKER_FLAGS})
+set(SERIALPORT_TESTS
+	list_ports
+	port_info
+	send_receive
+)
 
-add_executable(port_info port_info.c)
-target_link_libraries(port_info PRIVATE serialport ${PLATFORM_LINKER_FLAGS})
+foreach(SERIALPORT_TEST IN LISTS SERIALPORT_TESTS)
+	add_executable(${SERIALPORT_TEST} ${SERIALPORT_TEST}.c)
+	target_link_libraries(${SERIALPORT_TEST} PRIVATE serialport ${PLATFORM_LINKER_FLAGS})
+endforeach()
