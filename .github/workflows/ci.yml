@@ -2,6 +2,9 @@ name: CI
 
 on: [push, pull_request]
 
+env:
+  BUILD_TYPE: Release
+
 jobs:
   build:
     name: ${{ matrix.config.name }}
@@ -32,7 +35,8 @@ jobs:
       - name: Configure
         shell: bash
         run: |
-          cmake -S serialport -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.config.extra_options }}
+          echo ${{ env.BUILD_TYPE }}
+          cmake -S serialport -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ${{ matrix.config.extra_options }}
 
       - name: Get number of CPU cores
         uses: SimenB/github-actions-cpu-cores@v2
@@ -41,14 +45,16 @@ jobs:
       - name: Build
         shell: bash
         run: |
+          echo ${{ env.BUILD_TYPE }}
           export MAKEFLAGS=--keep-going
-          cmake --build build --config Release --parallel ${{ steps.cpu-cores.outputs.count }}
+          cmake --build build --config ${{ env.BUILD_TYPE }} --parallel ${{ steps.cpu-cores.outputs.count }}
 
       - name: Test
         shell: bash
         run: |
+          echo ${{ env.BUILD_TYPE }}
           if [[ "${{ runner.os }}" == 'Windows' ]]; then
-          	./build/Release/list_ports
+          	./build/${{ env.BUILD_TYPE }}/list_ports
           else
           	./build/list_ports
           fi
