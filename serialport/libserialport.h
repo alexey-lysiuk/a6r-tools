@@ -279,7 +279,7 @@ extern "C" {
 #include <stddef.h>
 
 /** @cond */
-#if 0 /* #ifdef _MSC_VER */
+#if 0 /* a6r-tools: changed from #ifdef _MSC_VER */
 /* Microsoft Visual C/C++ compiler in use */
 #ifdef LIBSERIALPORT_MSBUILD
 /* Building the library - need to export DLL symbols */
