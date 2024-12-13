@@ -26,6 +26,9 @@ else()
 	set(PLATFORM_SOURCES
 		windows.c
 	)
+	set(PLATFORM_LINKER_FLAGS
+		setupapi
+	)
 endif()
 
 # if(MSVC)
