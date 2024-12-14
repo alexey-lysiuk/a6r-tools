@@ -29,15 +29,12 @@ int main()
 		result = sp_open(port, SP_MODE_READ_WRITE);
 		assert(result == SP_OK);
 
-		std::string command;
+		std::string command = "help";
 
 		static const size_t BUFFER_SIZE = 1024;
 		char buffer[BUFFER_SIZE];
 
 		static const unsigned int timeout = 100;
-
-		result = sp_blocking_write(port, command.c_str(), command.size(), timeout);
-		assert(result == command.size());
 
 		while (true)
 		{
