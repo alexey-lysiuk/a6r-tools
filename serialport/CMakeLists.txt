@@ -43,13 +43,15 @@ add_library(serialport STATIC
 target_compile_definitions(serialport PRIVATE LIBSERIALPORT_ATBUILD)
 set_target_properties(serialport PROPERTIES INTERFACE_LINK_LIBRARIES "${PLATFORM_LINKER_FLAGS}")
 
-set(SERIALPORT_TESTS
-	list_ports
-	port_info
-	send_receive
-)
+if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+	set(SERIALPORT_TESTS
+		list_ports
+		port_info
+		send_receive
+	)
 
-foreach(SERIALPORT_TEST IN LISTS SERIALPORT_TESTS)
-	add_executable(${SERIALPORT_TEST} ${SERIALPORT_TEST}.c)
-	target_link_libraries(${SERIALPORT_TEST} PRIVATE serialport)
-endforeach()
+	foreach(SERIALPORT_TEST IN LISTS SERIALPORT_TESTS)
+		add_executable(${SERIALPORT_TEST} ${SERIALPORT_TEST}.c)
+		target_link_libraries(${SERIALPORT_TEST} PRIVATE serialport)
+	endforeach()
+endif()
