@@ -29,25 +29,41 @@ int main()
 		result = sp_open(port, SP_MODE_READ_WRITE);
 		assert(result == SP_OK);
 
-		std::string command, buffer;
-		buffer.resize(1024);
+		std::string command;
+
+		static const size_t BUFFER_SIZE = 1024;
+		char buffer[BUFFER_SIZE];
+
+		static const unsigned int timeout = 100;
+
+		result = sp_blocking_write(port, command.c_str(), command.size(), timeout);
+		assert(result == command.size());
 
 		while (true)
 		{
-			std::cin >> command;
-
-			if (command.empty())
-				break;
-
-			const unsigned int timeout = 1000;
+			command += '\r';
 
 			result = sp_blocking_write(port, command.c_str(), command.size(), timeout);
 			assert(result == command.size());
 
-			result = sp_blocking_read(port, &buffer[0], buffer.size(), timeout);
-			buffer[result] = '\0';
+			while (true)
+			{
+				result = sp_blocking_read(port, &buffer[0], BUFFER_SIZE, timeout);
 
-			std::cout << buffer;
+				if (result == 0)
+					break;
+				else if (result < 0)
+					exit(1);  // TODO
+				else
+					buffer[result] = '\0';
+
+				std::cout << &buffer[command.size() + 1];
+			}
+
+			std::cin >> command;
+
+			if (command.empty())
+				break;
 		}
 
 		result = sp_close(port);
