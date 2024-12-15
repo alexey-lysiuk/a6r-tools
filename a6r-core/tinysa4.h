@@ -22,5 +22,5 @@ public:
 
 private:
 	sp_port* device = nullptr;
-	size_t timeout = 100;  // ms
+	size_t timeout = 10;  // ms
 };
