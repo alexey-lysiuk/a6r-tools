@@ -1,13 +1,14 @@
-#include <cassert>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
-#include <libserialport.h>
+#include "tinysa4.h"
 
 
-static void RunInteractiveMode(sp_port* port)
+static void RunInteractiveMode(TinySA4& device)
 {
-	constexpr unsigned int TIMEOUT = 100;
+	std::cout << "Type 'exit' to leave interactive mode" << std::endl;
+
 	std::string command = "help";
 
 	constexpr size_t BUFFER_SIZE = 1024;
@@ -17,71 +18,40 @@ static void RunInteractiveMode(sp_port* port)
 	{
 		command += '\r';
 
-		sp_return result = sp_blocking_write(port, command.c_str(), command.size(), TIMEOUT);
-		assert(result == command.size());
+		if (device.Send(command.c_str(), command.size()) != command.size())
+			std::cerr << "Incomplete send to device" << std::endl;  // TODO: make it fatal?
 
 		while (true)
 		{
-			result = sp_blocking_read(port, &buffer[0], BUFFER_SIZE, TIMEOUT);
+			const size_t read = device.Receive(&buffer[0], BUFFER_SIZE - 1);
 
-			if (result == SP_OK)
+			if (read == 0)
 				break;
-			else if (result < 0)
-			{
-				assert(false);
-				return;
-			}
 			else
-				buffer[result] = '\0';
+				buffer[read] = '\0';
 
 			std::cout << &buffer[command.size() + 1];
 		}
 
 		std::cin >> command;
 
-		if (command.empty())
+		if (command == "exit")
 			break;
 	}
-}
-
-static bool Run(sp_port* port)
-{
-	const sp_transport transport = sp_get_port_transport(port);
-
-	if (transport != SP_TRANSPORT_USB)
-		return false;
-
-	int vid, pid;
-	sp_return result = sp_get_port_usb_vid_pid(port, &vid, &pid);
-	assert(result == SP_OK);
-
-	if (vid != 0x0483 || pid != 0x5740)
-		return false;
-
-	result = sp_open(port, SP_MODE_READ_WRITE);
-	assert(result == SP_OK);
-
-	RunInteractiveMode(port);
-
-	result = sp_close(port);
-	assert(result == SP_OK);
-
-	return true;
 }
 
 int main()
 {
-	sp_port** ports;
-	sp_return result = sp_list_ports(&ports);
-	assert(result == SP_OK);
-
-	for (size_t i = 0; ports[i]; ++i)
+	try
 	{
-		if (Run(ports[i]))
-			break;
+		TinySA4 device;
+		RunInteractiveMode(device);
+	}
+	catch (const std::runtime_error& ex)
+	{
+		std::cerr << ex.what() << std::endl;
+		return EXIT_FAILURE;
 	}
 
-	sp_free_port_list(ports);
-
-	return 0;
+	return EXIT_SUCCESS;
 }
