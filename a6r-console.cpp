@@ -1,87 +1,92 @@
-#include <cassert>
+#include <exception>
 #include <iostream>
 #include <string>
 
-#include <libserialport.h>
+#include "argparse.hpp"
+#include "tinysa4.h"
 
 
-static void RunInteractiveMode(sp_port* port)
+static void SendReceive(TinySA4& device, std::string& command)
 {
-	constexpr unsigned int TIMEOUT = 100;
-	std::string command = "help";
+	command += '\r';
+
+	const size_t commandsize = command.size();
 
 	constexpr size_t BUFFER_SIZE = 1024;
 	char buffer[BUFFER_SIZE];
 
+	if (device.Send(command.c_str(), commandsize) != commandsize)
+		std::cerr << "Incomplete send to device" << std::endl;  // TODO: make it fatal?
+
 	while (true)
 	{
-		command += '\r';
+		const size_t read = device.Receive(&buffer[0], BUFFER_SIZE - 1);
 
-		sp_return result = sp_blocking_write(port, command.c_str(), command.size(), TIMEOUT);
-		assert(result == command.size());
+		if (read == 0)
+			break;
+		else
+			buffer[read] = '\0';
 
-		while (true)
-		{
-			result = sp_blocking_read(port, &buffer[0], BUFFER_SIZE, TIMEOUT);
+		std::cout << &buffer[commandsize + 1];  // skip repeated command
+	}
+}
 
-			if (result == SP_OK)
-				break;
-			else if (result < 0)
-			{
-				assert(false);
-				return;
-			}
-			else
-				buffer[result] = '\0';
+static void RunInteractiveMode(TinySA4& device)
+{
+	std::cout << "Type 'exit' to leave interactive mode" << std::endl;
 
-			std::cout << &buffer[command.size() + 1];
-		}
+	std::string command = "help";
+
+	while (true)
+	{
+		SendReceive(device, command);
 
 		std::cin >> command;
 
-		if (command.empty())
+		if (command == "exit")
 			break;
 	}
 }
 
-static bool Run(sp_port* port)
+int main(int argc, char** argv)
 {
-	const sp_transport transport = sp_get_port_transport(port);
+	argparse::ArgumentParser args("a6r-console", "0.0.1");
+	auto& group = args.add_mutually_exclusive_group(true);
+	group.add_argument("-c", "--command").metavar("COMMAND").append().help("execure command(s)");
+	group.add_argument("-i", "--interactive").help("enter interactive mode").flag();
 
-	if (transport != SP_TRANSPORT_USB)
-		return false;
-
-	int vid, pid;
-	sp_return result = sp_get_port_usb_vid_pid(port, &vid, &pid);
-	assert(result == SP_OK);
-
-	if (vid != 0x0483 || pid != 0x5740)
-		return false;
-
-	result = sp_open(port, SP_MODE_READ_WRITE);
-	assert(result == SP_OK);
-
-	RunInteractiveMode(port);
-
-	result = sp_close(port);
-	assert(result == SP_OK);
-
-	return true;
-}
-
-int main()
-{
-	sp_port** ports;
-	sp_return result = sp_list_ports(&ports);
-	assert(result == SP_OK);
-
-	for (size_t i = 0; ports[i]; ++i)
+	try
 	{
-		if (Run(ports[i]))
-			break;
+		args.parse_args(argc, argv);
+	}
+	catch (const std::exception& ex)
+	{
+		std::cerr << ex.what() << std::endl << args;
+		return EXIT_FAILURE;
 	}
 
-	sp_free_port_list(ports);
+	try
+	{
+		TinySA4 device;
 
-	return 0;
+		if (args.get<bool>("--interactive"))
+			RunInteractiveMode(device);
+		else
+		{
+			auto commands = args.get<std::vector<std::string>>("--command");
+
+			for (std::string& command : commands)
+			{
+				SendReceive(device, command);
+				std::cout << std::endl;
+			}
+		}
+	}
+	catch (const std::exception& ex)
+	{
+		std::cerr << ex.what() << std::endl;
+		return EXIT_FAILURE;
+	}
+
+	return EXIT_SUCCESS;
 }
