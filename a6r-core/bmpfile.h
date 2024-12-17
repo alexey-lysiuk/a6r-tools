@@ -1,18 +1,20 @@
 #pragma once
 
 #include <cstdint>
+//#include <ios>
 //#include <cstdlib>
-#include <istream>
+//#include <istream>
+#include "binstream.h"
 
 class BMPFile
 {
 public:
 	explicit BMPFile(const char* filename = nullptr);
-	explicit BMPFile(std::istream& stream);
+	explicit BMPFile(BinaryInputStream& stream);
 	~BMPFile();
 
 	void Load(const char* filename);
-	void Load(std::istream& stream);
+	void Load(BinaryInputStream& stream);
 	void Save(const char* filename) const;
 	//void Reset();
 
