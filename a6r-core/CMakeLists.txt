@@ -8,6 +8,5 @@ add_library(a6r-core
 	tinysa4.h
 )
 
-add_subdirectory(serialport)
-target_include_directories(a6r-core PRIVATE serialport)
-set_target_properties(a6r-core PROPERTIES INTERFACE_LINK_LIBRARIES serialport)
+target_include_directories(a6r-core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(a6r-core PRIVATE serialport)
