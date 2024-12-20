@@ -1,9 +1,6 @@
 #include "bmpfile.h"
 
 #include <fstream>
-#include <stdexcept>
-
-#include "binstream.h"
 
 
 BMPFile::BMPFile(const char* filename)
@@ -12,7 +9,7 @@ BMPFile::BMPFile(const char* filename)
 		Load(filename);
 }
 
-BMPFile::BMPFile(BinaryInputStream& stream)
+BMPFile::BMPFile(std::istream& stream)
 {
 	Load(stream);
 }
@@ -25,22 +22,12 @@ BMPFile::~BMPFile()
 
 void BMPFile::Load(const char* filename)
 {
-	//std::ifstream stream(filename, std::ios_base::in | std::ios_base::binary);
-	//stream.exceptions(std::ios_base::badbit | std::ios_base::failbit);
-	std::filebuf filebuf;
-
-	if (!filebuf.open(filename, std::ios_base::in | std::ios_base::binary))
-	{
-		std::string message = "Could not open file ";
-		message += filename;
-		throw std::runtime_error(message);
-	}
-
-	BinaryInputStream stream(&filebuf);
+	std::ifstream stream(filename, std::ios_base::in | std::ios_base::binary);
+	stream.exceptions(std::ios_base::badbit | std::ios_base::failbit);
 	Load(stream);
 }
 
-void BMPFile::Load(BinaryInputStream& stream)
+void BMPFile::Load(std::istream& stream)
 {
 	char magic[2];
 	stream.read(magic, 2);

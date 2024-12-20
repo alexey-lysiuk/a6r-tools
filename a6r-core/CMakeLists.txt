@@ -4,8 +4,6 @@ project(a6r-core LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 add_library(a6r-core
-	binstream.cpp
-	binstream.h
 	bmpfile.cpp
 	bmpfile.h
 	tinysa4.cpp
