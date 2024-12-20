@@ -41,7 +41,7 @@ add_library(serialport STATIC
 
 target_include_directories(serialport PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(serialport PRIVATE LIBSERIALPORT_ATBUILD)
-set_target_properties(serialport PROPERTIES INTERFACE_LINK_LIBRARIES "${PLATFORM_LINKER_FLAGS}")
+target_link_libraries(serialport PRIVATE "${PLATFORM_LINKER_FLAGS}")
 
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 	set(SERIALPORT_TESTS
