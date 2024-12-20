@@ -31,8 +31,6 @@ else()
 	)
 endif()
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
-
 add_library(serialport STATIC
 	serialport.c
 	libserialport.h
@@ -40,6 +38,8 @@ add_library(serialport STATIC
 	timing.c
 	${PLATFORM_SOURCES}
 )
+
+target_include_directories(serialport PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(serialport PRIVATE LIBSERIALPORT_ATBUILD)
 set_target_properties(serialport PROPERTIES INTERFACE_LINK_LIBRARIES "${PLATFORM_LINKER_FLAGS}")
 
