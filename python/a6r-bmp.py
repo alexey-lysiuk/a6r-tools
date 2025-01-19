@@ -18,7 +18,9 @@
 #
 
 import argparse
+import cProfile
 import os
+import pstats
 import struct
 
 BI_RGB = 0
@@ -100,10 +102,23 @@ def convert(filename: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('files', metavar='bmp-file', type=str, nargs='+')
+    parser.add_argument('--profile', action='store_true', help='enable profiling')
     args = parser.parse_args()
+
+    profiler = None
+
+    if args.profile:
+        profiler = cProfile.Profile()
+        profiler.enable()
 
     for filename in args.files:
         convert(filename)
+
+    if profiler:
+        profiler.disable()
+        stats = pstats.Stats(profiler)
+        stats.sort_stats(pstats.SortKey.CUMULATIVE)
+        stats.print_stats()
 
 
 if '__main__' == __name__:
