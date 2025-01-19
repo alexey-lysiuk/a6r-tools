@@ -5,6 +5,35 @@
 #include "argparse.hpp"
 #include "tinysa4.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_BMP
+#include "stb_image.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+
+static void ConvertBMP(const std::string& filename)
+{
+	int width, height, channels;
+	stbi_uc* data = stbi_load(filename.c_str(), &width, &height, &channels, 0);
+
+	if (data == nullptr)
+	{
+		std::string message = "Could not read BMP file ";
+		message += filename;
+		throw std::runtime_error(message);
+	}
+
+	const int result = stbi_write_bmp(filename.c_str(), width, height, channels, data);
+
+	if (result != 1)
+	{
+		std::string message = "Could not write BMP file ";
+		message += filename;
+		throw std::runtime_error(message);
+	}
+}
 
 static void SendReceive(TinySA4& device, std::string& command)
 {
@@ -54,6 +83,7 @@ int main(int argc, char** argv)
 	auto& group = args.add_mutually_exclusive_group(true);
 	group.add_argument("-c", "--command").metavar("COMMAND").append().help("execure command(s)");
 	group.add_argument("-i", "--interactive").help("enter interactive mode").flag();
+	group.add_argument("-x", "--convert").metavar("FILE").append().help("convert BMP file(s)");
 
 	try
 	{
@@ -67,6 +97,16 @@ int main(int argc, char** argv)
 
 	try
 	{
+		if (args.present("--convert"))
+		{
+			const auto filenames = args.get<std::vector<std::string>>("--convert");
+
+			for (const std::string& filename : filenames)
+				ConvertBMP(filename);
+
+			return EXIT_SUCCESS;
+		}
+
 		TinySA4 device;
 
 		if (args.get<bool>("--interactive"))
