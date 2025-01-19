@@ -135,7 +135,7 @@ def main():
     if profiler:
         profiler.disable()
         stats = pstats.Stats(profiler)
-        stats.sort_stats(pstats.SortKey.CUMULATIVE)
+        stats.sort_stats(pstats.SortKey.TIME)
         stats.print_stats()
 
 
