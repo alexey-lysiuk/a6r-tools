@@ -33,7 +33,7 @@ BMPHEADER_FORMAT = '<2sI4xI'
 BMPHEADER_SIZE = 14
 
 # https://en.wikipedia.org/wiki/BMP_file_format#DIB_header_(bitmap_information_header)
-BITMAPINFOHEADER_FORMAT = '3I2H4I8x'
+BITMAPINFOHEADER_FORMAT = '3I2H5I4x'
 BITMAPINFOHEADER_SIZE = 40
 
 # https://en.wikipedia.org/wiki/BMP_file_format#Example_2
@@ -91,16 +91,56 @@ def _savebmp(filename: str, data, width, height, planes, xres, yres, redmask, gr
     greenshift = _calculate_shift(greenmask)
     blueshift = _calculate_shift(bluemask)
 
+    pixels = []
+    colors = {}
+    colorscount = 0
+
+    for pixel in struct.iter_unpack('<h', data):
+        color = pixel[0]
+
+        if color not in colors:
+            colors[color] = colorscount
+            colorscount += 1
+
+        pixels.append(color)
+
+    if colorscount < 256:
+        with open(filename, 'wb') as f:
+            datasize = len(pixels)
+            dataoffset = BMPHEADER_SIZE + BITMAPINFOHEADER_SIZE + len(colors) * 4
+            filesize = dataoffset + datasize
+
+            bmpheader = struct.pack(BMPHEADER_FORMAT, BMP_MAGIC, filesize, dataoffset)
+            f.write(bmpheader)
+
+            dibheader = struct.pack(BITMAPINFOHEADER_FORMAT,
+                BITMAPINFOHEADER_SIZE, width, height, planes, 8, BI_RGB, datasize, xres, yres, colorscount)
+            f.write(dibheader)
+
+            for color in colors:
+                red = _shift(color & redmask, redshift)
+                green = _shift(color & greenmask, greenshift)
+                blue = _shift(color & bluemask, blueshift)
+                entry = struct.pack('4B', blue, green, red, 0)
+                f.write(entry)
+
+            for pixel in pixels:
+                pixel = struct.pack('B', colors[pixel])
+                f.write(pixel)
+
+        return
+
     with open(filename, 'wb') as f:
         bmpheader = struct.pack(BMPHEADER_FORMAT, BMP_MAGIC, filesize, dataoffset)
         f.write(bmpheader)
 
         dibheader = struct.pack(BITMAPINFOHEADER_FORMAT,
-        BITMAPINFOHEADER_SIZE, width, height, planes, 24, BI_RGB, datasize, xres, yres)
+        BITMAPINFOHEADER_SIZE, width, height, planes, 24, BI_RGB, datasize, xres, yres, 0)
         f.write(dibheader)
 
-        for pixel in struct.iter_unpack('<h', data):
-            color = pixel[0]
+        # for pixel in struct.iter_unpack('<h', data):
+        #     color = pixel[0]
+        for color in pixels:
             red = _shift(color & redmask, redshift)
             green = _shift(color & greenmask, greenshift)
             blue = _shift(color & bluemask, blueshift)
