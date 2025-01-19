@@ -17,9 +17,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import argparse
 import os
 import struct
-import sys
 
 BI_RGB = 0
 BI_BITFIELDS = 3
@@ -98,11 +98,11 @@ def convert(filename: str):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print('Usage: %s bmp-file ...' % sys.argv[0])
-        return 0
+    parser = argparse.ArgumentParser()
+    parser.add_argument('files', metavar='bmp-file', type=str, nargs='+')
+    args = parser.parse_args()
 
-    for filename in sys.argv[1:]:
+    for filename in args.files:
         convert(filename)
 
 
