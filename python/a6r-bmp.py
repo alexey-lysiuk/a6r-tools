@@ -17,6 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import os
 import struct
 import sys
 
@@ -72,6 +73,9 @@ def convert(filename: str):
     redshift = _calculate_shift(redmask)
     greenshift = _calculate_shift(greenmask)
     blueshift = _calculate_shift(bluemask)
+
+    path, extension = os.path.splitext(filename)
+    filename = path + '_converted' + extension
 
     with open(filename, 'wb') as f:
         datasize = len(data) // 2 * 3  # from 16bit to 24bit per pixel
