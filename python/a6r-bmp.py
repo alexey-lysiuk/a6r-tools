@@ -23,6 +23,8 @@ import os
 import pstats
 import struct
 
+BMP_MAGIC = b'BM'
+
 BI_RGB = 0
 BI_BITFIELDS = 3
 
@@ -59,31 +61,38 @@ def _shift(color: int, shift: int):
     return color >> shift if shift > 0 else color << -shift
 
 
-def convert(filename: str):
-    with open(filename, 'rb') as f:
+def _loadbmp(filename: str):
+    with (open(filename, 'rb') as f):
         bmpheader = f.read(14)
         magic, filesize, dataoffset = struct.unpack(BMPHEADER_FORMAT, bmpheader)
-        assert magic == b'BM'
+        assert magic == BMP_MAGIC
 
         dibheader = f.read(BITMAPV4HEADER_SIZE)
         (didheadersize, width, height, planes, bpp, compression, datasize, xres, yres,
             redmask, greenmask, bluemask, alphamask) = struct.unpack(BITMAPV4HEADER_FORMAT, dibheader)
-        assert didheadersize == BITMAPV4HEADER_SIZE and planes == 1 and bpp == 16 and compression == BI_BITFIELDS
+        assert width % 4 == 0
+        assert height % 4 == 0
+        assert didheadersize == BITMAPV4HEADER_SIZE
+        assert planes == 1
+        assert bpp == 16
+        assert compression == BI_BITFIELDS
 
         data = f.read(datasize)
+
+    return data, width, height, planes, xres, yres, redmask, greenmask, bluemask
+
+
+def _savebmp(filename: str, data, width, height, planes, xres, yres, redmask, greenmask, bluemask):
+    datasize = len(data) // 2 * 3  # from 16bit to 24bit per pixel
+    dataoffset = BMPHEADER_SIZE + BITMAPINFOHEADER_SIZE
+    filesize = dataoffset + datasize
 
     redshift = _calculate_shift(redmask)
     greenshift = _calculate_shift(greenmask)
     blueshift = _calculate_shift(bluemask)
 
-    path, extension = os.path.splitext(filename)
-    filename = path + '_converted' + extension
-
     with open(filename, 'wb') as f:
-        datasize = len(data) // 2 * 3  # from 16bit to 24bit per pixel
-        dataoffset = BMPHEADER_SIZE + BITMAPINFOHEADER_SIZE
-        filesize = dataoffset + datasize
-        bmpheader = struct.pack(BMPHEADER_FORMAT, magic, filesize, dataoffset)
+        bmpheader = struct.pack(BMPHEADER_FORMAT, BMP_MAGIC, filesize, dataoffset)
         f.write(bmpheader)
 
         dibheader = struct.pack(BITMAPINFOHEADER_FORMAT,
@@ -97,6 +106,15 @@ def convert(filename: str):
             blue = _shift(color & bluemask, blueshift)
             pixel = struct.pack('3B', blue, green, red)
             f.write(pixel)
+
+
+def convert(filename: str):
+    data, width, height, planes, xres, yres, redmask, greenmask, bluemask = _loadbmp(filename)
+
+    path, extension = os.path.splitext(filename)
+    filename = path + '_converted' + extension
+
+    _savebmp(filename, data, width, height, planes, xres, yres, redmask, greenmask, bluemask)
 
 
 def main():
