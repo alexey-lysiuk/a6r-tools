@@ -109,16 +109,23 @@ class BMPFile:
     def _save_paletted(self, filename: str):
         assert self.colorscount <= 256
 
-        with open(filename, 'wb') as f:
-            datasize = len(self.pixels)
-            dataoffset = BMPFile.HEADER_SIZE + BMPFile.BITMAPINFOHEADER_SIZE + self.colorscount * 4
-            filesize = dataoffset + datasize
+        fourbitpalette = self.colorscount <= 16
+        datasize = len(self.pixels)
+        bpp = 8
 
+        if fourbitpalette:
+            datasize //= 2
+            bpp //= 2
+
+        dataoffset = BMPFile.HEADER_SIZE + BMPFile.BITMAPINFOHEADER_SIZE + self.colorscount * 4
+        filesize = dataoffset + datasize
+
+        with open(filename, 'wb') as f:
             bmpheader = struct.pack(BMPFile.HEADER_FORMAT, BMPFile.MAGIC, filesize, dataoffset)
             f.write(bmpheader)
 
             dibheader = struct.pack(BMPFile.BITMAPINFOHEADER_FORMAT, BMPFile.BITMAPINFOHEADER_SIZE,
-                self.width, self.height, 1, 8, BMPFile.BI_RGB, datasize, self.xres, self.yres, self.colorscount)
+                self.width, self.height, 1, bpp, BMPFile.BI_RGB, datasize, self.xres, self.yres, self.colorscount)
             f.write(dibheader)
 
             for color in self.palette:
@@ -128,9 +135,14 @@ class BMPFile:
                 entry = struct.pack('4B', blue, green, red, 0)
                 f.write(entry)
 
-            for pixel in self.pixels:
-                pixel = struct.pack('B', self.palette[pixel])
-                f.write(pixel)
+            if fourbitpalette:
+                for pixel1, pixel2 in zip(*[iter(self.pixels)] * 2):
+                    pixel = struct.pack('B', (self.palette[pixel1] << 4) + self.palette[pixel2])
+                    f.write(pixel)
+            else:
+                for pixel in self.pixels:
+                    pixel = struct.pack('B', self.palette[pixel])
+                    f.write(pixel)
 
     def _save_rgb(self, filename: str):
         datasize = len(self.pixels) * 3  # 24bit per pixel
