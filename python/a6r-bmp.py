@@ -70,20 +70,21 @@ def _loadbmp(filename: str):
         dibheader = f.read(BITMAPV4HEADER_SIZE)
         (didheadersize, width, height, planes, bpp, compression, datasize, xres, yres,
             redmask, greenmask, bluemask, alphamask) = struct.unpack(BITMAPV4HEADER_FORMAT, dibheader)
-        assert width % 4 == 0
-        assert height % 4 == 0
+        assert width % 2 == 0
+        assert height % 2 == 0
         assert didheadersize == BITMAPV4HEADER_SIZE
         assert planes == 1
         assert bpp == 16
         assert compression == BI_BITFIELDS
 
         data = f.read(datasize)
+        pixels = [pixel[0] for pixel in struct.iter_unpack('<h', data)]
 
-    return data, width, height, planes, xres, yres, redmask, greenmask, bluemask
+    return pixels, width, height, planes, xres, yres, redmask, greenmask, bluemask
 
 
-def _savebmp(filename: str, data, width, height, planes, xres, yres, redmask, greenmask, bluemask):
-    datasize = len(data) // 2 * 3  # from 16bit to 24bit per pixel
+def _savebmp(filename: str, pixels, width, height, planes, xres, yres, redmask, greenmask, bluemask):
+    datasize = len(pixels) // 2 * 3  # from 16bit to 24bit per pixel
     dataoffset = BMPHEADER_SIZE + BITMAPINFOHEADER_SIZE
     filesize = dataoffset + datasize
 
@@ -91,23 +92,18 @@ def _savebmp(filename: str, data, width, height, planes, xres, yres, redmask, gr
     greenshift = _calculate_shift(greenmask)
     blueshift = _calculate_shift(bluemask)
 
-    pixels = []
-    colors = {}
+    palette = {}
     colorscount = 0
 
-    for pixel in struct.iter_unpack('<h', data):
-        color = pixel[0]
-
-        if color not in colors:
-            colors[color] = colorscount
+    for pixel in pixels:
+        if pixel not in palette:
+            palette[pixel] = colorscount
             colorscount += 1
 
-        pixels.append(color)
-
-    if colorscount < 256:
+    if colorscount <= 256:
         with open(filename, 'wb') as f:
             datasize = len(pixels)
-            dataoffset = BMPHEADER_SIZE + BITMAPINFOHEADER_SIZE + len(colors) * 4
+            dataoffset = BMPHEADER_SIZE + BITMAPINFOHEADER_SIZE + colorscount * 4
             filesize = dataoffset + datasize
 
             bmpheader = struct.pack(BMPHEADER_FORMAT, BMP_MAGIC, filesize, dataoffset)
@@ -117,7 +113,7 @@ def _savebmp(filename: str, data, width, height, planes, xres, yres, redmask, gr
                 BITMAPINFOHEADER_SIZE, width, height, planes, 8, BI_RGB, datasize, xres, yres, colorscount)
             f.write(dibheader)
 
-            for color in colors:
+            for color in palette:
                 red = _shift(color & redmask, redshift)
                 green = _shift(color & greenmask, greenshift)
                 blue = _shift(color & bluemask, blueshift)
@@ -125,7 +121,7 @@ def _savebmp(filename: str, data, width, height, planes, xres, yres, redmask, gr
                 f.write(entry)
 
             for pixel in pixels:
-                pixel = struct.pack('B', colors[pixel])
+                pixel = struct.pack('B', palette[pixel])
                 f.write(pixel)
 
         return
@@ -138,8 +134,6 @@ def _savebmp(filename: str, data, width, height, planes, xres, yres, redmask, gr
         BITMAPINFOHEADER_SIZE, width, height, planes, 24, BI_RGB, datasize, xres, yres, 0)
         f.write(dibheader)
 
-        # for pixel in struct.iter_unpack('<h', data):
-        #     color = pixel[0]
         for color in pixels:
             red = _shift(color & redmask, redshift)
             green = _shift(color & greenmask, greenshift)
