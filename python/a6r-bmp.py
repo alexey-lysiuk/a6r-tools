@@ -82,13 +82,57 @@ class BMPFile:
             assert compression == BMPFile.BI_BITFIELDS
 
             data = f.read(datasize)
-            self.pixels = [pixel[0] for pixel in struct.iter_unpack('<h', data)]
+            pixels = [pixel[0] for pixel in struct.iter_unpack('<h', data)]
+
+            palette = {}
+            colorscount = 0
+
+            for pixel in pixels:
+                if pixel not in palette:
+                    palette[pixel] = colorscount
+                    colorscount += 1
+
+            self.pixels = pixels
+            self.palette = palette
+            self.colorscount = colorscount
 
             self.redshift = _calculate_shift(self.redmask)
             self.greenshift = _calculate_shift(self.greenmask)
             self.blueshift = _calculate_shift(self.bluemask)
 
     def save(self, filename: str):
+        if self.colorscount > 256:
+            self._save_rgb(filename)
+        else:
+            self._save_paletted(filename)
+
+    def _save_paletted(self, filename: str):
+        assert self.colorscount <= 256
+
+        with open(filename, 'wb') as f:
+            datasize = len(self.pixels)
+            dataoffset = BMPFile.HEADER_SIZE + BMPFile.BITMAPINFOHEADER_SIZE + self.colorscount * 4
+            filesize = dataoffset + datasize
+
+            bmpheader = struct.pack(BMPFile.HEADER_FORMAT, BMPFile.MAGIC, filesize, dataoffset)
+            f.write(bmpheader)
+
+            dibheader = struct.pack(BMPFile.BITMAPINFOHEADER_FORMAT, BMPFile.BITMAPINFOHEADER_SIZE,
+                self.width, self.height, 1, 8, BMPFile.BI_RGB, datasize, self.xres, self.yres, self.colorscount)
+            f.write(dibheader)
+
+            for color in self.palette:
+                red = _shift(color & self.redmask, self.redshift)
+                green = _shift(color & self.greenmask, self.greenshift)
+                blue = _shift(color & self.bluemask, self.blueshift)
+                entry = struct.pack('4B', blue, green, red, 0)
+                f.write(entry)
+
+            for pixel in self.pixels:
+                pixel = struct.pack('B', self.palette[pixel])
+                f.write(pixel)
+
+    def _save_rgb(self, filename: str):
         datasize = len(self.pixels) * 3  # 24bit per pixel
         dataoffset = BMPFile.HEADER_SIZE + BMPFile.BITMAPINFOHEADER_SIZE
         filesize = dataoffset + datasize
