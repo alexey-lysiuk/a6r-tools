@@ -165,11 +165,12 @@ class BMPFile:
                 f.write(pixel)
 
 
-def convert(filename: str):
+def convert(filename: str, inplace: bool = False):
     bmpfile = BMPFile(filename)
 
-    path, extension = os.path.splitext(filename)
-    filename = path + '_converted' + extension
+    if not inplace:
+        path, extension = os.path.splitext(filename)
+        filename = path + '_converted' + extension
 
     bmpfile.save(filename)
 
@@ -178,6 +179,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('files', metavar='bmp-file', type=str, nargs='+')
     parser.add_argument('--profile', action='store_true', help='enable profiling')
+    parser.add_argument('--inplace', action='store_true', help='replace source files with converted')
     args = parser.parse_args()
 
     profiler = None
@@ -187,7 +189,7 @@ def main():
         profiler.enable()
 
     for filename in args.files:
-        convert(filename)
+        convert(filename, args.inplace)
 
     if profiler:
         profiler.disable()
