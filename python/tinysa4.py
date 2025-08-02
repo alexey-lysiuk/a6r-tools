@@ -8,7 +8,7 @@ from serial.tools import list_ports
 
 
 BMP_HEADER = \
-    b'BMz\xb0\x04\x00\x00\x00\x00\x00z\x00\x00\x00l\x00\x00\x00\xe0\x01\x00\x00@\x01\x00\x00\x01'\
+    b'BMz\xb0\x04\x00\x00\x00\x00\x00z\x00\x00\x00l\x00\x00\x00\xe0\x01\x00\x00\xc0\xfe\xff\xff\x01'\
     b'\x00\x10\x00\x03\x00\x00\x00\x00\xb0\x04\x00\xc4\x0e\x00\x00\xc4\x0e\x00\x00\x00\x00\x00\x00'\
     b'\x00\x00\x00\x00\x00\xf8\x00\x00\xe0\x07\x00\x00\x1f\x00\x00\x00\x00\x00\x00\x00BGRs\x00\x00'\
     b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
@@ -223,21 +223,12 @@ class TinySA(object):
 
         width = 480
         height = 320
-        row_length = width * 2
-        pixels_length = row_length * height
-
+        pixels_length = width * height * 2
         pixels = self.serial.read(pixels_length)
-        image = bytearray(BMP_HEADER)
 
-        for y in range(height):
-            # Swap rows as pixels are stored "bottom-up", starting in the lower left corner,
-            # going from left to right, and then row by row from the bottom to the top
-            row_start = (height - y - 1) * row_length
-            # Swap bytes in each pixel to convert from big-endian format
-            row = bytes(pixels[row_start + x ^ 1] for x in range(row_length))
-            image += row
-
-        return image
+        # Swap rows as pixels are stored "bottom-up", starting in the lower left corner,
+        # going from left to right, and then row by row from the bottom to the top
+        return BMP_HEADER + bytes(pixels[x ^ 1] for x in range(pixels_length))
 
     def write_csv(self, x, name):
         f = open(name, 'w')
