@@ -7,26 +7,12 @@ from optparse import OptionParser
 from serial.tools import list_ports
 
 
-class Image(object):
-    def __init__(self):
-        self.mode = None
-        self.size = None
-        self.data = None
-        self.args = None
-
-    @staticmethod
-    def frombuffer(mode: str, size: tuple[int, int], data, *args):
-        image = Image()
-        image.mode = mode
-        image.size = size
-        image.data = data
-        image.args = args
-
-        return image
-
-    def save(self, path: str):
-        # TODO
-        pass
+BMP_HEADER = \
+    b'BMz\xb0\x04\x00\x00\x00\x00\x00z\x00\x00\x00l\x00\x00\x00\xe0\x01\x00\x00@\x01\x00\x00\x01'\
+    b'\x00\x10\x00\x03\x00\x00\x00\x00\xb0\x04\x00\xc4\x0e\x00\x00\xc4\x0e\x00\x00\x00\x00\x00\x00'\
+    b'\x00\x00\x00\x00\x00\xf8\x00\x00\xe0\x07\x00\x00\x1f\x00\x00\x00\x00\x00\x00\x00BGRs\x00\x00'\
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'\
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 
 class TinySA(object):
@@ -233,15 +219,25 @@ class TinySA(object):
         return array0, array1
 
     def capture(self):
+        self.send_command('capture\r')
+
         width = 480
         height = 320
-        f = '>153600H'
-        self.send_command('capture\r')
-        b = self.serial.read(width * height * 2)
-        x = struct.unpack(f, b)
-        # convert pixel format from 565(RGB) to 8888(RGBA)
-        arr = [0xFF000000 + ((p & 0xF800) >> 8) + ((p & 0x07E0) << 5) + ((p & 0x001F) << 19) for p in x]
-        return Image.frombuffer('RGBA', (width, height), arr, 'raw', 'RGBA', 0, 1)
+        row_length = width * 2
+        pixels_length = row_length * height
+
+        pixels = self.serial.read(pixels_length)
+        image = bytearray(BMP_HEADER)
+
+        for y in range(height):
+            # Swap rows as pixels are stored "bottom-up", starting in the lower left corner,
+            # going from left to right, and then row by row from the bottom to the top
+            row_start = (height - y - 1) * row_length
+            # Swap bytes in each pixel to convert from big-endian format
+            row = bytes(pixels[row_start + x ^ 1] for x in range(row_length))
+            image += row
+
+        return image
 
     def write_csv(self, x, name):
         f = open(name, 'w')
@@ -309,7 +305,8 @@ def main():
     elif opt.capture:
         print('capturing...')
         img = nv.capture()
-        img.save(opt.capture)
+        with open(opt.capture, 'wb') as f:
+            f.write(img)
     elif opt.list:
         data = nv.list(opt.list)
         print(data)
