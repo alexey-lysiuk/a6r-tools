@@ -136,9 +136,41 @@ class SMTVirtualCOMPort:
 
         return True
 
-    def list(self, pattern):
+    def list(self, pattern: str):
+        print(self._list(pattern))
+
+    def copy(self, pattern: str):
+        entries = self._list(pattern).splitlines()
+
+        for entry in entries:
+            name, size = entry.split(' ')
+            content = self._read(name)
+            content_size = len(content)
+
+            if content_size != int(size):
+                raise RuntimeError(f"Inconsistent size of file '{name}', {size} vs. {content_size}")
+
+            with open(name, 'wb') as f:
+                f.write(content)
+
+    def _list(self, pattern: str) -> str:
         self.send(f'sd_list {pattern}')
-        print(self.receive())
+        return self.receive()
+
+    def _read(self, filename: str):
+        self.send(f'sd_read {filename}')
+
+        device = self._device
+        assert device
+
+        size_binary = device.read(4)
+
+        if size_binary == b'err:':
+            message = self.receive()
+            raise RuntimeError(f"Cannot read {filename} from SD card, error{message}")
+
+        size = struct.unpack('<1I', size_binary)[0]
+        return device.read(size)
 
     def _prepare_filename(self, path: str, extension: str) -> str:
         if path == '':
@@ -160,6 +192,7 @@ class SMTVirtualCOMPort:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-C', '--capture', const='', help='save screen to file', metavar='bmp-file', nargs='?')
+    parser.add_argument('-X', '--copy', help='copy files from SD card', metavar='pattern')
     parser.add_argument('-D', '--device', help='specify device explicitly', metavar='device-name')
     parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
     parser.add_argument('--print-info', action='store_true', help='print device information')
@@ -173,6 +206,9 @@ def main():
 
     if args.capture or args.capture == '':
         device.capture(args.capture)
+
+    if args.copy:
+        device.copy(args.copy)
 
     if args.list:
         device.list(args.list)
