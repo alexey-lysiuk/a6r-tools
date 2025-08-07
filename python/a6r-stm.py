@@ -136,6 +136,10 @@ class SMTVirtualCOMPort:
 
         return True
 
+    def list(self, pattern):
+        self.send(f'sd_list {pattern}')
+        print(self.receive())
+
     def _prepare_filename(self, path: str, extension: str) -> str:
         if path == '':
             time = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
@@ -157,6 +161,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-C', '--capture', const='', metavar='bmp-file', nargs='?')
     parser.add_argument('-D', '--device', metavar='device-name')
+    parser.add_argument('-L', '--list', const='*', nargs='?')
     parser.add_argument('--print-info', action='store_true')
     args = parser.parse_args()
 
@@ -168,6 +173,9 @@ def main():
 
     if args.capture or args.capture == '':
         device.capture(args.capture)
+
+    if args.list:
+        device.list(args.list)
 
 
 if '__main__' == __name__:
