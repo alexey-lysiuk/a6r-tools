@@ -173,7 +173,7 @@ class SMTVirtualCOMPort:
         return device.read(size)
 
     def _prepare_filename(self, path: str, extension: str) -> str:
-        if path == '':
+        if path == '*':
             time = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
             prefix = self._filename_prefix()
             return f'{prefix}_{time}.{extension}'
@@ -191,7 +191,7 @@ class SMTVirtualCOMPort:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-C', '--capture', const='', help='save screen to file', metavar='bmp-file', nargs='?')
+    parser.add_argument('-C', '--capture', const='*', help='save screen to file', metavar='bmp-file', nargs='?')
     parser.add_argument('-X', '--copy', help='copy files from SD card', metavar='pattern')
     parser.add_argument('-D', '--device', help='specify device explicitly', metavar='device-name')
     parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
@@ -204,7 +204,7 @@ def main():
 
     device = SMTVirtualCOMPort(args.device, args.print_info)
 
-    if args.capture or args.capture == '':
+    if args.capture:
         device.capture(args.capture)
 
     if args.copy:
