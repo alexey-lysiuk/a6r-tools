@@ -159,10 +159,10 @@ class SMTVirtualCOMPort:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-C', '--capture', const='', metavar='bmp-file', nargs='?')
-    parser.add_argument('-D', '--device', metavar='device-name')
-    parser.add_argument('-L', '--list', const='*', nargs='?')
-    parser.add_argument('--print-info', action='store_true')
+    parser.add_argument('-C', '--capture', const='', help='save screen to file', metavar='bmp-file', nargs='?')
+    parser.add_argument('-D', '--device', help='specify device explicitly', metavar='device-name')
+    parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
+    parser.add_argument('--print-info', action='store_true', help='print device information')
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
