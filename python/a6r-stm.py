@@ -41,7 +41,7 @@ class SMTVirtualCOMPort:
     VID = 0x0483  # 1155
     PID = 0x5740  # 22336
 
-    def __init__(self, device_name: str):
+    def __init__(self, device_name: str, print_info: bool = False):
         if not device_name:
             ports = list_ports.comports()
 
@@ -57,6 +57,9 @@ class SMTVirtualCOMPort:
         self.send('info')
 
         device_info = self.receive()
+
+        if print_info:
+            print(device_info)
 
         if device_info.find('tinySA ULTRA') != -1:
             self._device_type = _DeviceType.TINYSA4
@@ -154,13 +157,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-C', '--capture', const='', metavar='bmp-file', nargs='?')
     parser.add_argument('-D', '--device', metavar='device-name')
+    parser.add_argument('--print-info', action='store_true')
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
         parser.print_help()
         return
 
-    device = SMTVirtualCOMPort(args.device)
+    device = SMTVirtualCOMPort(args.device, args.print_info)
 
     if args.capture or args.capture == '':
         device.capture(args.capture)
