@@ -136,9 +136,6 @@ class SMTVirtualCOMPort:
 
         return True
 
-    def list(self, pattern: str):
-        print(self._list(pattern))
-
     def copy(self, pattern: str):
         entries = self._list(pattern).splitlines()
 
@@ -152,6 +149,12 @@ class SMTVirtualCOMPort:
 
             with open(name, 'wb') as f:
                 f.write(content)
+
+    def delete(self, pattern: str):
+        self.send(f'sd_delete {pattern}')
+
+    def list(self, pattern: str):
+        print(self._list(pattern))
 
     def _list(self, pattern: str) -> str:
         self.send(f'sd_list {pattern}')
@@ -192,9 +195,10 @@ class SMTVirtualCOMPort:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-C', '--capture', const='*', help='save screen to file', metavar='bmp-file', nargs='?')
+    parser.add_argument('-D', '--delete', help='delete files from SD card', metavar='pattern')
     parser.add_argument('-X', '--copy', help='copy files from SD card', metavar='pattern')
-    parser.add_argument('-D', '--device', help='specify device explicitly', metavar='device-name')
     parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
+    parser.add_argument('--device', help='specify device explicitly', metavar='device-name')
     parser.add_argument('--print-info', action='store_true', help='print device information')
     args = parser.parse_args()
 
@@ -209,6 +213,9 @@ def main():
 
     if args.copy:
         device.copy(args.copy)
+
+    if args.delete:
+        device.delete(args.delete)
 
     if args.list:
         device.list(args.list)
