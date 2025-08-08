@@ -107,6 +107,7 @@ class SMTVirtualCOMPort:
         return result.decode()
 
     def capture(self, path: str) -> bool:
+        verbose = self.verbose
         device_type = self._device_type
 
         if device_type == _DeviceType.TINYSA4:
@@ -115,6 +116,9 @@ class SMTVirtualCOMPort:
             width, height = 800, 480
         else:
             return False
+
+        if verbose:
+            print(f'Capturing {width}x{height} bitmap...')
 
         self.send('capture')
 
@@ -126,6 +130,9 @@ class SMTVirtualCOMPort:
             pixels = bytes(pixels[x ^ 1] for x in range(pixels_length))
 
         path = self._prepare_filename(path, 'bmp')
+
+        if verbose:
+            print(f'Saving capture to {path}...')
 
         with open(path, 'wb') as f:
             # Store bitmap from top to bottom by using a negative value for image height
@@ -139,23 +146,41 @@ class SMTVirtualCOMPort:
         return True
 
     def copy(self, pattern: str):
+        verbose = self.verbose
+
+        if verbose:
+            print(f'Copying files {pattern}...')
+
         entries = self._list(pattern).splitlines()
 
         for entry in entries:
             name, size = entry.split(' ')
+
+            if verbose:
+                print(f'Reading file {name} of {size} bytes...')
+
             content = self._read(name)
             content_size = len(content)
 
             if content_size != int(size):
-                raise RuntimeError(f"Inconsistent size of file '{name}', {size} vs. {content_size}")
+                raise RuntimeError(f'Inconsistent size of file {name}, {size} vs. {content_size}')
+
+            if verbose:
+                print(f'Saving file {name}...')
 
             with open(name, 'wb') as f:
                 f.write(content)
 
     def delete(self, pattern: str):
+        if self.verbose:
+            print(f'Deleting files {pattern}...')
+
         self.send(f'sd_delete {pattern}')
 
     def list(self, pattern: str):
+        if self.verbose:
+            print(f'Listing files {pattern}...')
+
         print(self._list(pattern))
 
     def _list(self, pattern: str) -> str:
