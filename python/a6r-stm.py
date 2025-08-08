@@ -76,6 +76,12 @@ class SMTVirtualCOMPort:
     def is_nanovna_fvx(self):
         return self._device_type == _DeviceType.NANOVNA_FVX
 
+    def readraw(self, size: int):
+        device = self._device
+        assert device
+
+        return device.read(size)
+
     def send(self, command: str):
         device = self._device
         assert device
@@ -223,6 +229,81 @@ class SMTVirtualCOMPort:
             return 'VNA'
         else:
             raise RuntimeError('Invalid device type')
+
+
+class Command:
+    @staticmethod
+    def is_supported(device: SMTVirtualCOMPort) -> bool:
+        pass
+
+    def run(self, device: SMTVirtualCOMPort):
+        pass
+
+    @staticmethod
+    def _prepare_filename(device: SMTVirtualCOMPort, path: str, extension: str) -> str:
+        if path == '*':
+            time = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
+            prefix = Command._filename_prefix(device)
+            return f'{prefix}_{time}.{extension}'
+        else:
+            return path
+
+    @staticmethod
+    def _filename_prefix(device: SMTVirtualCOMPort):
+        if device.is_tinysa_ultra():
+            return 'SA'
+        elif device.is_nanovna_fvx():
+            return 'VNA'
+        else:
+            raise RuntimeError('Invalid device type')
+
+
+class CaptureCommand(Command):
+    def __init__(self, path: str):
+        self.path = path
+
+    @staticmethod
+    def is_supported(device: SMTVirtualCOMPort):
+        return device.is_tinysa_ultra() or device.is_nanovna_fvx()
+
+    def run(self, device: SMTVirtualCOMPort):
+        verbose = device.verbose
+        is_tinysa_ultra = device.is_tinysa_ultra()
+
+        if is_tinysa_ultra:
+            width, height = 480, 320
+        elif device.is_nanovna_fvx():
+            width, height = 800, 480
+        else:
+            return False
+
+        if verbose:
+            print(f'Capturing {width}x{height} bitmap...')
+
+        device.send('capture')
+
+        pixels_length = width * height * 2
+        pixels = device.readraw(pixels_length)
+
+        if is_tinysa_ultra:
+            # Swap bytes in pixels
+            pixels = bytes(pixels[x ^ 1] for x in range(pixels_length))
+
+        path = self._prepare_filename(device, self.path, 'bmp')
+
+        if verbose:
+            print(f'Saving capture to {path}...')
+
+        with open(path, 'wb') as f:
+            # Store bitmap from top to bottom by using a negative value for image height
+            resolution = struct.pack('<2i', width, -height)
+
+            f.write(_BMP_HEADER1)
+            f.write(resolution)
+            f.write(_BMP_HEADER2)
+            f.write(pixels)
+
+        return True
 
 
 def main():
