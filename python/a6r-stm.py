@@ -41,7 +41,9 @@ class SMTVirtualCOMPort:
     VID = 0x0483  # 1155
     PID = 0x5740  # 22336
 
-    def __init__(self, device_name: str, print_info: bool = False):
+    def __init__(self, device_name: str, verbose: bool = False):
+        self.verbose = verbose
+
         if not device_name:
             ports = list_ports.comports()
 
@@ -58,7 +60,7 @@ class SMTVirtualCOMPort:
 
         device_info = self.receive()
 
-        if print_info:
+        if verbose:
             print(device_info)
 
         if device_info.find('tinySA ULTRA') != -1:
@@ -199,14 +201,14 @@ def main():
     parser.add_argument('-X', '--copy', help='copy files from SD card', metavar='pattern')
     parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
     parser.add_argument('--device', help='specify device explicitly', metavar='device-name')
-    parser.add_argument('--print-info', action='store_true', help='print device information')
+    parser.add_argument('--verbose', action='store_true', help='enable verbose output')
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
         parser.print_help()
         return
 
-    device = SMTVirtualCOMPort(args.device, args.print_info)
+    device = SMTVirtualCOMPort(args.device, args.verbose)
 
     if args.capture:
         device.capture(args.capture)
