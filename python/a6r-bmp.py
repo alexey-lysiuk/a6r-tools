@@ -64,7 +64,7 @@ class BMPFile:
 
     def __init__(self, filename: str):
         with open(filename, 'rb') as f:
-            bmpheader = f.read(14)
+            bmpheader = f.read(BMPFile.HEADER_SIZE)
             magic, filesize, dataoffset = struct.unpack(BMPFile.HEADER_FORMAT, bmpheader)
             assert magic == BMPFile.MAGIC
 
@@ -109,16 +109,23 @@ class BMPFile:
     def _save_paletted(self, filename: str):
         assert self.colorscount <= 256
 
-        with open(filename, 'wb') as f:
-            datasize = len(self.pixels)
-            dataoffset = BMPFile.HEADER_SIZE + BMPFile.BITMAPINFOHEADER_SIZE + self.colorscount * 4
-            filesize = dataoffset + datasize
+        fourbitpalette = self.colorscount <= 16
+        datasize = len(self.pixels)
+        bpp = 8
 
+        if fourbitpalette:
+            datasize //= 2
+            bpp //= 2
+
+        dataoffset = BMPFile.HEADER_SIZE + BMPFile.BITMAPINFOHEADER_SIZE + self.colorscount * 4
+        filesize = dataoffset + datasize
+
+        with open(filename, 'wb') as f:
             bmpheader = struct.pack(BMPFile.HEADER_FORMAT, BMPFile.MAGIC, filesize, dataoffset)
             f.write(bmpheader)
 
             dibheader = struct.pack(BMPFile.BITMAPINFOHEADER_FORMAT, BMPFile.BITMAPINFOHEADER_SIZE,
-                self.width, self.height, 1, 8, BMPFile.BI_RGB, datasize, self.xres, self.yres, self.colorscount)
+                self.width, self.height, 1, bpp, BMPFile.BI_RGB, datasize, self.xres, self.yres, self.colorscount)
             f.write(dibheader)
 
             for color in self.palette:
@@ -128,9 +135,14 @@ class BMPFile:
                 entry = struct.pack('4B', blue, green, red, 0)
                 f.write(entry)
 
-            for pixel in self.pixels:
-                pixel = struct.pack('B', self.palette[pixel])
-                f.write(pixel)
+            if fourbitpalette:
+                for pixel1, pixel2 in zip(*[iter(self.pixels)] * 2):
+                    pixel = struct.pack('B', (self.palette[pixel1] << 4) + self.palette[pixel2])
+                    f.write(pixel)
+            else:
+                for pixel in self.pixels:
+                    pixel = struct.pack('B', self.palette[pixel])
+                    f.write(pixel)
 
     def _save_rgb(self, filename: str):
         datasize = len(self.pixels) * 3  # 24bit per pixel
@@ -153,11 +165,12 @@ class BMPFile:
                 f.write(pixel)
 
 
-def convert(filename: str):
+def convert(filename: str, inplace: bool = False):
     bmpfile = BMPFile(filename)
 
-    path, extension = os.path.splitext(filename)
-    filename = path + '_converted' + extension
+    if not inplace:
+        path, extension = os.path.splitext(filename)
+        filename = path + '_converted' + extension
 
     bmpfile.save(filename)
 
@@ -166,6 +179,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('files', metavar='bmp-file', type=str, nargs='+')
     parser.add_argument('--profile', action='store_true', help='enable profiling')
+    parser.add_argument('--inplace', action='store_true', help='replace source files with converted')
     args = parser.parse_args()
 
     profiler = None
@@ -175,7 +189,7 @@ def main():
         profiler.enable()
 
     for filename in args.files:
-        convert(filename)
+        convert(filename, args.inplace)
 
     if profiler:
         profiler.disable()
