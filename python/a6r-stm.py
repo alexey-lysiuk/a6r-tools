@@ -70,6 +70,12 @@ class SMTVirtualCOMPort:
         else:
             raise RuntimeError('No supported devices found')
 
+    def is_tinysa_ultra(self):
+        return self._device_type == _DeviceType.TINYSA4
+
+    def is_nanovna_fvx(self):
+        return self._device_type == _DeviceType.NANOVNA_FVX
+
     def send(self, command: str):
         device = self._device
         assert device
@@ -108,11 +114,11 @@ class SMTVirtualCOMPort:
 
     def capture(self, path: str) -> bool:
         verbose = self.verbose
-        device_type = self._device_type
+        is_tinysa_ultra = self.is_tinysa_ultra()
 
-        if device_type == _DeviceType.TINYSA4:
+        if is_tinysa_ultra:
             width, height = 480, 320
-        elif device_type == _DeviceType.NANOVNA_FVX:
+        elif self.is_nanovna_fvx():
             width, height = 800, 480
         else:
             return False
@@ -125,7 +131,7 @@ class SMTVirtualCOMPort:
         pixels_length = width * height * 2
         pixels = self._device.read(pixels_length)
 
-        if device_type == _DeviceType.TINYSA4:
+        if is_tinysa_ultra:
             # Swap bytes in pixels
             pixels = bytes(pixels[x ^ 1] for x in range(pixels_length))
 
@@ -211,9 +217,9 @@ class SMTVirtualCOMPort:
             return path
 
     def _filename_prefix(self):
-        if self._device_type == _DeviceType.TINYSA4:
+        if self.is_tinysa_ultra():
             return 'SA'
-        elif self._device_type == _DeviceType.NANOVNA_FVX:
+        elif self.is_nanovna_fvx():
             return 'VNA'
         else:
             raise RuntimeError('Invalid device type')
