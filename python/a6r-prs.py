@@ -58,6 +58,20 @@ class Enums:
     U_WATT = 6
     U_DBC = 7
 
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L911-L913
+    M_NORMAL = 0
+    M_REFERENCE = 1
+    M_DELTA = 2
+    M_NOISE = 4
+    M_STORED = 8
+    M_AVER = 16
+    M_TRACKING = 32
+    M_DELETE = 64
+
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L915-L917
+    M_DISABLED = 0
+    M_ENABLED = 1
+
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1380
     S_OFF = 0
     S_ON = 1
@@ -129,6 +143,23 @@ class Band:
         b.name = values[0].split(b'\0')[0].decode('latin_1')
         b.enabled, b.start, b.end, b.level, b.start_index, b.stop_index = values[1:]
         return b
+
+
+class Marker:
+    def __init__(self):
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L937-L944
+        self.mtype = 0  # uint8_t
+        self.enabled = 0  # uint8_t
+        self.ref = 0  # uint8_t
+        self.trace = 0  # uint8_t
+        self.index = 0  # uint8_t
+        self.frequency = 0  # freq_t (uint64_t)
+
+    @staticmethod
+    def load(stream: typing.BinaryIO) -> 'Marker':
+        m = Marker()
+        m.mtype, m.enabled, m.ref, m.trace, m.index, m.frequency = _unpack('<5B3xQ', stream)
+        return m
 
 
 class Preset:
@@ -236,7 +267,7 @@ class Preset:
         self.frequency_offset = 100000000  # freq_t (uint64_t)
         self.trace_scale = 10.0  # float
         self.trace_refpos = -10.0  # float
-        self._markers = 0  # marker_t[MARKERS_MAX]
+        self._markers = [Marker() for _ in range(Preset.MARKERS_MAX)]  # marker_t
         self.limits = 0  # limit_t[REFERENCE_MAX][LIMITS_MAX]
         self.sweep_time_us = 0  # systime_t (uint32_t)
         self.measure_sweep_time_us = 0  # systime_t (uint32_t)
