@@ -261,6 +261,13 @@ class Preset:
             p.multi_trace, p.trigger_trace = _unpack('<bBb15Bx', stream)
         p.repeat, p.linearity_step, p._sweep_points, p.attenuate_x2 = _unpack('<3Hh', stream)
 
+        p.step_delay, p.offset_delay, p.freq_mode, p.refer, p.modulation_depth_x100, \
+            p.modulation_deviation_div100, p.decay, p.attack, p.slider_position, \
+            p.slider_span, p.rbw_x10, p.vbw_x100 = _unpack('<3Hh2H2x3iQ2I', stream)
+        p.scan_after_dirty = _unpack(f'<{Preset.TRACES_MAX}I', stream)
+        p.modulation_frequency, p.reflevel, p.scale, p.external_gain, p.trigger_level, \
+            p.level, p.level_sweep = _unpack('<7f', stream)
+
         return p
 
 
