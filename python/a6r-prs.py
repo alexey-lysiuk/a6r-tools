@@ -132,13 +132,20 @@ class Band:
 
 
 class Preset:
-    MAGIC = 0x434f4e6d
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L197
+    MARKER_COUNT = 8
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L198
     TRACES_MAX = 4
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L963
+    MARKERS_MAX = MARKER_COUNT
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1208
     BANDS_MAX = 8
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1502
+    SETTING_MAGIC = 0x434f4e6d
 
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1224-L1238
-        self.magic = Preset.MAGIC  # uint32_t
+        self.magic = Preset.SETTING_MAGIC  # uint32_t
         self.auto_reflevel = True
         self.auto_attenuation = True
         self.mirror_masking = False
@@ -181,7 +188,7 @@ class Preset:
         self.unit_scale_index = 0  # uint8_t
         self.noise = 5  # uint8_t
         self.lo_drive = 5  # uint8_t
-        self.rx_drive = 11  # uint8_t
+        self.rx_drive = 12  # uint8_t
         self.test = 0  # uint8_t
         self.harmonic = 3  # uint8_t
         self.fast_speedup = 0  # uint8_t
@@ -225,7 +232,7 @@ class Preset:
         p = Preset()
 
         p.magic = _unpack('<I', stream)[0]
-        assert p.magic == Preset.MAGIC
+        assert p.magic == Preset.SETTING_MAGIC
 
         p.auto_reflevel, p.auto_attenuation, p.mirror_masking, p.tracking_output, \
             p.mute, p.auto_if, p.sweep, p.pulse = _unpack('<8?', stream)
