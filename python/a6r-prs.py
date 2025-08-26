@@ -248,7 +248,7 @@ class Preset:
             p.trigger_mode, p.trigger_direction, p.trigger_beep, p.trigger_auto_save, \
             p.step_delay_mode, p.waterfall, p.level_meter = _unpack('<14B', stream)
 
-        uint8_trace_max_fmt = f'<{Preset.TRACES_MAX}?'
+        uint8_trace_max_fmt = f'<{Preset.TRACES_MAX}B'
         p.average = _unpack(uint8_trace_max_fmt, stream)
         p.subtract = _unpack(uint8_trace_max_fmt, stream)
 
