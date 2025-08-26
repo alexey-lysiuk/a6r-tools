@@ -114,13 +114,13 @@ class Enums:
 class Band:
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1207-L1219
-        self.name = ''
+        self.name = ''  # char[9]
         self.enabled = False
-        self.start = 0
-        self.end = 0
-        self.level = 0
-        self.start_index = 0
-        self.stop_index = 0
+        self.start = 0  # freq_t (uint64_t)
+        self.end = 0  # freq_t (uint64_t)
+        self.level = 0.0  # float
+        self.start_index = 0  # int
+        self.stop_index = 0  # int
 
     @staticmethod
     def load(stream: typing.BinaryIO) -> 'Band':
@@ -197,6 +197,28 @@ class Preset:
         self.linearity_step = 0  # uint16_t
         self._sweep_points = 450  # uint16_t
         self.attenuate_x2 = 0  # int16_t
+
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1297-L1323
+        self.step_delay = 0  # uint16_t
+        self.offset_delay = 0  # uint16_t
+        self.freq_mode = 0  # uint16_t
+        self.refer = -1  # int16_t
+        self.modulation_depth_x100 = 80  # uint16_t
+        self.modulation_deviation_div100 = 30  # uint16_t
+        self.decay = 20  # int
+        self.attack = 1  # int
+        self.slider_position = 0  # int32_t
+        self.slider_span = 100000  # freq_t (uint64_t)
+        self.rbw_x10 = 0  # uint32_t
+        self.vbw_x100 = 0  # uint32_t
+        self.scan_after_dirty = [0 for _ in range(Preset.TRACES_MAX)]  # uint32_t
+        self.modulation_frequency = 1000.0  # float
+        self.reflevel = -10.0  # float
+        self.scale = 10.0  # float
+        self.external_gain = 0.0  # float
+        self.trigger_level = -150.0  # float
+        self.level = 0.0  # float
+        self.level_sweep = 0.0  # float
 
     @staticmethod
     def load(stream: typing.BinaryIO) -> 'Preset':
