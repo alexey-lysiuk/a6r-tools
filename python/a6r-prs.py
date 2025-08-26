@@ -228,20 +228,20 @@ class Preset:
         self.level_sweep = 0.0  # float
 
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1325-L1346
-        self.frequency_step = 0  # freq_t (uint64_t)
+        self.frequency_step = 1781737  # freq_t (uint64_t)
         self.frequency0 = 0  # freq_t (uint64_t)
-        self.frequency1 = 0  # freq_t (uint64_t)
+        self.frequency1 = 800000000  # freq_t (uint64_t)
         self.frequency_var = 0  # freq_t (uint64_t)
-        self.frequency_IF = 0  # freq_t (uint64_t)
-        self.frequency_offset = 0  # freq_t (uint64_t)
-        self.trace_scale = 0  # float
-        self.trace_refpos = 0  # float
+        self.frequency_IF = 977400000  # freq_t (uint64_t)
+        self.frequency_offset = 100000000  # freq_t (uint64_t)
+        self.trace_scale = 10.0  # float
+        self.trace_refpos = -10.0  # float
         self._markers = 0  # marker_t[MARKERS_MAX]
         self.limits = 0  # limit_t[REFERENCE_MAX][LIMITS_MAX]
-        self.sweep_time_us = 0  # systime_t (uint64_t)
-        self.measure_sweep_time_us = 0  # systime_t (uint64_t)
-        self.actual_sweep_time_us = 0  # systime_t (uint64_t)
-        self.additional_step_delay_us = 0  # systime_t (uint64_t)
+        self.sweep_time_us = 0  # systime_t (uint32_t)
+        self.measure_sweep_time_us = 0  # systime_t (uint32_t)
+        self.actual_sweep_time_us = 0  # systime_t (uint32_t)
+        self.additional_step_delay_us = 0  # systime_t (uint32_t)
         self.trigger_grid = 0  # uint32_t
 
     @staticmethod
