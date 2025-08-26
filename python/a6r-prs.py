@@ -206,9 +206,9 @@ class Preset:
         assert p.magic == Preset.MAGIC
 
         p.auto_reflevel, p.auto_attenuation, p.mirror_masking, p.tracking_output, \
-            p.mute, p.auto_if, p.sweep, p.pulse = _unpack('8?', stream)
+            p.mute, p.auto_if, p.sweep, p.pulse = _unpack('<8?', stream)
 
-        bool_trace_max_fmt = f'{Preset.TRACES_MAX}?'
+        bool_trace_max_fmt = f'<{Preset.TRACES_MAX}?'
         p.stored = _unpack(bool_trace_max_fmt, stream)
         p.normalized = _unpack(bool_trace_max_fmt, stream)
         stream.seek(4, io.SEEK_CUR)  # skip padding bytes
@@ -217,20 +217,20 @@ class Preset:
 
         p.mode, p.below_IF, p.unit, p.agc, p.lna, p.modulation, p.trigger, \
             p.trigger_mode, p.trigger_direction, p.trigger_beep, p.trigger_auto_save, \
-            p.step_delay_mode, p.waterfall, p.level_meter = _unpack('14B', stream)
+            p.step_delay_mode, p.waterfall, p.level_meter = _unpack('<14B', stream)
 
-        uint8_trace_max_fmt = f'{Preset.TRACES_MAX}?'
+        uint8_trace_max_fmt = f'<{Preset.TRACES_MAX}?'
         p.average = _unpack(uint8_trace_max_fmt, stream)
         p.subtract = _unpack(uint8_trace_max_fmt, stream)
 
         p.measurement, p.spur_removal, p.disable_correction, p.normalized_trace, \
-            p.listen = _unpack('3BbB', stream)
+            p.listen = _unpack('<3BbB', stream)
 
         p.tracking, p.atten_step, p._active_marker, p.unit_scale_index, p.noise, \
             p.lo_drive, p.rx_drive, p.test, p.harmonic, p.fast_speedup, p.faster_speedup, \
             p._traces, p.draw_line, p.lock_display, p.jog_jump, p.multi_band, \
-            p.multi_trace, p.trigger_trace = _unpack('bBb15Bx', stream)
-        p.repeat, p.linearity_step, p._sweep_points, p.attenuate_x2 = _unpack('3Hh', stream)
+            p.multi_trace, p.trigger_trace = _unpack('<bBb15Bx', stream)
+        p.repeat, p.linearity_step, p._sweep_points, p.attenuate_x2 = _unpack('<3Hh', stream)
 
         return p
 
