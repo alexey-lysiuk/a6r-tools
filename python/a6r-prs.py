@@ -412,8 +412,8 @@ class Preset(Struct):
 
         stream.seek(start_pos)
 
-        raw = stream.read(1580)
-        uints = struct.unpack('<395I', raw)
+        raw = stream.read(1576)
+        uints = struct.unpack('<394I', raw)
         checksum = 0
         mask = ((1 << 32) - 1)
 
