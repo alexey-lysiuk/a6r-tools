@@ -17,6 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import ctypes
 import io
 import json
 import struct
@@ -32,6 +33,37 @@ def _unpack(fmt: str, stream: typing.BinaryIO):
     size = struct.calcsize(fmt)
     data = stream.read(size)
     return struct.unpack(fmt, data)
+
+
+def ror(n, c, bits=64):
+    mask = (1 << bits) - 1
+    return ((n >> c) | (n << (bits - c))) & mask
+
+
+def ror32(n, c):
+    mask = (1 << 32) - 1
+    return ((n >> c) | (n << (32 - c))) & mask
+
+
+def ror31(n):
+    return ((n >> 31) | (n << 1)) & ((1 << 32) - 1)
+
+
+class BinaryReader:
+    def __init__(self, stream: typing.BinaryIO):
+        self.stream = stream
+        self.checksum = 0
+
+    def read(self, fmt: str):
+        size = struct.calcsize(fmt)
+        data = self.stream.read(size)
+        assert len(data) == size
+
+        for b in data:
+            self.checksum += ((b >> 31) | (b << 1)) & ((1 << 32) - 1)
+
+
+        return struct.unpack(fmt, data)
 
 
 class Enums:
@@ -325,6 +357,8 @@ class Preset(Struct):
 
     @staticmethod
     def load(stream: typing.BinaryIO) -> 'Preset':
+        start_pos = stream.tell()
+
         p = Preset()
 
         p.magic = _unpack('<I', stream)[0]
@@ -376,7 +410,24 @@ class Preset(Struct):
             p.test_argument, p.checksum = _unpack(f'<B?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?5xQI4x', stream)
         p.preset_name = _decode(name)
 
-        # TODO: verify checksum
+        stream.seek(start_pos)
+
+        raw = stream.read(1580)
+        uints = struct.unpack('<395I', raw)
+        checksum = 0
+        mask = ((1 << 32) - 1)
+
+        for n in uints:
+            # checksum += ((n >> 31) | (n << 1)) & mask
+            # checksum &= mask
+            value = (((checksum >> 31) | (checksum << 1)) & mask) + n
+            wraparound = ctypes.c_uint32(value)
+            # checksum = (((checksum >> 31) | (checksum << 1)) & mask) + n
+            checksum = wraparound.value
+
+        # checksum &= mask
+
+        assert checksum == p.checksum
 
         return p
 
