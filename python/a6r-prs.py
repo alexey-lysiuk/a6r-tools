@@ -171,11 +171,30 @@ class Marker(Struct):
         return m
 
 
+class Limit(Struct):
+    def __init__(self):
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L953-L958
+        self.enabled = 0  # uint8_t
+        self.level = 0.0  # float
+        self.frequency = 0  # # freq_t (uint64_t)
+        self.index = 0  # int16_t
+
+    @staticmethod
+    def load(stream: typing.BinaryIO) -> 'Limit':
+        lim = Limit()
+        lim.enabled, lim.level, lim.frequency, lim.index = _unpack('<B3xfQh6x', stream)
+        return lim
+
+
 class Preset(Struct):
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L197
     MARKER_COUNT = 8
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L198
     TRACES_MAX = 4
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L948
+    LIMITS_MAX = 8
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L952
+    REFERENCE_MAX = TRACES_MAX
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L963
     MARKERS_MAX = MARKER_COUNT
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1208
@@ -268,6 +287,8 @@ class Preset(Struct):
         self.level_sweep = 0.0  # float
 
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1325-L1346
+        self.unit_scale = 0.0  # float
+        self.normalize_level = 0.0  # float
         self.frequency_step = 1781737  # freq_t (uint64_t)
         self.frequency0 = 0  # freq_t (uint64_t)
         self.frequency1 = 800000000  # freq_t (uint64_t)
@@ -277,7 +298,7 @@ class Preset(Struct):
         self.trace_scale = 10.0  # float
         self.trace_refpos = -10.0  # float
         self._markers = [Marker() for _ in range(Preset.MARKERS_MAX)]  # marker_t
-        self.limits = 0  # limit_t[REFERENCE_MAX][LIMITS_MAX]
+        self.limits = [[Limit() for _ in range(Preset.REFERENCE_MAX)] for _ in range(Preset.LIMITS_MAX)]  # limit_t
         self.sweep_time_us = 0  # systime_t (uint32_t)
         self.measure_sweep_time_us = 0  # systime_t (uint32_t)
         self.actual_sweep_time_us = 0  # systime_t (uint32_t)
@@ -324,6 +345,14 @@ class Preset(Struct):
         p.scan_after_dirty = _unpack(f'<{Preset.TRACES_MAX}I', stream)
         p.modulation_frequency, p.reflevel, p.scale, p.external_gain, p.trigger_level, \
             p.level, p.level_sweep = _unpack('<7f', stream)
+
+        p.unit_scale, p.normalize_level, p.frequency_step, p.frequency0, p.frequency1, \
+            p.frequency_var, p.frequency_IF, p.frequency_offset, p.trace_scale, \
+            p.trace_refpos = _unpack('<2f4x6Q2f', stream)
+        p._markers = [Marker.load(stream) for _ in range(Preset.MARKERS_MAX)]
+        p.limits = [[Limit.load(stream) for _ in range(Preset.REFERENCE_MAX)] for _ in range(Preset.LIMITS_MAX)]
+        p.sweep_time_us, p.measure_sweep_time_us, p.actual_sweep_time_us, \
+            p.additional_step_delay_us, p.trigger_grid = _unpack('<5I', stream)
 
         return p
 
