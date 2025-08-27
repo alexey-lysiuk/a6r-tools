@@ -1,4 +1,4 @@
-#include "tinysa4.h"
+#include "tinysa4-device.h"
 
 #include <cassert>
 #include <stdexcept>
@@ -102,7 +102,7 @@ private:
 };
 
 
-TinySA4::TinySA4(const char* portname)
+TinySA4::Device::Device(const char* portname)
 : device(*DeviceLocator(VID, PID, portname))
 {
 	if (device == nullptr)
@@ -122,7 +122,7 @@ TinySA4::TinySA4(const char* portname)
 		throw std::runtime_error("Could not open tinySA4 device");
 }
 
-TinySA4::~TinySA4()
+TinySA4::Device::~Device()
 {
 	if (device)
 	{
@@ -132,7 +132,7 @@ TinySA4::~TinySA4()
 	}
 }
 
-size_t TinySA4::Send(const void* buffer, size_t size)
+size_t TinySA4::Device::Send(const void* buffer, size_t size)
 {
 	if (size == 0)
 		return 0;
@@ -149,7 +149,7 @@ size_t TinySA4::Send(const void* buffer, size_t size)
 	return size_t(result);
 }
 
-size_t TinySA4::Receive(void* buffer, size_t size)
+size_t TinySA4::Device::Receive(void* buffer, size_t size)
 {
 	if (size == 0)
 		return 0;
