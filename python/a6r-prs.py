@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-import ctypes
 import io
 import json
 import struct
@@ -418,14 +417,10 @@ class Preset(Struct):
         mask = ((1 << 32) - 1)
 
         for n in uints:
-            # checksum += ((n >> 31) | (n << 1)) & mask
-            # checksum &= mask
-            value = (((checksum >> 31) | (checksum << 1)) & mask) + n
-            wraparound = ctypes.c_uint32(value)
-            # checksum = (((checksum >> 31) | (checksum << 1)) & mask) + n
-            checksum = wraparound.value
-
-        # checksum &= mask
+            checksum = (checksum >> 31) | (checksum << 1)
+            checksum &= mask
+            checksum += n
+            checksum &= mask
 
         assert checksum == p.checksum
 
