@@ -125,7 +125,16 @@ class Enums:
     T_AUTO_SAVE = 11
 
 
-class Band:
+class Struct:
+    class JSONEncoder(json.JSONEncoder):
+        def default(self, o):
+            if isinstance(o, Struct):
+                return o.__dict__
+
+            return json.JSONEncoder.default(self, o)
+
+
+class Band(Struct):
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1207-L1219
         self.name = ''  # char[9]
@@ -145,7 +154,7 @@ class Band:
         return b
 
 
-class Marker:
+class Marker(Struct):
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L937-L944
         self.mtype = 0  # uint8_t
@@ -162,7 +171,7 @@ class Marker:
         return m
 
 
-class Preset:
+class Preset(Struct):
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L197
     MARKER_COUNT = 8
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L198
@@ -318,13 +327,8 @@ class Preset:
 
         return p
 
-
-class PresetJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, Band) or isinstance(o, Preset):
-            return o.__dict__
-
-        return json.JSONEncoder.default(self, o)
+    def tojson(self, indent:int = 4):
+        return json.dumps(self.__dict__, cls=Struct.JSONEncoder, indent=indent)
 
 
 def convert(path: str):
@@ -332,7 +336,7 @@ def convert(path: str):
     preset = Preset.load(stream)
 
     # TODO
-    print(json.dumps(preset.__dict__, cls=PresetJSONEncoder, indent=4))
+    print(preset.tojson())
 
 
 def main():
