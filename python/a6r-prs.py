@@ -24,6 +24,10 @@ import sys
 import typing
 
 
+def _decode(binary: typing.ByteString) -> str:
+    return binary.split(b'\0')[0].decode('latin_1')
+
+
 def _unpack(fmt: str, stream: typing.BinaryIO):
     size = struct.calcsize(fmt)
     data = stream.read(size)
@@ -57,6 +61,20 @@ class Enums:
     U_VPP = 5
     U_WATT = 6
     U_DBC = 7
+
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L911-L913
+    M_NORMAL = 0
+    M_REFERENCE = 1
+    M_DELTA = 2
+    M_NOISE = 4
+    M_STORED = 8
+    M_AVER = 16
+    M_TRACKING = 32
+    M_DELETE = 64
+
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L915-L917
+    M_DISABLED = 0
+    M_ENABLED = 1
 
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1380
     S_OFF = 0
@@ -111,34 +129,86 @@ class Enums:
     T_AUTO_SAVE = 11
 
 
-class Band:
+class Struct:
+    class JSONEncoder(json.JSONEncoder):
+        def default(self, o):
+            if isinstance(o, Struct):
+                return o.__dict__
+
+            return json.JSONEncoder.default(self, o)
+
+
+class Marker(Struct):
+    def __init__(self):
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L937-L944
+        self.mtype = 0  # uint8_t
+        self.enabled = 0  # uint8_t
+        self.ref = 0  # uint8_t
+        self.trace = 0  # uint8_t
+        self.index = 0  # uint8_t
+        self.frequency = 0  # freq_t (uint64_t)
+
+    @staticmethod
+    def load(stream: typing.BinaryIO) -> 'Marker':
+        m = Marker()
+        m.mtype, m.enabled, m.ref, m.trace, m.index, m.frequency = _unpack('<5B3xQ', stream)
+        return m
+
+
+class Limit(Struct):
+    def __init__(self):
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L953-L958
+        self.enabled = 0  # uint8_t
+        self.level = 0.0  # float
+        self.frequency = 0  # # freq_t (uint64_t)
+        self.index = 0  # int16_t
+
+    @staticmethod
+    def load(stream: typing.BinaryIO) -> 'Limit':
+        lim = Limit()
+        lim.enabled, lim.level, lim.frequency, lim.index = _unpack('<B3xfQh6x', stream)
+        return lim
+
+
+class Band(Struct):
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1207-L1219
-        self.name = ''
+        self.name = ''  # char[9]
         self.enabled = False
-        self.start = 0
-        self.end = 0
-        self.level = 0
-        self.start_index = 0
-        self.stop_index = 0
+        self.start = 0  # freq_t (uint64_t)
+        self.end = 0  # freq_t (uint64_t)
+        self.level = 0.0  # float
+        self.start_index = 0  # int
+        self.stop_index = 0  # int
 
     @staticmethod
     def load(stream: typing.BinaryIO) -> 'Band':
         b = Band()
-        values = _unpack('<9s?6x2Qf2i4x', stream)
-        b.name = values[0].split(b'\0')[0].decode('latin_1')
-        b.enabled, b.start, b.end, b.level, b.start_index, b.stop_index = values[1:]
+        name, b.enabled, b.start, b.end, b.level, b.start_index, b.stop_index = _unpack('<9s?6x2Qf2i4x', stream)
+        b.name = _decode(name)
         return b
 
-
-class Preset:
-    MAGIC = 0x434f4e6d
+class Preset(Struct):
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L197
+    MARKER_COUNT = 8
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L198
     TRACES_MAX = 4
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L948
+    LIMITS_MAX = 8
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L952
+    REFERENCE_MAX = TRACES_MAX
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L963
+    MARKERS_MAX = MARKER_COUNT
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1208
     BANDS_MAX = 8
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1361
+    PRESET_NAME_LENGTH = 10
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1502
+    SETTING_MAGIC = 0x434f4e6d
 
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1224-L1238
-        self.magic = Preset.MAGIC  # uint32_t
+        self.magic = Preset.SETTING_MAGIC  # uint32_t
         self.auto_reflevel = True
         self.auto_attenuation = True
         self.mirror_masking = False
@@ -181,7 +251,7 @@ class Preset:
         self.unit_scale_index = 0  # uint8_t
         self.noise = 5  # uint8_t
         self.lo_drive = 5  # uint8_t
-        self.rx_drive = 11  # uint8_t
+        self.rx_drive = 12  # uint8_t
         self.test = 0  # uint8_t
         self.harmonic = 3  # uint8_t
         self.fast_speedup = 0  # uint8_t
@@ -198,12 +268,67 @@ class Preset:
         self._sweep_points = 450  # uint16_t
         self.attenuate_x2 = 0  # int16_t
 
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1297-L1323
+        self.step_delay = 0  # uint16_t
+        self.offset_delay = 0  # uint16_t
+        self.freq_mode = 0  # uint16_t
+        self.refer = -1  # int16_t
+        self.modulation_depth_x100 = 80  # uint16_t
+        self.modulation_deviation_div100 = 30  # uint16_t
+        self.decay = 20  # int
+        self.attack = 1  # int
+        self.slider_position = 0  # int32_t
+        self.slider_span = 100000  # freq_t (uint64_t)
+        self.rbw_x10 = 0  # uint32_t
+        self.vbw_x100 = 0  # uint32_t
+        self.scan_after_dirty = [0 for _ in range(Preset.TRACES_MAX)]  # uint32_t
+        self.modulation_frequency = 1000.0  # float
+        self.reflevel = -10.0  # float
+        self.scale = 10.0  # float
+        self.external_gain = 0.0  # float
+        self.trigger_level = -150.0  # float
+        self.level = 0.0  # float
+        self.level_sweep = 0.0  # float
+
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1325-L1346
+        self.unit_scale = 0.0  # float
+        self.normalize_level = 0.0  # float
+        self.frequency_step = 1781737  # freq_t (uint64_t)
+        self.frequency0 = 0  # freq_t (uint64_t)
+        self.frequency1 = 800000000  # freq_t (uint64_t)
+        self.frequency_var = 0  # freq_t (uint64_t)
+        self.frequency_IF = 977400000  # freq_t (uint64_t)
+        self.frequency_offset = 100000000  # freq_t (uint64_t)
+        self.trace_scale = 10.0  # float
+        self.trace_refpos = -10.0  # float
+        self._markers = [Marker() for _ in range(Preset.MARKERS_MAX)]  # marker_t
+        self.limits = [[Limit() for _ in range(Preset.REFERENCE_MAX)] for _ in range(Preset.LIMITS_MAX)]  # limit_t
+        self.sweep_time_us = 0  # systime_t (uint32_t)
+        self.measure_sweep_time_us = 0  # systime_t (uint32_t)
+        self.actual_sweep_time_us = 0  # systime_t (uint32_t)
+        self.additional_step_delay_us = 0  # systime_t (uint32_t)
+        self.trigger_grid = 0  # uint32_t
+
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1351-L1366
+        self.ultra = 0  # uint8_t
+        self.extra_lna = False
+        self.R = 0  # int
+        self.exp_aver = 0  # int32_t
+        self.increased_R = False
+        self.mixer_output = True
+        self.interval = 0  # uint32_t
+        self.preset_name = ''  # char[PRESET_NAME_LENGTH]
+        self.dBuV = False
+        self.test_argument = 0  # int64_t
+        # TODO: calculate checksum
+        self.checksum = 0  # uint32_t
+
     @staticmethod
     def load(stream: typing.BinaryIO) -> 'Preset':
         p = Preset()
 
         p.magic = _unpack('<I', stream)[0]
-        assert p.magic == Preset.MAGIC
+        assert p.magic == Preset.SETTING_MAGIC
 
         p.auto_reflevel, p.auto_attenuation, p.mirror_masking, p.tracking_output, \
             p.mute, p.auto_if, p.sweep, p.pulse = _unpack('<8?', stream)
@@ -219,7 +344,7 @@ class Preset:
             p.trigger_mode, p.trigger_direction, p.trigger_beep, p.trigger_auto_save, \
             p.step_delay_mode, p.waterfall, p.level_meter = _unpack('<14B', stream)
 
-        uint8_trace_max_fmt = f'<{Preset.TRACES_MAX}?'
+        uint8_trace_max_fmt = f'<{Preset.TRACES_MAX}B'
         p.average = _unpack(uint8_trace_max_fmt, stream)
         p.subtract = _unpack(uint8_trace_max_fmt, stream)
 
@@ -232,15 +357,31 @@ class Preset:
             p.multi_trace, p.trigger_trace = _unpack('<bBb15Bx', stream)
         p.repeat, p.linearity_step, p._sweep_points, p.attenuate_x2 = _unpack('<3Hh', stream)
 
+        p.step_delay, p.offset_delay, p.freq_mode, p.refer, p.modulation_depth_x100, \
+            p.modulation_deviation_div100, p.decay, p.attack, p.slider_position, \
+            p.slider_span, p.rbw_x10, p.vbw_x100 = _unpack('<3Hh2H2x3iQ2I', stream)
+        p.scan_after_dirty = _unpack(f'<{Preset.TRACES_MAX}I', stream)
+        p.modulation_frequency, p.reflevel, p.scale, p.external_gain, p.trigger_level, \
+            p.level, p.level_sweep = _unpack('<7f', stream)
+
+        p.unit_scale, p.normalize_level, p.frequency_step, p.frequency0, p.frequency1, \
+            p.frequency_var, p.frequency_IF, p.frequency_offset, p.trace_scale, \
+            p.trace_refpos = _unpack('<2f4x6Q2f', stream)
+        p._markers = [Marker.load(stream) for _ in range(Preset.MARKERS_MAX)]
+        p.limits = [[Limit.load(stream) for _ in range(Preset.REFERENCE_MAX)] for _ in range(Preset.LIMITS_MAX)]
+        p.sweep_time_us, p.measure_sweep_time_us, p.actual_sweep_time_us, \
+            p.additional_step_delay_us, p.trigger_grid = _unpack('<5I', stream)
+
+        p.ultra, p.extra_lna, p.R, p.exp_aver, p.increased_R, p.mixer_output, p.interval, name, p.dBuV, \
+            p.test_argument, p.checksum = _unpack(f'<B?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?5xQI4x', stream)
+        p.preset_name = _decode(name)
+
+        # TODO: verify checksum
+
         return p
 
-
-class PresetJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, Band) or isinstance(o, Preset):
-            return o.__dict__
-
-        return json.JSONEncoder.default(self, o)
+    def tojson(self, indent:int = 4):
+        return json.dumps(self.__dict__, cls=Struct.JSONEncoder, indent=indent)
 
 
 def convert(path: str):
@@ -248,7 +389,7 @@ def convert(path: str):
     preset = Preset.load(stream)
 
     # TODO
-    print(json.dumps(preset.__dict__, cls=PresetJSONEncoder, indent=4))
+    print(preset.tojson())
 
 
 def main():
