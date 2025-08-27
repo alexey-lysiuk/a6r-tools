@@ -411,8 +411,11 @@ class Preset(Struct):
 
         stream.seek(start_pos)
 
-        raw = stream.read(1576)
-        uints = struct.unpack('<394I', raw)
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/flash.c#L146
+        checksum_bytes = 1576  # == (void*)&setting.checksum - (void*)&setting
+        rawdata = stream.read(checksum_bytes)
+        uints = struct.unpack(f'<{checksum_bytes // 4}I', rawdata)
+
         checksum = 0
         mask = ((1 << 32) - 1)
 
