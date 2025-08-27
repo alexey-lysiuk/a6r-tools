@@ -373,7 +373,7 @@ class Preset(Struct):
             p.additional_step_delay_us, p.trigger_grid = _unpack('<5I', stream)
 
         p.ultra, p.extra_lna, p.R, p.exp_aver, p.increased_R, p.mixer_output, p.interval, name, p.dBuV, \
-            p.test_argument, p.checksum = _unpack(f'<B?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?2xQI4x', stream)
+            p.test_argument, p.checksum = _unpack(f'<B?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?5xQI4x', stream)
         p.preset_name = _decode(name)
 
         # TODO: verify checksum
