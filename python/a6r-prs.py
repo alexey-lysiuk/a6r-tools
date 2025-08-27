@@ -24,6 +24,10 @@ import sys
 import typing
 
 
+def _decode(binary: typing.ByteString) -> str:
+    return binary.split(b'\0')[0].decode('latin_1')
+
+
 def _unpack(fmt: str, stream: typing.BinaryIO):
     size = struct.calcsize(fmt)
     data = stream.read(size)
@@ -134,26 +138,6 @@ class Struct:
             return json.JSONEncoder.default(self, o)
 
 
-class Band(Struct):
-    def __init__(self):
-        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1207-L1219
-        self.name = ''  # char[9]
-        self.enabled = False
-        self.start = 0  # freq_t (uint64_t)
-        self.end = 0  # freq_t (uint64_t)
-        self.level = 0.0  # float
-        self.start_index = 0  # int
-        self.stop_index = 0  # int
-
-    @staticmethod
-    def load(stream: typing.BinaryIO) -> 'Band':
-        b = Band()
-        values = _unpack('<9s?6x2Qf2i4x', stream)
-        b.name = values[0].split(b'\0')[0].decode('latin_1')
-        b.enabled, b.start, b.end, b.level, b.start_index, b.stop_index = values[1:]
-        return b
-
-
 class Marker(Struct):
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L937-L944
@@ -186,6 +170,24 @@ class Limit(Struct):
         return lim
 
 
+class Band(Struct):
+    def __init__(self):
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1207-L1219
+        self.name = ''  # char[9]
+        self.enabled = False
+        self.start = 0  # freq_t (uint64_t)
+        self.end = 0  # freq_t (uint64_t)
+        self.level = 0.0  # float
+        self.start_index = 0  # int
+        self.stop_index = 0  # int
+
+    @staticmethod
+    def load(stream: typing.BinaryIO) -> 'Band':
+        b = Band()
+        name, b.enabled, b.start, b.end, b.level, b.start_index, b.stop_index = _unpack('<9s?6x2Qf2i4x', stream)
+        b.name = _decode(name)
+        return b
+
 class Preset(Struct):
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L197
     MARKER_COUNT = 8
@@ -199,6 +201,8 @@ class Preset(Struct):
     MARKERS_MAX = MARKER_COUNT
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1208
     BANDS_MAX = 8
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1361
+    PRESET_NAME_LENGTH = 10
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1502
     SETTING_MAGIC = 0x434f4e6d
 
@@ -305,6 +309,20 @@ class Preset(Struct):
         self.additional_step_delay_us = 0  # systime_t (uint32_t)
         self.trigger_grid = 0  # uint32_t
 
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1351-L1366
+        self.ultra = 0  # uint8_t
+        self.extra_lna = False
+        self.R = 0  # int
+        self.exp_aver = 0  # int32_t
+        self.increased_R = False
+        self.mixer_output = True
+        self.interval = 0  # uint32_t
+        self.preset_name = ''  # char[PRESET_NAME_LENGTH]
+        self.dBuV = False
+        self.test_argument = 0  # int64_t
+        # TODO: calculate checksum
+        self.checksum = 0  # uint32_t
+
     @staticmethod
     def load(stream: typing.BinaryIO) -> 'Preset':
         p = Preset()
@@ -353,6 +371,12 @@ class Preset(Struct):
         p.limits = [[Limit.load(stream) for _ in range(Preset.REFERENCE_MAX)] for _ in range(Preset.LIMITS_MAX)]
         p.sweep_time_us, p.measure_sweep_time_us, p.actual_sweep_time_us, \
             p.additional_step_delay_us, p.trigger_grid = _unpack('<5I', stream)
+
+        p.ultra, p.extra_lna, p.R, p.exp_aver, p.increased_R, p.mixer_output, p.interval, name, p.dBuV, \
+            p.test_argument, p.checksum = _unpack(f'<B?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?2xQI4x', stream)
+        p.preset_name = _decode(name)
+
+        # TODO: verify checksum
 
         return p
 
