@@ -325,6 +325,8 @@ class Preset(Struct):
 
     @staticmethod
     def load(stream: typing.BinaryIO) -> 'Preset':
+        start_pos = stream.tell()
+
         p = Preset()
 
         p.magic = _unpack('<I', stream)[0]
@@ -376,7 +378,23 @@ class Preset(Struct):
             p.test_argument, p.checksum = _unpack(f'<B?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?5xQI4x', stream)
         p.preset_name = _decode(name)
 
-        # TODO: verify checksum
+        stream.seek(start_pos)
+
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/flash.c#L146
+        checksum_bytes = 1576  # == (void*)&setting.checksum - (void*)&setting
+        rawdata = stream.read(checksum_bytes)
+        uints = struct.unpack(f'<{checksum_bytes // 4}I', rawdata)
+
+        checksum = 0
+        mask = ((1 << 32) - 1)
+
+        for n in uints:
+            checksum = (checksum >> 31) | (checksum << 1)
+            checksum &= mask
+            checksum += n
+            checksum &= mask
+
+        assert checksum == p.checksum
 
         return p
 
