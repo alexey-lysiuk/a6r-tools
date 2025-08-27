@@ -3,7 +3,7 @@
 #include <string>
 
 #include "argparse.hpp"
-#include "tinysa4.h"
+#include "tinysa4-device.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_BMP
@@ -35,7 +35,7 @@ static void ConvertBMP(const std::string& filename)
 	}
 }
 
-static void SendReceive(TinySA4& device, std::string& command)
+static void SendReceive(TinySA4::Device& device, std::string& command)
 {
 	command += '\r';
 
@@ -60,7 +60,7 @@ static void SendReceive(TinySA4& device, std::string& command)
 	}
 }
 
-static void RunInteractiveMode(TinySA4& device)
+static void RunInteractiveMode(TinySA4::Device& device)
 {
 	std::cout << "Type 'exit' to leave interactive mode" << std::endl;
 
@@ -107,7 +107,7 @@ int main(int argc, char** argv)
 			return EXIT_SUCCESS;
 		}
 
-		TinySA4 device;
+		TinySA4::Device device;
 
 		if (args.get<bool>("--interactive"))
 			RunInteractiveMode(device);
