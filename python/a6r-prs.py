@@ -175,11 +175,16 @@ class Struct:
             if key in keys:
                 old_value = self.__dict__[key]
 
-                if isinstance(old_value, list) and isinstance(old_value[0], Struct) and isinstance(value, list) and isinstance(value[0], dict):
+                if Struct._has_struct_items(old_value, value):
                     for item_dict, item in zip(value, old_value):
                         item.from_dict(item_dict)
 
                 self.__dict__[key] = value
+
+    @staticmethod
+    def _has_struct_items(left, right):
+        return isinstance(left, list) and len(left) > 0 and isinstance(left[0], Struct) \
+            and isinstance(right, list) and len(right) > 0 and isinstance(right[0], dict)
 
 
 class Marker(Struct):
@@ -192,11 +197,8 @@ class Marker(Struct):
         self.index = 0  # uint8_t
         self.frequency = 0  # freq_t (uint64_t)
 
-    @staticmethod
-    def from_binary(stream: typing.BinaryIO) -> 'Marker':
-        m = Marker()
-        m.mtype, m.enabled, m.ref, m.trace, m.index, m.frequency = _unpack('<5B3xQ', stream)
-        return m
+    def from_binary(self, stream: typing.BinaryIO):
+        self.mtype, self.enabled, self.ref, self.trace, self.index, self.frequency = _unpack('<5B3xQ', stream)
 
 
 class Limit(Struct):
@@ -207,11 +209,8 @@ class Limit(Struct):
         self.frequency = 0  # # freq_t (uint64_t)
         self.index = 0  # int16_t
 
-    @staticmethod
-    def from_binary(stream: typing.BinaryIO) -> 'Limit':
-        lim = Limit()
-        lim.enabled, lim.level, lim.frequency, lim.index = _unpack('<B3xfQh6x', stream)
-        return lim
+    def from_binary(self, stream: typing.BinaryIO):
+        self.enabled, self.level, self.frequency, self.index = _unpack('<B3xfQh6x', stream)
 
 
 class Band(Struct):
@@ -226,7 +225,8 @@ class Band(Struct):
         self.stop_index = 0  # int
 
     def from_binary(self, stream: typing.BinaryIO):
-        name, self.enabled, b.start, b.end, b.level, b.start_index, b.stop_index = _unpack('<9s?6x2Qf2i4x', stream)
+        name, self.enabled, self.start, self.end, self.level, \
+            self.start_index, self.stop_index = _unpack('<9s?6x2Qf2i4x', stream)
         self.name = _decode(name)
 
 
@@ -366,23 +366,23 @@ class Preset(Struct):
         start_pos = stream.tell()
 
         magic = _unpack('<I', stream)[0]
-        assert magic == Preset.SETTING_MAGIC
+        assert magic == self.SETTING_MAGIC
 
         self.auto_reflevel, self.auto_attenuation, self.mirror_masking, self.tracking_output, \
             self.mute, self.auto_if, self.sweep, self.pulse = _unpack('<8?', stream)
 
-        bool_trace_max_fmt = f'<{Preset.TRACES_MAX}?'
+        bool_trace_max_fmt = f'<{self.TRACES_MAX}?'
         self.stored = _unpack(bool_trace_max_fmt, stream)
         self.normalized = _unpack(bool_trace_max_fmt, stream)
         stream.seek(4, io.SEEK_CUR)  # skip padding bytes
 
-        self.bands = [Band.from_binary(stream) for _ in range(Preset.BANDS_MAX)]
+        self._load_struct_items(stream, self.bands, self.BANDS_MAX)
 
         self.mode, self.below_IF, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
             self.trigger_mode, self.trigger_direction, self.trigger_beep, self.trigger_auto_save, \
             self.step_delay_mode, self.waterfall, self.level_meter = _unpack('<14B', stream)
 
-        uint8_trace_max_fmt = f'<{Preset.TRACES_MAX}B'
+        uint8_trace_max_fmt = f'<{self.TRACES_MAX}B'
         self.average = _unpack(uint8_trace_max_fmt, stream)
         self.subtract = _unpack(uint8_trace_max_fmt, stream)
 
@@ -398,15 +398,21 @@ class Preset(Struct):
         self.step_delay, self.offset_delay, self.freq_mode, self.refer, self.modulation_depth_x100, \
             self.modulation_deviation_div100, self.decay, self.attack, self.slider_position, \
             self.slider_span, self.rbw_x10, self.vbw_x100 = _unpack('<3Hh2H2x3iQ2I', stream)
-        self.scan_after_dirty = _unpack(f'<{Preset.TRACES_MAX}I', stream)
+        self.scan_after_dirty = _unpack(f'<{self.TRACES_MAX}I', stream)
         self.modulation_frequency, self.reflevel, self.scale, self.external_gain, self.trigger_level, \
             self.level, self.level_sweep = _unpack('<7f', stream)
 
         self.unit_scale, self.normalize_level, self.frequency_step, self.frequency0, self.frequency1, \
             self.frequency_var, self.frequency_IF, self.frequency_offset, self.trace_scale, \
             self.trace_refpos = _unpack('<2f4x6Q2f', stream)
-        self._markers = [Marker.from_binary(stream) for _ in range(Preset.MARKERS_MAX)]
-        self.limits = [[Limit.from_binary(stream) for _ in range(Preset.REFERENCE_MAX)] for _ in range(Preset.LIMITS_MAX)]
+
+        self._load_struct_items(stream, self._markers, self.MARKERS_MAX)
+
+        assert len(self.limits) == self.LIMITS_MAX
+
+        for limit in self.limits:
+            self._load_struct_items(stream, limit, self.REFERENCE_MAX)
+
         self.sweep_time_us, self.measure_sweep_time_us, self.actual_sweep_time_us, \
             self.additional_step_delay_us, self.trigger_grid = _unpack('<5I', stream)
 
@@ -432,16 +438,12 @@ class Preset(Struct):
 
         assert checksum == file_checksum
 
-    # def from_dict(self, dictionary: dict):
-    #     keys = set(key for key in self.__dict__)
+    @staticmethod
+    def _load_struct_items(stream: typing.BinaryIO, collection: list, count: int):
+        assert len(collection) == count
 
-    #     for key, value in dictionary.items():
-    #         if key in keys:
-    #             if key == 'bands':
-    #                 for band_dict, band in zip(value, self.bands):
-    #                     band = Band.from_dict(band_dict)
-    #             else:
-    #                 self.__dict__[key] = value
+        for item in collection:
+            item.from_binary(stream)
 
     def from_json(self, stream: typing.TextIO):
         return self.from_dict(json.load(stream))
