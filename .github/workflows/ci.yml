@@ -1,11 +1,6 @@
 name: CI
 
-on:
-  push:
-    paths-ignore:
-      - 'data/**'
-      - 'python/**'
-      - '**/.gitignore'
+on: [push, pull_request]
 
 env:
   BUILD_TYPE: Release
