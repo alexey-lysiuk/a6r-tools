@@ -28,6 +28,11 @@ def _decode(binary: typing.Union[bytearray, bytes]) -> str:
     return binary.split(b'\0')[0].decode('latin_1')
 
 
+def _pack(fmt: str, stream: typing.BinaryIO, *args):
+    data = struct.pack(fmt, *args)
+    stream.write(data)
+
+
 def _unpack(fmt: str, stream: typing.BinaryIO):
     size = struct.calcsize(fmt)
     data = stream.read(size)
@@ -178,8 +183,8 @@ class Struct:
                 if Struct._has_struct_items(old_value, value):
                     for item_dict, item in zip(value, old_value):
                         item.from_dict(item_dict)
-
-                self.__dict__[key] = value
+                else:
+                    self.__dict__[key] = value
 
     @staticmethod
     def _has_struct_items(left, right):
@@ -228,6 +233,10 @@ class Band(Struct):
         name, self.enabled, self.start, self.end, self.level, \
             self.start_index, self.stop_index = _unpack(_Formats.BAND, stream)
         self.name = _decode(name)
+
+    def to_binary(self, stream: typing.BinaryIO):
+        _pack(_Formats.BAND, stream, self.name.encode(), self.enabled, self.start, self.end,
+            self.level, self.start_index, self.stop_index)
 
 
 class Preset(Struct):
@@ -407,8 +416,10 @@ class Preset(Struct):
 
         self.sweep_time_us, self.measure_sweep_time_us, self.actual_sweep_time_us, self.additional_step_delay_us, \
             self.trigger_grid, self.ultra, self.extra_lna, self.R, self.exp_aver, self.increased_R, self.mixer_output, \
-            self.interval, name, self.dBuV, self.test_argument, file_checksum = _unpack(_Formats.PRESET_5, stream)
+            self.interval, name, self.dBuV, self.test_argument = _unpack(_Formats.PRESET_5, stream)
         self.preset_name = _decode(name)
+
+        file_checksum = _unpack(_Formats.CHECKSUM, stream)[0]
 
         stream.seek(start_pos)
 
@@ -436,11 +447,83 @@ class Preset(Struct):
         for item in collection:
             item.from_binary(stream)
 
-    def to_binary(stream: typing.BinaryIO):
-        pass
+    def to_binary(self, stream: typing.BinaryIO):
+        # TODO: Ensure correct item count in collections
+
+        start_pos = stream.tell()
+
+        _pack(_Formats.MAGIC, stream, self.SETTING_MAGIC)
+        _pack(_Formats.PRESET_1, stream,
+            self.auto_reflevel, self.auto_attenuation, self.mirror_masking,
+            self.tracking_output, self.mute, self.auto_if, self.sweep, self.pulse)
+
+        _pack(_Formats.BOOL_TRACES, stream, *self.stored)
+        _pack(_Formats.BOOL_TRACES, stream, *self.normalized)
+        _pack('<I', stream, 0)  # write padding bytes
+
+        self._save_struct_items(stream, self.bands, self.BANDS_MAX)
+
+        self.mode, self.below_IF, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
+            self.trigger_mode, self.trigger_direction, self.trigger_beep, self.trigger_auto_save, \
+            self.step_delay_mode, self.waterfall, self.level_meter = _unpack(_Formats.PRESET_2, stream)
+
+        self.average = _unpack(_Formats.UINT8_TRACES, stream)
+        self.subtract = _unpack(_Formats.UINT8_TRACES, stream)
+
+        self.measurement, self.spur_removal, self.disable_correction, self.normalized_trace, self.listen, \
+            self.tracking, self.atten_step, self._active_marker, self.unit_scale_index, self.noise, \
+            self.lo_drive, self.rx_drive, self.test, self.harmonic, self.fast_speedup, self.faster_speedup, \
+            self._traces, self.draw_line, self.lock_display, self.jog_jump, self.multi_band, \
+            self.multi_trace, self.trigger_trace, self.repeat, self.linearity_step, self._sweep_points, \
+            self.attenuate_x2, self.step_delay, self.offset_delay, self.freq_mode, self.refer, \
+            self.modulation_depth_x100, self.modulation_deviation_div100, self.decay, self.attack, \
+            self.slider_position, self.slider_span, self.rbw_x10, self.vbw_x100 = _unpack(_Formats.PRESET_3, stream)
+        self.scan_after_dirty = _unpack(_Formats.UINT_TRACES, stream)
+        self.modulation_frequency, self.reflevel, self.scale, self.external_gain, self.trigger_level, self.level, \
+            self.level_sweep, self.unit_scale, self.normalize_level, self.frequency_step, self.frequency0, \
+            self.frequency1, self.frequency_var, self.frequency_IF, self.frequency_offset, self.trace_scale, \
+            self.trace_refpos = _unpack(_Formats.PRESET_4, stream)
+
+        self._load_struct_items(stream, self._markers, self.MARKERS_MAX)
+
+        assert len(self.limits) == self.LIMITS_MAX
+
+        for limit in self.limits:
+            self._load_struct_items(stream, limit, self.REFERENCE_MAX)
+
+        self.sweep_time_us, self.measure_sweep_time_us, self.actual_sweep_time_us, self.additional_step_delay_us, \
+            self.trigger_grid, self.ultra, self.extra_lna, self.R, self.exp_aver, self.increased_R, self.mixer_output, \
+            self.interval, name, self.dBuV, self.test_argument, file_checksum = _unpack(_Formats.PRESET_5, stream)
+        self.preset_name = _decode(name)
+
+        stream.seek(start_pos)
+
+        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/flash.c#L146
+        checksum_bytes = 1576  # == (void*)&setting.checksum - (void*)&setting
+        rawdata = stream.read(checksum_bytes)
+        uints = struct.unpack(f'<{checksum_bytes // 4}I', rawdata)
+
+        checksum = 0
+        mask = ((1 << 32) - 1)
+
+        for n in uints:
+            checksum = (checksum >> 31) | (checksum << 1)
+            checksum &= mask
+            checksum += n
+            checksum &= mask
+
+        _pack(_Formats.CHECKSUM, checksum)
+
+    @staticmethod
+    def _save_struct_items(stream: typing.BinaryIO, collection: list, count: int):
+        # TODO: Ensure correct item count in collection
+        assert len(collection) == count
+
+        for item in collection:
+            item.to_binary(stream)
 
     def from_json(self, stream: typing.TextIO):
-        return self.from_dict(json.load(stream))
+        self.from_dict(json.load(stream))
 
     def to_json(self, indent:int = 4):
         return json.dumps(self.__dict__, cls=Struct.JSONEncoder, indent=indent)
@@ -455,7 +538,8 @@ class _Formats:
     PRESET_2 = '<14B'
     PRESET_3 = '<3BbBbBb15Bx3Hh3Hh2H2x3iQ2I'
     PRESET_4 = '<9f4x6Q2f'
-    PRESET_5 = f'<5IB?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?5xQI4x'
+    PRESET_5 = f'<5IB?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?5xQ'
+    CHECKSUM = '<I4x'
     BOOL_TRACES = f'<{Preset.TRACES_MAX}?'
     UINT8_TRACES = f'<{Preset.TRACES_MAX}B'
     UINT_TRACES = f'<{Preset.TRACES_MAX}I'
@@ -467,13 +551,16 @@ def convert(path: str):
     if path.endswith('.prs'):
         stream = open(path, 'rb')
         preset.from_binary(stream)
+        print(preset.to_json())
     elif path.endswith('.json'):
-        stream = open(path)
-        preset.from_json(stream)
+        text_stream = open(path)
+        preset.from_json(text_stream)
+        binary_stream = open(path + '.prs', 'wb')
+        preset.to_binary(binary_stream)
     else:
         assert False
 
-    print(preset.to_json())
+    # print(preset.to_json())
 
 
 def main():
