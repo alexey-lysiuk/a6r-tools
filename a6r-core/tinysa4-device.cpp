@@ -102,7 +102,10 @@ private:
 };
 
 
-TinySA4::Device::Device(const char* portname)
+namespace TinySA4
+{
+
+Device::Device(const char* portname)
 : device(*DeviceLocator(VID, PID, portname))
 {
 	if (device == nullptr)
@@ -122,7 +125,7 @@ TinySA4::Device::Device(const char* portname)
 		throw std::runtime_error("Could not open tinySA4 device");
 }
 
-TinySA4::Device::~Device()
+Device::~Device()
 {
 	if (device)
 	{
@@ -132,7 +135,7 @@ TinySA4::Device::~Device()
 	}
 }
 
-size_t TinySA4::Device::Send(const void* buffer, size_t size)
+size_t Device::Send(const void* buffer, size_t size)
 {
 	if (size == 0)
 		return 0;
@@ -149,7 +152,7 @@ size_t TinySA4::Device::Send(const void* buffer, size_t size)
 	return size_t(result);
 }
 
-size_t TinySA4::Device::Receive(void* buffer, size_t size)
+size_t Device::Receive(void* buffer, size_t size)
 {
 	if (size == 0)
 		return 0;
@@ -165,3 +168,5 @@ size_t TinySA4::Device::Receive(void* buffer, size_t size)
 
 	return size_t(result);
 }
+
+} // namespace TinySA4
