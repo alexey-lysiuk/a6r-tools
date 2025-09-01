@@ -24,7 +24,7 @@ import sys
 import typing
 
 
-def _decode(binary: typing.ByteString) -> str:
+def _decode(binary: typing.Union[bytearray, bytes]) -> str:
     return binary.split(b'\0')[0].decode('latin_1')
 
 
