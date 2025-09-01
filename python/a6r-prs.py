@@ -205,6 +205,9 @@ class Marker(Struct):
     def from_binary(self, stream: typing.BinaryIO):
         self.mtype, self.enabled, self.ref, self.trace, self.index, self.frequency = _unpack(_Formats.MARKER, stream)
 
+    def to_binary(self, stream: typing.BinaryIO):
+        _pack(_Formats.MARKER, stream, self.mtype, self.enabled, self.ref, self.trace, self.index, self.frequency)
+
 
 class Limit(Struct):
     def __init__(self):
@@ -216,6 +219,9 @@ class Limit(Struct):
 
     def from_binary(self, stream: typing.BinaryIO):
         self.enabled, self.level, self.frequency, self.index = _unpack(_Formats.LIMIT, stream)
+
+    def to_binary(self, stream: typing.BinaryIO):
+        _pack(_Formats.LIMIT, stream, self.enabled, self.level, self.frequency, self.index)
 
 
 class Band(Struct):
@@ -463,38 +469,39 @@ class Preset(Struct):
 
         self._save_struct_items(stream, self.bands, self.BANDS_MAX)
 
-        self.mode, self.below_IF, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
+        _pack(_Formats.PRESET_2, stream, \
+            self.mode, self.below_IF, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
             self.trigger_mode, self.trigger_direction, self.trigger_beep, self.trigger_auto_save, \
-            self.step_delay_mode, self.waterfall, self.level_meter = _unpack(_Formats.PRESET_2, stream)
+            self.step_delay_mode, self.waterfall, self.level_meter)
 
-        self.average = _unpack(_Formats.UINT8_TRACES, stream)
-        self.subtract = _unpack(_Formats.UINT8_TRACES, stream)
+        _pack(_Formats.UINT8_TRACES, stream, *self.average)
+        _pack(_Formats.UINT8_TRACES, stream, *self.subtract)
 
-        self.measurement, self.spur_removal, self.disable_correction, self.normalized_trace, self.listen, \
+        _pack(_Formats.PRESET_3, stream, \
+            self.measurement, self.spur_removal, self.disable_correction, self.normalized_trace, self.listen, \
             self.tracking, self.atten_step, self._active_marker, self.unit_scale_index, self.noise, \
             self.lo_drive, self.rx_drive, self.test, self.harmonic, self.fast_speedup, self.faster_speedup, \
             self._traces, self.draw_line, self.lock_display, self.jog_jump, self.multi_band, \
             self.multi_trace, self.trigger_trace, self.repeat, self.linearity_step, self._sweep_points, \
             self.attenuate_x2, self.step_delay, self.offset_delay, self.freq_mode, self.refer, \
             self.modulation_depth_x100, self.modulation_deviation_div100, self.decay, self.attack, \
-            self.slider_position, self.slider_span, self.rbw_x10, self.vbw_x100 = _unpack(_Formats.PRESET_3, stream)
-        self.scan_after_dirty = _unpack(_Formats.UINT_TRACES, stream)
-        self.modulation_frequency, self.reflevel, self.scale, self.external_gain, self.trigger_level, self.level, \
+            self.slider_position, self.slider_span, self.rbw_x10, self.vbw_x100)
+        _pack(_Formats.UINT_TRACES, stream, *self.scan_after_dirty)
+        _pack(_Formats.PRESET_4, stream, \
+            self.modulation_frequency, self.reflevel, self.scale, self.external_gain, self.trigger_level, self.level, \
             self.level_sweep, self.unit_scale, self.normalize_level, self.frequency_step, self.frequency0, \
             self.frequency1, self.frequency_var, self.frequency_IF, self.frequency_offset, self.trace_scale, \
-            self.trace_refpos = _unpack(_Formats.PRESET_4, stream)
+            self.trace_refpos)
 
-        self._load_struct_items(stream, self._markers, self.MARKERS_MAX)
-
-        assert len(self.limits) == self.LIMITS_MAX
+        self._save_struct_items(stream, self._markers, self.MARKERS_MAX)
 
         for limit in self.limits:
-            self._load_struct_items(stream, limit, self.REFERENCE_MAX)
+            self._save_struct_items(stream, limit, self.REFERENCE_MAX)
 
-        self.sweep_time_us, self.measure_sweep_time_us, self.actual_sweep_time_us, self.additional_step_delay_us, \
+        _pack(_Formats.PRESET_5, stream, \
+            self.sweep_time_us, self.measure_sweep_time_us, self.actual_sweep_time_us, self.additional_step_delay_us, \
             self.trigger_grid, self.ultra, self.extra_lna, self.R, self.exp_aver, self.increased_R, self.mixer_output, \
-            self.interval, name, self.dBuV, self.test_argument, file_checksum = _unpack(_Formats.PRESET_5, stream)
-        self.preset_name = _decode(name)
+            self.interval, self.preset_name.encode(), self.dBuV, self.test_argument)
 
         stream.seek(start_pos)
 
