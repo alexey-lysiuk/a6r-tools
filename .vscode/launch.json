@@ -10,6 +10,16 @@
             "args": [
                 "${workspaceFolder}/data/multi1.prs"
             ]
+        },
+        {
+            "name": "a6r-bmp.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/a6r-bmp.py",
+            "console": "internalConsole",
+            "args": [
+                "${workspaceFolder}/data/capture.bmp"
+            ]
         }
     ]
 }
