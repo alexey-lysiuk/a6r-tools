@@ -39,35 +39,24 @@ def _unpack(fmt: str, stream: typing.BinaryIO):
     return struct.unpack(fmt, data)
 
 
-def ror(n, c, bits=64):
-    mask = (1 << bits) - 1
-    return ((n >> c) | (n << (bits - c))) & mask
+def _calculate_checksum(stream: typing.BinaryIO, start_pos: int) -> int:
+    stream.seek(start_pos)
 
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/flash.c#L146
+    checksum_bytes = 1576  # == (void*)&setting.checksum - (void*)&setting
+    rawdata = stream.read(checksum_bytes)
+    uints = struct.unpack(f'<{checksum_bytes // 4}I', rawdata)
 
-def ror32(n, c):
+    checksum = 0
     mask = (1 << 32) - 1
-    return ((n >> c) | (n << (32 - c))) & mask
 
+    for n in uints:
+        checksum = (checksum >> 31) | (checksum << 1)
+        checksum &= mask
+        checksum += n
+        checksum &= mask
 
-def ror31(n):
-    return ((n >> 31) | (n << 1)) & ((1 << 32) - 1)
-
-
-class BinaryReader:
-    def __init__(self, stream: typing.BinaryIO):
-        self.stream = stream
-        self.checksum = 0
-
-    def read(self, fmt: str):
-        size = struct.calcsize(fmt)
-        data = self.stream.read(size)
-        assert len(data) == size
-
-        for b in data:
-            self.checksum += ((b >> 31) | (b << 1)) & ((1 << 32) - 1)
-
-
-        return struct.unpack(fmt, data)
+    return checksum
 
 
 class Enums:
@@ -426,22 +415,7 @@ class Preset(Struct):
         self.preset_name = _decode(name)
 
         file_checksum = _unpack(_Formats.CHECKSUM, stream)[0]
-
-        stream.seek(start_pos)
-
-        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/flash.c#L146
-        checksum_bytes = 1576  # == (void*)&setting.checksum - (void*)&setting
-        rawdata = stream.read(checksum_bytes)
-        uints = struct.unpack(f'<{checksum_bytes // 4}I', rawdata)
-
-        checksum = 0
-        mask = ((1 << 32) - 1)
-
-        for n in uints:
-            checksum = (checksum >> 31) | (checksum << 1)
-            checksum &= mask
-            checksum += n
-            checksum &= mask
+        checksum = _calculate_checksum(stream, start_pos)
 
         assert checksum == file_checksum
 
@@ -503,22 +477,7 @@ class Preset(Struct):
             self.trigger_grid, self.ultra, self.extra_lna, self.R, self.exp_aver, self.increased_R, self.mixer_output, \
             self.interval, self.preset_name.encode(), self.dBuV, self.test_argument)
 
-        stream.seek(start_pos)
-
-        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/flash.c#L146
-        checksum_bytes = 1576  # == (void*)&setting.checksum - (void*)&setting
-        rawdata = stream.read(checksum_bytes)
-        uints = struct.unpack(f'<{checksum_bytes // 4}I', rawdata)
-
-        checksum = 0
-        mask = ((1 << 32) - 1)
-
-        for n in uints:
-            checksum = (checksum >> 31) | (checksum << 1)
-            checksum &= mask
-            checksum += n
-            checksum &= mask
-
+        checksum = _calculate_checksum(stream, start_pos)
         _pack(_Formats.CHECKSUM, checksum)
 
     @staticmethod
@@ -560,14 +519,12 @@ def convert(path: str):
         preset.from_binary(stream)
         print(preset.to_json())
     elif path.endswith('.json'):
-        text_stream = open(path)
+        text_stream = open(path, encoding='ascii')
         preset.from_json(text_stream)
         binary_stream = open(path + '.prs', 'wb')
         preset.to_binary(binary_stream)
     else:
         assert False
-
-    # print(preset.to_json())
 
 
 def main():
