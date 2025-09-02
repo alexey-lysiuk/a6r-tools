@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "a6r-prs.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/a6r-prs.py",
+            "console": "internalConsole",
+            "args": [
+                "${workspaceFolder}/data/multi1.prs"
+            ]
+        }
+    ]
+}

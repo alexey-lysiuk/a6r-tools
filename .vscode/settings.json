@@ -1,0 +1,13 @@
+{
+    "pylint.args": [
+        // # C0103: Module name "..." doesn't conform to snake_case naming style (invalid-name)
+        // # C0114: Missing module docstring (missing-module-docstring)
+        // # C0115: Missing class docstring (missing-class-docstring)
+        // # C0116: Missing function or method docstring (missing-function-docstring)
+        // # R0902: Too many instance attributes (.../7) (too-many-instance-attributes)
+        // # R0903: Too few public methods (.../2) (too-few-public-methods)
+        // # W0511: TODO ... (fixme)
+        "--disable=C0103,C0114,C0115,C0116,R0902,R0903,W0511",
+        "--max-line-length=120"
+    ]
+}
