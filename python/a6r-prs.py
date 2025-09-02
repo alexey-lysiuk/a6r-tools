@@ -19,6 +19,7 @@
 
 import io
 import json
+import os
 import struct
 import sys
 import typing
@@ -488,7 +489,7 @@ class Preset(Struct):
             self.interval, self.preset_name.encode(), self.dBuV, self.test_argument)
 
         checksum = _calculate_checksum(stream, start_pos)
-        _pack(_Formats.CHECKSUM, checksum)
+        _pack(_Formats.CHECKSUM, stream, checksum)
 
     @staticmethod
     def _save_struct_items(stream: typing.BinaryIO, collection: list, count: int):
@@ -525,14 +526,27 @@ def convert(path: str):
     preset = Preset()
 
     if path.endswith('.prs'):
-        stream = open(path, 'rb')
-        preset.from_binary(stream)
-        print(preset.to_json())
+        with open(path, 'rb') as f:
+            preset.from_binary(f)
+
+        path_noext, _ = os.path.splitext(path)
+        text = preset.to_json()
+
+        with open(path_noext + '.json', 'w', encoding='ascii') as f:
+            f.write(text)
+            f.write('\n')
     elif path.endswith('.json'):
-        text_stream = open(path, encoding='ascii')
-        preset.from_json(text_stream)
-        binary_stream = open(path + '.prs', 'wb')
-        preset.to_binary(binary_stream)
+        stream = io.BytesIO()
+
+        with open(path, encoding='ascii') as f:
+            preset.from_json(f)
+            preset.to_binary(stream)
+
+        path_noext, _ = os.path.splitext(path)
+        binary = stream.getbuffer()
+
+        with open(path_noext + '.prs', 'wb') as f:
+            f.write(binary)
     else:
         assert False
 
