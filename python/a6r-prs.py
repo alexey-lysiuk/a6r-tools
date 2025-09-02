@@ -166,19 +166,29 @@ class Struct:
         keys = set(key for key in self.__dict__)
 
         for key, value in dictionary.items():
-            if key in keys:
-                old_value = self.__dict__[key]
-
-                if Struct._has_struct_items(old_value, value):
-                    for item_dict, item in zip(value, old_value):
-                        item.from_dict(item_dict)
-                else:
-                    self.__dict__[key] = value
+            if key in keys and not Struct._convert_list(value, self.__dict__[key]):
+                self.__dict__[key] = value
 
     @staticmethod
     def _has_struct_items(left, right):
         return isinstance(left, list) and len(left) > 0 and isinstance(left[0], Struct) \
             and isinstance(right, list) and len(right) > 0 and isinstance(right[0], dict)
+
+    @staticmethod
+    def _convert_list(src, dst) -> bool:
+        if isinstance(src, list) and len(src) > 0 and isinstance(dst, list) and len(dst) > 0:
+            for src_item, dst_item in zip(src, dst):
+                if isinstance(src_item, dict) and isinstance(dst_item, Struct):
+                    dst_item.from_dict(src_item)
+                elif isinstance(src_item, list) and isinstance(dst_item, list):
+                    if not Struct._convert_list(src_item, dst_item):
+                        return False
+                else:
+                    return False
+        else:
+            return False
+
+        return True
 
 
 class Marker(Struct):
