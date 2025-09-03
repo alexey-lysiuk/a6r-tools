@@ -20,8 +20,8 @@ jobs:
 
       - name: Test a6r-prs.py
         run: |
-          ./python/a6r-bmp.py data/*.prs
-          ./python/a6r-bmp.py data/*.json
+          ./python/a6r-prs.py data/*.prs
+          ./python/a6r-prs.py data/*.json
 
       - name: List Directory
         if: always()
