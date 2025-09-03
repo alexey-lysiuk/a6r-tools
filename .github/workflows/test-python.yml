@@ -22,7 +22,7 @@ jobs:
           sudo apt-get install libfuse2t64
           wget -q https://imagemagick.org/archive/binaries/magick
           chmod +x magick
-          ./magick compare -metric AE data/capture.bmp data/capture_converted.bmp
+          ./magick compare -metric AE data/capture.bmp data/capture_converted.bmp null:
           rm magick data/capture_converted.bmp
 
       - name: Test a6r-prs.py
