@@ -17,6 +17,9 @@ jobs:
       - name: Test a6r-bmp.py
         run: |
           ./python/a6r-bmp.py data/capture.bmp
+          sudo apt-get install openimageio-tools
+          idiff -hardfail 0 data/capture.bmp data/capture_converted.bmp
+          rm data/capture_converted.bmp
 
       - name: Test a6r-prs.py
         run: |
