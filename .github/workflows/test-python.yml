@@ -5,7 +5,7 @@ on:
     paths-ignore:
       - 'a6r-core/**'
       - 'thirdparty/**'
-      - '**/.gitignore'
+      # - '**/.gitignore'
 
 jobs:
   build:
@@ -27,4 +27,4 @@ jobs:
         if: always()
         run: |
           git status
-          ls -lR build
+          ls -lR

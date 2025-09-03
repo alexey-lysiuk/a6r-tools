@@ -3,9 +3,9 @@ name: Build
 on:
   push:
     paths-ignore:
-      - 'data/**'
+      # - 'data/**'
       - 'python/**'
-      - '**/.gitignore'
+      # - '**/.gitignore'
 
 env:
   BUILD_TYPE: Release
