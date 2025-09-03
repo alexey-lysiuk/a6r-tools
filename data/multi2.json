@@ -104,7 +104,7 @@
     "trigger_direction": 4,
     "trigger_beep": 0,
     "trigger_auto_save": 0,
-    "step_delay_mode": 0,
+    "step_delay_mode": 2,
     "waterfall": 1,
     "level_meter": 0,
     "average": [
@@ -120,7 +120,7 @@
         0
     ],
     "measurement": 0,
-    "spur_removal": 2,
+    "spur_removal": 1,
     "disable_correction": 0,
     "normalized_trace": 0,
     "listen": 0,
@@ -156,13 +156,13 @@
     "attack": 1,
     "slider_position": 0,
     "slider_span": 100000,
-    "rbw_x10": 0,
+    "rbw_x10": 6000,
     "vbw_x100": 0,
     "scan_after_dirty": [
-        147,
-        147,
-        147,
-        147
+        53,
+        53,
+        53,
+        53
     ],
     "modulation_frequency": 1000.0,
     "reflevel": -10.0,
@@ -187,8 +187,8 @@
             "enabled": 1,
             "ref": 0,
             "trace": 0,
-            "index": 24,
-            "frequency": 911147540
+            "index": 83,
+            "frequency": 1737594618
         },
         {
             "mtype": 32,
@@ -196,7 +196,7 @@
             "ref": 0,
             "trace": 3,
             "index": 37,
-            "frequency": 928306010
+            "frequency": 928524590
         },
         {
             "mtype": 32,
@@ -459,7 +459,7 @@
     ],
     "sweep_time_us": 0,
     "measure_sweep_time_us": 0,
-    "actual_sweep_time_us": 91300,
+    "actual_sweep_time_us": 412800,
     "additional_step_delay_us": 0,
     "trigger_grid": 0,
     "ultra": 0,
