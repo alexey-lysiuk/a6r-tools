@@ -1,0 +1,30 @@
+name: Test Python
+
+on:
+  push:
+    paths-ignore:
+      - 'a6r-core/**'
+      - 'thirdparty/**'
+      - '**/.gitignore'
+
+jobs:
+  build:
+    name: Test Python
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test a6r-bmp.py
+        run: |
+          ./python/a6r-bmp.py data/capture.bmp
+
+      - name: Test a6r-prs.py
+        run: |
+          ./python/a6r-bmp.py data/*.prs
+          ./python/a6r-bmp.py data/*.json
+
+      - name: List Directory
+        if: always()
+        run: |
+          git status
+          ls -lR build
