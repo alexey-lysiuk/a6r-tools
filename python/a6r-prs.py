@@ -24,9 +24,11 @@ import struct
 import sys
 import typing
 
+_TEXT_ENCODING = 'latin_1'
+
 
 def _decode(binary: typing.Union[bytearray, bytes]) -> str:
-    return binary.split(b'\0')[0].decode('latin_1')
+    return binary.split(b'\0')[0].decode(_TEXT_ENCODING)
 
 
 def _pack(fmt: str, stream: typing.BinaryIO, *args):
@@ -532,13 +534,13 @@ def convert(path: str):
         path_noext, _ = os.path.splitext(path)
         text = preset.to_json()
 
-        with open(path_noext + '.json', 'w', encoding='ascii') as f:
+        with open(path_noext + '.json', 'w', encoding=_TEXT_ENCODING) as f:
             f.write(text)
             f.write('\n')
     elif path.endswith('.json'):
         stream = io.BytesIO()
 
-        with open(path, encoding='ascii') as f:
+        with open(path, encoding=_TEXT_ENCODING) as f:
             preset.from_json(f)
             preset.to_binary(stream)
 
