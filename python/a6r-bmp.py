@@ -44,6 +44,23 @@ def _shift(color: int, shift: int):
     return color >> shift if shift > 0 else color << -shift
 
 
+
+def _rgb565_to_rgb888(rgb565):
+    # Shift the red value to the right by 11 bits.
+    red5 = rgb565 >> 11
+    # Shift the green value to the right by 5 bits and extract the lower 6 bits.
+    green6 = (rgb565 >> 5) & 0b111111
+    # Extract the lower 5 bits.
+    blue5 = rgb565 & 0b11111
+    # Convert 5-bit red to 8-bit red.
+    red8 = round(red5 / 31 * 255)
+    # Convert 6-bit green to 8-bit green.
+    green8 = round(green6 / 63 * 255)
+    # Convert 5-bit blue to 8-bit blue.
+    blue8 = round(blue5 / 31 * 255)
+    return red8, green8, blue8
+
+
 class BMPFile:
     # https://en.wikipedia.org/wiki/BMP_file_format#Bitmap_file_header
     HEADER_FORMAT = '<2sI4xI'
@@ -129,10 +146,18 @@ class BMPFile:
             f.write(dibheader)
 
             for color in self.palette:
-                red = _shift(color & self.redmask, self.redshift)
-                green = _shift(color & self.greenmask, self.greenshift)
-                blue = _shift(color & self.bluemask, self.blueshift)
-                entry = struct.pack('4B', blue, green, red, 0)
+                if color == 0:
+                    entry = b'\0' * 4
+                else:
+                    # red = _shift(color & self.redmask, self.redshift)
+                    # green = _shift(color & self.greenmask, self.greenshift)
+                    # blue = _shift(color & self.bluemask, self.blueshift)
+                    red, green, blue = _rgb565_to_rgb888(color)
+                    entry = struct.pack('4B', blue, green, red, 0)
+
+                    # if color != 0:
+                    #     print(f'{color:x} -> {red:x} {green:x} {blue:x}')
+
                 f.write(entry)
 
             if fourbitpalette:
@@ -158,9 +183,10 @@ class BMPFile:
             f.write(dibheader)
 
             for color in self.pixels:
-                red = _shift(color & self.redmask, self.redshift)
-                green = _shift(color & self.greenmask, self.greenshift)
-                blue = _shift(color & self.bluemask, self.blueshift)
+                # red = _shift(color & self.redmask, self.redshift)
+                # green = _shift(color & self.greenmask, self.greenshift)
+                # blue = _shift(color & self.bluemask, self.blueshift)
+                red, green, blue = _rgb565_to_rgb888(color)
                 pixel = struct.pack('3B', blue, green, red)
                 f.write(pixel)
 
