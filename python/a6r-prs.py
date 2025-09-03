@@ -279,7 +279,7 @@ class Preset(Struct):
 
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1240-L1266
         self.mode = Enums.M_LOW  # uint8_t
-        self.below_IF = Enums.S_AUTO_OFF  # uint8_t
+        self.below_if = Enums.S_AUTO_OFF  # was below_IF, uint8_t
         self.unit = Enums.U_DBM  # uint8_t
         self.agc = Enums.S_AUTO_ON  # uint8_t
         self.lna = Enums.S_AUTO_OFF  # uint8_t
@@ -353,7 +353,7 @@ class Preset(Struct):
         self.frequency0 = 0  # freq_t (uint64_t)
         self.frequency1 = 800000000  # freq_t (uint64_t)
         self.frequency_var = 0  # freq_t (uint64_t)
-        self.frequency_IF = 977400000  # freq_t (uint64_t)
+        self.frequency_if = 977400000  # was frequency_IF, freq_t (uint64_t)
         self.frequency_offset = 100000000  # freq_t (uint64_t)
         self.trace_scale = 10.0  # float
         self.trace_refpos = -10.0  # float
@@ -368,13 +368,13 @@ class Preset(Struct):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1351-L1366
         self.ultra = 0  # uint8_t
         self.extra_lna = False
-        self.R = 0  # int
+        self.r = 0  # was R, int
         self.exp_aver = 0  # int32_t
-        self.increased_R = False
+        self.increased_r = False  # was increased_R
         self.mixer_output = True
         self.interval = 0  # uint32_t
         self.preset_name = ''  # char[PRESET_NAME_LENGTH]
-        self.dBuV = False
+        self.dbuv = False  # was dBuV
         self.test_argument = 0  # int64_t
 
     def from_binary(self, stream: typing.BinaryIO):
@@ -392,7 +392,7 @@ class Preset(Struct):
 
         self._load_struct_items(stream, self.bands, self.BANDS_MAX)
 
-        self.mode, self.below_IF, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
+        self.mode, self.below_if, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
             self.trigger_mode, self.trigger_direction, self.trigger_beep, self.trigger_auto_save, \
             self.step_delay_mode, self.waterfall, self.level_meter = _unpack(_Formats.PRESET_2, stream)
 
@@ -410,7 +410,7 @@ class Preset(Struct):
         self.scan_after_dirty = _unpack(_Formats.UINT_TRACES, stream)
         self.modulation_frequency, self.reflevel, self.scale, self.external_gain, self.trigger_level, self.level, \
             self.level_sweep, self.unit_scale, self.normalize_level, self.frequency_step, self.frequency0, \
-            self.frequency1, self.frequency_var, self.frequency_IF, self.frequency_offset, self.trace_scale, \
+            self.frequency1, self.frequency_var, self.frequency_if, self.frequency_offset, self.trace_scale, \
             self.trace_refpos = _unpack(_Formats.PRESET_4, stream)
 
         self._load_struct_items(stream, self._markers, self.MARKERS_MAX)
@@ -421,8 +421,8 @@ class Preset(Struct):
             self._load_struct_items(stream, limit, self.REFERENCE_MAX)
 
         self.sweep_time_us, self.measure_sweep_time_us, self.actual_sweep_time_us, self.additional_step_delay_us, \
-            self.trigger_grid, self.ultra, self.extra_lna, self.R, self.exp_aver, self.increased_R, self.mixer_output, \
-            self.interval, name, self.dBuV, self.test_argument = _unpack(_Formats.PRESET_5, stream)
+            self.trigger_grid, self.ultra, self.extra_lna, self.r, self.exp_aver, self.increased_r, self.mixer_output, \
+            self.interval, name, self.dbuv, self.test_argument = _unpack(_Formats.PRESET_5, stream)
         self.preset_name = _decode(name)
 
         file_checksum = _unpack(_Formats.CHECKSUM, stream)[0]
@@ -455,7 +455,7 @@ class Preset(Struct):
         self._save_struct_items(stream, self.bands, self.BANDS_MAX)
 
         _pack(_Formats.PRESET_2, stream, \
-            self.mode, self.below_IF, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
+            self.mode, self.below_if, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
             self.trigger_mode, self.trigger_direction, self.trigger_beep, self.trigger_auto_save, \
             self.step_delay_mode, self.waterfall, self.level_meter)
 
@@ -475,7 +475,7 @@ class Preset(Struct):
         _pack(_Formats.PRESET_4, stream, \
             self.modulation_frequency, self.reflevel, self.scale, self.external_gain, self.trigger_level, self.level, \
             self.level_sweep, self.unit_scale, self.normalize_level, self.frequency_step, self.frequency0, \
-            self.frequency1, self.frequency_var, self.frequency_IF, self.frequency_offset, self.trace_scale, \
+            self.frequency1, self.frequency_var, self.frequency_if, self.frequency_offset, self.trace_scale, \
             self.trace_refpos)
 
         self._save_struct_items(stream, self._markers, self.MARKERS_MAX)
@@ -485,8 +485,8 @@ class Preset(Struct):
 
         _pack(_Formats.PRESET_5, stream, \
             self.sweep_time_us, self.measure_sweep_time_us, self.actual_sweep_time_us, self.additional_step_delay_us, \
-            self.trigger_grid, self.ultra, self.extra_lna, self.R, self.exp_aver, self.increased_R, self.mixer_output, \
-            self.interval, self.preset_name.encode(), self.dBuV, self.test_argument)
+            self.trigger_grid, self.ultra, self.extra_lna, self.r, self.exp_aver, self.increased_r, self.mixer_output, \
+            self.interval, self.preset_name.encode(), self.dbuv, self.test_argument)
 
         checksum = _calculate_checksum(stream, start_pos)
         _pack(_Formats.CHECKSUM, stream, checksum)
