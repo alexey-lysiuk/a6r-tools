@@ -45,20 +45,20 @@ import struct
 
 
 
-# def _rgb565_to_rgb888(rgb565):
-#     # Shift the red value to the right by 11 bits.
-#     red5 = rgb565 >> 11
-#     # Shift the green value to the right by 5 bits and extract the lower 6 bits.
-#     green6 = (rgb565 >> 5) & 0b111111
-#     # Extract the lower 5 bits.
-#     blue5 = rgb565 & 0b11111
-#     # Convert 5-bit red to 8-bit red.
-#     red8 = round(red5 / 31 * 255)
-#     # Convert 6-bit green to 8-bit green.
-#     green8 = round(green6 / 63 * 255)
-#     # Convert 5-bit blue to 8-bit blue.
-#     blue8 = round(blue5 / 31 * 255)
-#     return red8, green8, blue8
+def _rgb565_to_rgb888(rgb565):
+    # Shift the red value to the right by 11 bits.
+    red5 = rgb565 >> 11
+    # Shift the green value to the right by 5 bits and extract the lower 6 bits.
+    green6 = (rgb565 >> 5) & 0b111111
+    # Extract the lower 5 bits.
+    blue5 = rgb565 & 0b11111
+    # Convert 5-bit red to 8-bit red.
+    red8 = round(red5 / 31 * 255)
+    # Convert 6-bit green to 8-bit green.
+    green8 = round(green6 / 63 * 255)
+    # Convert 5-bit blue to 8-bit blue.
+    blue8 = round(blue5 / 31 * 255)
+    return red8, green8, blue8
 
 
 # _COLOR_CONVERSION = None
@@ -207,8 +207,16 @@ class BMPFile:
                 #     # if color != 0:
                 #     #     print(f'{color:x} -> {red:x} {green:x} {blue:x}')
 
-                entry = struct.pack('<I', self._COLOR_CONVERSION[color])
-                print(f'{color:x} -> {self._COLOR_CONVERSION[color]:x}')
+                red, green, blue = BMPFile._COLOR_CONVERSION[color]
+                entry = struct.pack('4B', blue, green, red, 0)
+
+                # print(f'{color:x} -> {red:x} {green:x} {blue:x}')
+                red2, green2, blue2 = _rgb565_to_rgb888(color)
+                match = '' if red == red2 and green == green2 and blue == blue2 else '<- !!!'
+                print(f'{color:x} -> {red:x} {green:x} {blue:x} || {red2:x} {green2:x} {blue2:x}  {match}')
+
+                # entry = struct.pack('<I', self._COLOR_CONVERSION[color])
+                # print(f'{color:x} -> {self._COLOR_CONVERSION[color]:x}')
 
                 f.write(entry)
 
@@ -238,7 +246,8 @@ class BMPFile:
                 # red = _shift(color & self.redmask, self.redshift)
                 # green = _shift(color & self.greenmask, self.greenshift)
                 # blue = _shift(color & self.bluemask, self.blueshift)
-                red, green, blue = _rgb565_to_rgb888(color)
+                # red, green, blue = _rgb565_to_rgb888(color)
+                red, green, blue = BMPFile._COLOR_CONVERSION[color]
                 pixel = struct.pack('3B', blue, green, red)
                 f.write(pixel)
 
@@ -248,7 +257,8 @@ class BMPFile:
             red = rgb565 & 0b11111000_00000000
             green = rgb565 & 0b00000111_11100000
             blue = rgb565 & 0b00000000_00011111
-            return (red << 8 | red << 4) & 0xFF0000 | (green << 5 | green << 2) & 0xFF00 | (blue << 3 | blue >> 2)
+            # return (red << 8 | red << 4) & 0xFF0000 | (green << 5 | green << 2) & 0xFF00 | (blue << 3 | blue >> 2)
+            return red >> 8 | red >> 12, green >> 3 | green >> 9, blue << 3 | blue >> 2
 
         BMPFile._COLOR_CONVERSION = [make_color(c) for c in range(2**16)]
 
