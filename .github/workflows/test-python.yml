@@ -24,8 +24,10 @@ jobs:
           ./magick data/capture.bmp -colors 256  data/capture_256.bmp
           ./magick data/capture.bmp -colors 16  data/capture_16.bmp
           ./magick data/capture.bmp -type Palette data/capture_paletted.bmp
-          ./magick data/capture.bmp -depth 24 -type data/capture_24bit.bmp
-          ./magick data/capture.bmp -depth 32 -type data/capture_32bit.bmp
+          ./magick data/capture.bmp -depth 24 data/capture_24bit.bmp
+          ./magick data/capture.bmp -depth 24 -type truecolor data/capture_24bit_truecolor.bmp
+          ./magick data/capture.bmp -depth 32 data/capture_32bit.bmp
+          ./magick data/capture.bmp -depth 32 -type truecolor data/capture_32bit_truecolor.bmp
 
       - name: Test a6r-prs.py
         run: |
