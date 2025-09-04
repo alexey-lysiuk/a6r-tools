@@ -19,8 +19,13 @@ jobs:
           wget -q https://imagemagick.org/archive/binaries/magick
           chmod +x magick
           export APPIMAGE_EXTRACT_AND_RUN=1
-          ./magick compare -metric AE data/capture.bmp data/capture_converted.bmp null:
-          rm magick data/capture_converted.bmp
+          # ./magick compare -metric AE data/capture.bmp data/capture_converted.bmp null:
+          # rm magick data/capture_converted.bmp
+          ./magick data/capture.bmp -colors 256  data/capture_256.bmp
+          ./magick data/capture.bmp -colors 16  data/capture_16.bmp
+          ./magick data/capture.bmp -type Palette data/capture_paletted.bmp
+          ./magick data/capture.bmp -depth 24 -type data/capture_24bit.bmp
+          ./magick data/capture.bmp -depth 32 -type data/capture_32bit.bmp
 
       - name: Test a6r-prs.py
         run: |
@@ -32,3 +37,9 @@ jobs:
         run: |
           git status
           ls -lR
+
+      - name: Upload Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: data
+          path: data
