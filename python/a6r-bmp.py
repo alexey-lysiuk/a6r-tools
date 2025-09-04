@@ -24,81 +24,84 @@ import pstats
 import struct
 
 
-def _calculate_shift(mask: int):
-    shiftbits = 0
+# def _calculate_shift(mask: int):
+#     shiftbits = 0
 
-    while mask & 1 == 0:
-        mask >>= 1
-        shiftbits += 1
+#     while mask & 1 == 0:
+#         mask >>= 1
+#         shiftbits += 1
 
-    colorbits = 0
+#     colorbits = 0
 
-    while mask & 1:
-        mask >>= 1
-        colorbits += 1
+#     while mask & 1:
+#         mask >>= 1
+#         colorbits += 1
 
-    return shiftbits - (8 - colorbits)
-
-
-def _shift(color: int, shift: int):
-    return color >> shift if shift > 0 else color << -shift
+#     return shiftbits - (8 - colorbits)
 
 
-
-def _rgb565_to_rgb888(rgb565):
-    # Shift the red value to the right by 11 bits.
-    red5 = rgb565 >> 11
-    # Shift the green value to the right by 5 bits and extract the lower 6 bits.
-    green6 = (rgb565 >> 5) & 0b111111
-    # Extract the lower 5 bits.
-    blue5 = rgb565 & 0b11111
-    # Convert 5-bit red to 8-bit red.
-    red8 = round(red5 / 31 * 255)
-    # Convert 6-bit green to 8-bit green.
-    green8 = round(green6 / 63 * 255)
-    # Convert 5-bit blue to 8-bit blue.
-    blue8 = round(blue5 / 31 * 255)
-    return red8, green8, blue8
+# def _shift(color: int, shift: int):
+#     return color >> shift if shift > 0 else color << -shift
 
 
-_COLOR_CONVERSION = None
+
+# def _rgb565_to_rgb888(rgb565):
+#     # Shift the red value to the right by 11 bits.
+#     red5 = rgb565 >> 11
+#     # Shift the green value to the right by 5 bits and extract the lower 6 bits.
+#     green6 = (rgb565 >> 5) & 0b111111
+#     # Extract the lower 5 bits.
+#     blue5 = rgb565 & 0b11111
+#     # Convert 5-bit red to 8-bit red.
+#     red8 = round(red5 / 31 * 255)
+#     # Convert 6-bit green to 8-bit green.
+#     green8 = round(green6 / 63 * 255)
+#     # Convert 5-bit blue to 8-bit blue.
+#     blue8 = round(blue5 / 31 * 255)
+#     return red8, green8, blue8
 
 
-def _calculate_bits(mask: int):
-    shiftbits = 0
-
-    while mask & 1 == 0:
-        mask >>= 1
-        shiftbits += 1
-
-    colorbits = 0
-
-    while mask & 1:
-        mask >>= 1
-        colorbits += 1
-
-    return shiftbits, colorbits
+# _COLOR_CONVERSION = None
 
 
-def _init_color_conversion(redmask: int, greenmask: int, bluemask: int):
-    global _COLOR_CONVERSION
-    assert not _COLOR_CONVERSION
+# def _calculate_bits(mask: int):
+#     shiftbits = 0
 
-    redshift, redcolor = _calculate_bits(redmask)
-    greenshift, greencolor = _calculate_bits(greenmask)
-    blueshift, bluecolor = _calculate_bits(bluemask)
+#     while mask & 1 == 0:
+#         mask >>= 1
+#         shiftbits += 1
 
-    def make_color(rgb565: int) -> int:
-        red = (rgb565 & redmask) >> redshift
-        green = (rgb565 & greenmask) >> greenshift
-        blue = (rgb565 & bluemask) >> blueshift
-        return ((red << (8 - redcolor)) + (red >> redcolor) << 16) + ((green << (8 - greencolor)) + (green >> greencolor) << 8) + (blue << (8 - bluecolor)) + (blue >> bluecolor)
+#     colorbits = 0
 
-    _COLOR_CONVERSION = [make_color(c) for c in range(2**16)]
+#     while mask & 1:
+#         mask >>= 1
+#         colorbits += 1
+
+#     return shiftbits, colorbits
 
 
-def _convert(rgb565: int):
-    pass
+# def _init_color_conversion(redmask: int, greenmask: int, bluemask: int):
+#     global _COLOR_CONVERSION
+#     assert not _COLOR_CONVERSION
+
+#     # redshift, redcolor = _calculate_bits(redmask)
+#     # greenshift, greencolor = _calculate_bits(greenmask)
+#     # blueshift, bluecolor = _calculate_bits(bluemask)
+
+#     def make_color(rgb565: int) -> int:
+#         # red = rgb565 & redmask >> 8
+#         # green = rgb565 & greenmask >> 3
+#         # blue = rgb565 & bluemask << 3
+#         # return (red << 16) | (green << 8) + blue
+
+#         red = rgb565 & redmask
+#         green = rgb565 & greenmask
+#         blue = rgb565 & bluemask
+#         # return red >> 8 | red >> 12 | green >> 3 | green >> 9
+#         return (red << 8 | red << 4) & 0xFF0000 | (green << 5 | green << 2) & 0xFF00 | (blue << 3 | blue >> 2)
+
+#     # make_color(0xffff)
+#     _COLOR_CONVERSION = [make_color(c) for c in range(2**16)]
 
 
 class BMPFile:
@@ -118,6 +121,8 @@ class BMPFile:
     # https://en.wikipedia.org/wiki/BMP_file_format#Example_2
     BITMAPV4HEADER_FORMAT = '<3I2H2I2I8x4I52x'
     BITMAPV4HEADER_SIZE = 108
+
+    _COLOR_CONVERSION = []
 
     def __init__(self, filename: str):
         with open(filename, 'rb') as f:
@@ -153,14 +158,13 @@ class BMPFile:
             self.palette = palette
             self.colorscount = colorscount
 
-            self.redshift = _calculate_shift(self.redmask)
-            self.greenshift = _calculate_shift(self.greenmask)
-            self.blueshift = _calculate_shift(self.bluemask)
+            # self.redshift = _calculate_shift(self.redmask)
+            # self.greenshift = _calculate_shift(self.greenmask)
+            # self.blueshift = _calculate_shift(self.bluemask)
+
+            self._init_color_conversion()
 
     def save(self, filename: str):
-        if not _COLOR_CONVERSION:
-            _init_color_conversion(self.redmask, self.greenmask, self.bluemask)
-
         if self.colorscount > 256:
             self._save_rgb(filename)
         else:
@@ -189,19 +193,22 @@ class BMPFile:
             f.write(dibheader)
 
             for color in self.palette:
-                if color == 0:
-                    entry = b'\0' * 4
-                else:
-                    # red = _shift(color & self.redmask, self.redshift)
-                    # green = _shift(color & self.greenmask, self.greenshift)
-                    # blue = _shift(color & self.bluemask, self.blueshift)
-                    # red, green, blue = _rgb565_to_rgb888(color)
-                    # entry = struct.pack('4B', blue, green, red, 0)
-                    entry = struct.pack('<I', _COLOR_CONVERSION[color])
-                    print(f'{color:x} -> {_COLOR_CONVERSION[color]:x}')
+                # if color == 0:
+                #     entry = b'\0' * 4
+                # else:
+                #     # red = _shift(color & self.redmask, self.redshift)
+                #     # green = _shift(color & self.greenmask, self.greenshift)
+                #     # blue = _shift(color & self.bluemask, self.blueshift)
+                #     # red, green, blue = _rgb565_to_rgb888(color)
+                #     # entry = struct.pack('4B', blue, green, red, 0)
+                #     entry = struct.pack('<I', _COLOR_CONVERSION[color])
+                #     print(f'{color:x} -> {_COLOR_CONVERSION[color]:x}')
 
-                    # if color != 0:
-                    #     print(f'{color:x} -> {red:x} {green:x} {blue:x}')
+                #     # if color != 0:
+                #     #     print(f'{color:x} -> {red:x} {green:x} {blue:x}')
+
+                entry = struct.pack('<I', self._COLOR_CONVERSION[color])
+                print(f'{color:x} -> {self._COLOR_CONVERSION[color]:x}')
 
                 f.write(entry)
 
@@ -234,6 +241,16 @@ class BMPFile:
                 red, green, blue = _rgb565_to_rgb888(color)
                 pixel = struct.pack('3B', blue, green, red)
                 f.write(pixel)
+
+    @staticmethod
+    def _init_color_conversion():
+        def make_color(rgb565: int) -> int:
+            red = rgb565 & 0b11111000_00000000
+            green = rgb565 & 0b00000111_11100000
+            blue = rgb565 & 0b00000000_00011111
+            return (red << 8 | red << 4) & 0xFF0000 | (green << 5 | green << 2) & 0xFF00 | (blue << 3 | blue >> 2)
+
+        BMPFile._COLOR_CONVERSION = [make_color(c) for c in range(2**16)]
 
 
 def convert(filename: str, inplace: bool = False):
