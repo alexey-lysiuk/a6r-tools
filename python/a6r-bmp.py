@@ -61,6 +61,46 @@ def _rgb565_to_rgb888(rgb565):
     return red8, green8, blue8
 
 
+_COLOR_CONVERSION = None
+
+
+def _calculate_bits(mask: int):
+    shiftbits = 0
+
+    while mask & 1 == 0:
+        mask >>= 1
+        shiftbits += 1
+
+    colorbits = 0
+
+    while mask & 1:
+        mask >>= 1
+        colorbits += 1
+
+    return shiftbits, colorbits
+
+
+def _init_color_conversion(redmask: int, greenmask: int, bluemask: int):
+    global _COLOR_CONVERSION
+    assert not _COLOR_CONVERSION
+
+    redshift, redcolor = _calculate_bits(redmask)
+    greenshift, greencolor = _calculate_bits(greenmask)
+    blueshift, bluecolor = _calculate_bits(bluemask)
+
+    def make_color(rgb565: int) -> int:
+        red = (rgb565 & redmask) >> redshift
+        green = (rgb565 & greenmask) >> greenshift
+        blue = (rgb565 & bluemask) >> blueshift
+        return ((red << (8 - redcolor)) + (red >> redcolor) << 16) + ((green << (8 - greencolor)) + (green >> greencolor) << 8) + (blue << (8 - bluecolor)) + (blue >> bluecolor)
+
+    _COLOR_CONVERSION = [make_color(c) for c in range(2**16)]
+
+
+def _convert(rgb565: int):
+    pass
+
+
 class BMPFile:
     # https://en.wikipedia.org/wiki/BMP_file_format#Bitmap_file_header
     HEADER_FORMAT = '<2sI4xI'
@@ -118,6 +158,9 @@ class BMPFile:
             self.blueshift = _calculate_shift(self.bluemask)
 
     def save(self, filename: str):
+        if not _COLOR_CONVERSION:
+            _init_color_conversion(self.redmask, self.greenmask, self.bluemask)
+
         if self.colorscount > 256:
             self._save_rgb(filename)
         else:
@@ -152,8 +195,10 @@ class BMPFile:
                     # red = _shift(color & self.redmask, self.redshift)
                     # green = _shift(color & self.greenmask, self.greenshift)
                     # blue = _shift(color & self.bluemask, self.blueshift)
-                    red, green, blue = _rgb565_to_rgb888(color)
-                    entry = struct.pack('4B', blue, green, red, 0)
+                    # red, green, blue = _rgb565_to_rgb888(color)
+                    # entry = struct.pack('4B', blue, green, red, 0)
+                    entry = struct.pack('<I', _COLOR_CONVERSION[color])
+                    print(f'{color:x} -> {_COLOR_CONVERSION[color]:x}')
 
                     # if color != 0:
                     #     print(f'{color:x} -> {red:x} {green:x} {blue:x}')
