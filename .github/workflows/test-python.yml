@@ -1,11 +1,6 @@
 name: Test Python
 
-on:
-  push:
-    paths-ignore:
-      - 'a6r-core/**'
-      - 'thirdparty/**'
-      # - '**/.gitignore'
+on: [push, pull_request]
 
 jobs:
   build:
