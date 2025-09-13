@@ -19,19 +19,47 @@
 
 import io
 import json
+import os
 import struct
 import sys
 import typing
 
+_TEXT_ENCODING = 'latin_1'
+
 
 def _decode(binary: typing.Union[bytearray, bytes]) -> str:
-    return binary.split(b'\0')[0].decode('latin_1')
+    return binary.split(b'\0')[0].decode(_TEXT_ENCODING)
+
+
+def _pack(fmt: str, stream: typing.BinaryIO, *args):
+    data = struct.pack(fmt, *args)
+    stream.write(data)
 
 
 def _unpack(fmt: str, stream: typing.BinaryIO):
     size = struct.calcsize(fmt)
     data = stream.read(size)
     return struct.unpack(fmt, data)
+
+
+def _calculate_checksum(stream: typing.BinaryIO, start_pos: int) -> int:
+    stream.seek(start_pos)
+
+    # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/flash.c#L146
+    checksum_bytes = 1576  # == (void*)&setting.checksum - (void*)&setting
+    rawdata = stream.read(checksum_bytes)
+    uints = struct.unpack(f'<{checksum_bytes // 4}I', rawdata)
+
+    checksum = 0
+    mask = (1 << 32) - 1
+
+    for n in uints:
+        checksum = (checksum >> 31) | (checksum << 1)
+        checksum &= mask
+        checksum += n
+        checksum &= mask
+
+    return checksum
 
 
 class Enums:
@@ -137,6 +165,34 @@ class Struct:
 
             return json.JSONEncoder.default(self, o)
 
+    def from_dict(self, dictionary: dict):
+        keys = set(key for key in self.__dict__)
+
+        for key, value in dictionary.items():
+            if key in keys and not Struct._convert_list(value, self.__dict__[key]):
+                self.__dict__[key] = value
+
+    @staticmethod
+    def _has_struct_items(left, right):
+        return isinstance(left, list) and len(left) > 0 and isinstance(left[0], Struct) \
+            and isinstance(right, list) and len(right) > 0 and isinstance(right[0], dict)
+
+    @staticmethod
+    def _convert_list(src, dst) -> bool:
+        if isinstance(src, list) and len(src) > 0 and isinstance(dst, list) and len(dst) > 0:
+            for src_item, dst_item in zip(src, dst):
+                if isinstance(src_item, dict) and isinstance(dst_item, Struct):
+                    dst_item.from_dict(src_item)
+                elif isinstance(src_item, list) and isinstance(dst_item, list):
+                    if not Struct._convert_list(src_item, dst_item):
+                        return False
+                else:
+                    return False
+        else:
+            return False
+
+        return True
+
 
 class Marker(Struct):
     def __init__(self):
@@ -148,11 +204,11 @@ class Marker(Struct):
         self.index = 0  # uint8_t
         self.frequency = 0  # freq_t (uint64_t)
 
-    @staticmethod
-    def load(stream: typing.BinaryIO) -> 'Marker':
-        m = Marker()
-        m.mtype, m.enabled, m.ref, m.trace, m.index, m.frequency = _unpack('<5B3xQ', stream)
-        return m
+    def from_binary(self, stream: typing.BinaryIO):
+        self.mtype, self.enabled, self.ref, self.trace, self.index, self.frequency = _unpack(_Formats.MARKER, stream)
+
+    def to_binary(self, stream: typing.BinaryIO):
+        _pack(_Formats.MARKER, stream, self.mtype, self.enabled, self.ref, self.trace, self.index, self.frequency)
 
 
 class Limit(Struct):
@@ -163,11 +219,11 @@ class Limit(Struct):
         self.frequency = 0  # # freq_t (uint64_t)
         self.index = 0  # int16_t
 
-    @staticmethod
-    def load(stream: typing.BinaryIO) -> 'Limit':
-        lim = Limit()
-        lim.enabled, lim.level, lim.frequency, lim.index = _unpack('<B3xfQh6x', stream)
-        return lim
+    def from_binary(self, stream: typing.BinaryIO):
+        self.enabled, self.level, self.frequency, self.index = _unpack(_Formats.LIMIT, stream)
+
+    def to_binary(self, stream: typing.BinaryIO):
+        _pack(_Formats.LIMIT, stream, self.enabled, self.level, self.frequency, self.index)
 
 
 class Band(Struct):
@@ -181,12 +237,15 @@ class Band(Struct):
         self.start_index = 0  # int
         self.stop_index = 0  # int
 
-    @staticmethod
-    def load(stream: typing.BinaryIO) -> 'Band':
-        b = Band()
-        name, b.enabled, b.start, b.end, b.level, b.start_index, b.stop_index = _unpack('<9s?6x2Qf2i4x', stream)
-        b.name = _decode(name)
-        return b
+    def from_binary(self, stream: typing.BinaryIO):
+        name, self.enabled, self.start, self.end, self.level, \
+            self.start_index, self.stop_index = _unpack(_Formats.BAND, stream)
+        self.name = _decode(name)
+
+    def to_binary(self, stream: typing.BinaryIO):
+        _pack(_Formats.BAND, stream, self.name.encode(), self.enabled, self.start, self.end,
+            self.level, self.start_index, self.stop_index)
+
 
 class Preset(Struct):
     # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L197
@@ -208,7 +267,6 @@ class Preset(Struct):
 
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1224-L1238
-        self.magic = Preset.SETTING_MAGIC  # uint32_t
         self.auto_reflevel = True
         self.auto_attenuation = True
         self.mirror_masking = False
@@ -223,7 +281,7 @@ class Preset(Struct):
 
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1240-L1266
         self.mode = Enums.M_LOW  # uint8_t
-        self.below_IF = Enums.S_AUTO_OFF  # uint8_t
+        self.below_if = Enums.S_AUTO_OFF  # was below_IF, uint8_t
         self.unit = Enums.U_DBM  # uint8_t
         self.agc = Enums.S_AUTO_ON  # uint8_t
         self.lna = Enums.S_AUTO_OFF  # uint8_t
@@ -247,7 +305,7 @@ class Preset(Struct):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1268-L1295
         self.tracking = 0  # int8_t
         self.atten_step = 0  # uint8_t
-        self._active_marker = 0  # int8_t
+        self.active_marker = 0  # int8_t
         self.unit_scale_index = 0  # uint8_t
         self.noise = 5  # uint8_t
         self.lo_drive = 5  # uint8_t
@@ -256,7 +314,7 @@ class Preset(Struct):
         self.harmonic = 3  # uint8_t
         self.fast_speedup = 0  # uint8_t
         self.faster_speedup = 0  # uint8_t
-        self._traces = 1  # uint8_t
+        self.traces = 1  # uint8_t
         self.draw_line = 0  # uint8_t
         self.lock_display = 0  # uint8_t
         self.jog_jump = 0  # uint8_t
@@ -265,7 +323,7 @@ class Preset(Struct):
         self.trigger_trace = 255  # uint8_t
         self.repeat = 1  # uint16_t
         self.linearity_step = 0  # uint16_t
-        self._sweep_points = 450  # uint16_t
+        self.sweep_points = 450  # uint16_t
         self.attenuate_x2 = 0  # int16_t
 
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1297-L1323
@@ -297,11 +355,11 @@ class Preset(Struct):
         self.frequency0 = 0  # freq_t (uint64_t)
         self.frequency1 = 800000000  # freq_t (uint64_t)
         self.frequency_var = 0  # freq_t (uint64_t)
-        self.frequency_IF = 977400000  # freq_t (uint64_t)
+        self.frequency_if = 977400000  # was frequency_IF, freq_t (uint64_t)
         self.frequency_offset = 100000000  # freq_t (uint64_t)
         self.trace_scale = 10.0  # float
         self.trace_refpos = -10.0  # float
-        self._markers = [Marker() for _ in range(Preset.MARKERS_MAX)]  # marker_t
+        self.markers = [Marker() for _ in range(Preset.MARKERS_MAX)]  # marker_t
         self.limits = [[Limit() for _ in range(Preset.REFERENCE_MAX)] for _ in range(Preset.LIMITS_MAX)]  # limit_t
         self.sweep_time_us = 0  # systime_t (uint32_t)
         self.measure_sweep_time_us = 0  # systime_t (uint32_t)
@@ -312,102 +370,187 @@ class Preset(Struct):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1351-L1366
         self.ultra = 0  # uint8_t
         self.extra_lna = False
-        self.R = 0  # int
+        self.r = 0  # was R, int
         self.exp_aver = 0  # int32_t
-        self.increased_R = False
+        self.increased_r = False  # was increased_R
         self.mixer_output = True
         self.interval = 0  # uint32_t
         self.preset_name = ''  # char[PRESET_NAME_LENGTH]
-        self.dBuV = False
+        self.dbuv = False  # was dBuV
         self.test_argument = 0  # int64_t
-        # TODO: calculate checksum
-        self.checksum = 0  # uint32_t
 
-    @staticmethod
-    def load(stream: typing.BinaryIO) -> 'Preset':
+    def from_binary(self, stream: typing.BinaryIO):
         start_pos = stream.tell()
 
-        p = Preset()
+        magic = _unpack(_Formats.MAGIC, stream)[0]
+        assert magic == self.SETTING_MAGIC
 
-        p.magic = _unpack('<I', stream)[0]
-        assert p.magic == Preset.SETTING_MAGIC
+        self.auto_reflevel, self.auto_attenuation, self.mirror_masking, self.tracking_output, \
+            self.mute, self.auto_if, self.sweep, self.pulse = _unpack(_Formats.PRESET_1, stream)
 
-        p.auto_reflevel, p.auto_attenuation, p.mirror_masking, p.tracking_output, \
-            p.mute, p.auto_if, p.sweep, p.pulse = _unpack('<8?', stream)
-
-        bool_trace_max_fmt = f'<{Preset.TRACES_MAX}?'
-        p.stored = _unpack(bool_trace_max_fmt, stream)
-        p.normalized = _unpack(bool_trace_max_fmt, stream)
+        self.stored = _unpack(_Formats.BOOL_TRACES, stream)
+        self.normalized = _unpack(_Formats.BOOL_TRACES, stream)
         stream.seek(4, io.SEEK_CUR)  # skip padding bytes
 
-        p.bands = [Band.load(stream) for _ in range(Preset.BANDS_MAX)]
+        self._load_struct_items(stream, self.bands, self.BANDS_MAX)
 
-        p.mode, p.below_IF, p.unit, p.agc, p.lna, p.modulation, p.trigger, \
-            p.trigger_mode, p.trigger_direction, p.trigger_beep, p.trigger_auto_save, \
-            p.step_delay_mode, p.waterfall, p.level_meter = _unpack('<14B', stream)
+        self.mode, self.below_if, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
+            self.trigger_mode, self.trigger_direction, self.trigger_beep, self.trigger_auto_save, \
+            self.step_delay_mode, self.waterfall, self.level_meter = _unpack(_Formats.PRESET_2, stream)
 
-        uint8_trace_max_fmt = f'<{Preset.TRACES_MAX}B'
-        p.average = _unpack(uint8_trace_max_fmt, stream)
-        p.subtract = _unpack(uint8_trace_max_fmt, stream)
+        self.average = _unpack(_Formats.UINT8_TRACES, stream)
+        self.subtract = _unpack(_Formats.UINT8_TRACES, stream)
 
-        p.measurement, p.spur_removal, p.disable_correction, p.normalized_trace, \
-            p.listen = _unpack('<3BbB', stream)
+        self.measurement, self.spur_removal, self.disable_correction, self.normalized_trace, self.listen, \
+            self.tracking, self.atten_step, self.active_marker, self.unit_scale_index, self.noise, \
+            self.lo_drive, self.rx_drive, self.test, self.harmonic, self.fast_speedup, self.faster_speedup, \
+            self.traces, self.draw_line, self.lock_display, self.jog_jump, self.multi_band, \
+            self.multi_trace, self.trigger_trace, self.repeat, self.linearity_step, self.sweep_points, \
+            self.attenuate_x2, self.step_delay, self.offset_delay, self.freq_mode, self.refer, \
+            self.modulation_depth_x100, self.modulation_deviation_div100, self.decay, self.attack, \
+            self.slider_position, self.slider_span, self.rbw_x10, self.vbw_x100 = _unpack(_Formats.PRESET_3, stream)
+        self.scan_after_dirty = _unpack(_Formats.UINT_TRACES, stream)
+        self.modulation_frequency, self.reflevel, self.scale, self.external_gain, self.trigger_level, self.level, \
+            self.level_sweep, self.unit_scale, self.normalize_level, self.frequency_step, self.frequency0, \
+            self.frequency1, self.frequency_var, self.frequency_if, self.frequency_offset, self.trace_scale, \
+            self.trace_refpos = _unpack(_Formats.PRESET_4, stream)
 
-        p.tracking, p.atten_step, p._active_marker, p.unit_scale_index, p.noise, \
-            p.lo_drive, p.rx_drive, p.test, p.harmonic, p.fast_speedup, p.faster_speedup, \
-            p._traces, p.draw_line, p.lock_display, p.jog_jump, p.multi_band, \
-            p.multi_trace, p.trigger_trace = _unpack('<bBb15Bx', stream)
-        p.repeat, p.linearity_step, p._sweep_points, p.attenuate_x2 = _unpack('<3Hh', stream)
+        self._load_struct_items(stream, self.markers, self.MARKERS_MAX)
 
-        p.step_delay, p.offset_delay, p.freq_mode, p.refer, p.modulation_depth_x100, \
-            p.modulation_deviation_div100, p.decay, p.attack, p.slider_position, \
-            p.slider_span, p.rbw_x10, p.vbw_x100 = _unpack('<3Hh2H2x3iQ2I', stream)
-        p.scan_after_dirty = _unpack(f'<{Preset.TRACES_MAX}I', stream)
-        p.modulation_frequency, p.reflevel, p.scale, p.external_gain, p.trigger_level, \
-            p.level, p.level_sweep = _unpack('<7f', stream)
+        assert len(self.limits) == self.LIMITS_MAX
 
-        p.unit_scale, p.normalize_level, p.frequency_step, p.frequency0, p.frequency1, \
-            p.frequency_var, p.frequency_IF, p.frequency_offset, p.trace_scale, \
-            p.trace_refpos = _unpack('<2f4x6Q2f', stream)
-        p._markers = [Marker.load(stream) for _ in range(Preset.MARKERS_MAX)]
-        p.limits = [[Limit.load(stream) for _ in range(Preset.REFERENCE_MAX)] for _ in range(Preset.LIMITS_MAX)]
-        p.sweep_time_us, p.measure_sweep_time_us, p.actual_sweep_time_us, \
-            p.additional_step_delay_us, p.trigger_grid = _unpack('<5I', stream)
+        for limit in self.limits:
+            self._load_struct_items(stream, limit, self.REFERENCE_MAX)
 
-        p.ultra, p.extra_lna, p.R, p.exp_aver, p.increased_R, p.mixer_output, p.interval, name, p.dBuV, \
-            p.test_argument, p.checksum = _unpack(f'<B?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?5xQI4x', stream)
-        p.preset_name = _decode(name)
+        self.sweep_time_us, self.measure_sweep_time_us, self.actual_sweep_time_us, self.additional_step_delay_us, \
+            self.trigger_grid, self.ultra, self.extra_lna, self.r, self.exp_aver, self.increased_r, self.mixer_output, \
+            self.interval, name, self.dbuv, self.test_argument = _unpack(_Formats.PRESET_5, stream)
+        self.preset_name = _decode(name)
 
-        stream.seek(start_pos)
+        file_checksum = _unpack(_Formats.CHECKSUM, stream)[0]
+        checksum = _calculate_checksum(stream, start_pos)
 
-        # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/flash.c#L146
-        checksum_bytes = 1576  # == (void*)&setting.checksum - (void*)&setting
-        rawdata = stream.read(checksum_bytes)
-        uints = struct.unpack(f'<{checksum_bytes // 4}I', rawdata)
+        assert checksum == file_checksum
 
-        checksum = 0
-        mask = ((1 << 32) - 1)
+    @staticmethod
+    def _load_struct_items(stream: typing.BinaryIO, collection: list, count: int):
+        # TODO: Ensure correct item count in collection
+        assert len(collection) == count
 
-        for n in uints:
-            checksum = (checksum >> 31) | (checksum << 1)
-            checksum &= mask
-            checksum += n
-            checksum &= mask
+        for item in collection:
+            item.from_binary(stream)
 
-        assert checksum == p.checksum
+    def to_binary(self, stream: typing.BinaryIO):
+        # TODO: Ensure correct item count in collections
 
-        return p
+        start_pos = stream.tell()
 
-    def tojson(self, indent:int = 4):
+        _pack(_Formats.MAGIC, stream, self.SETTING_MAGIC)
+        _pack(_Formats.PRESET_1, stream,
+            self.auto_reflevel, self.auto_attenuation, self.mirror_masking,
+            self.tracking_output, self.mute, self.auto_if, self.sweep, self.pulse)
+
+        _pack(_Formats.BOOL_TRACES, stream, *self.stored)
+        _pack(_Formats.BOOL_TRACES, stream, *self.normalized)
+        _pack('<I', stream, 0)  # write padding bytes
+
+        self._save_struct_items(stream, self.bands, self.BANDS_MAX)
+
+        _pack(_Formats.PRESET_2, stream, \
+            self.mode, self.below_if, self.unit, self.agc, self.lna, self.modulation, self.trigger, \
+            self.trigger_mode, self.trigger_direction, self.trigger_beep, self.trigger_auto_save, \
+            self.step_delay_mode, self.waterfall, self.level_meter)
+
+        _pack(_Formats.UINT8_TRACES, stream, *self.average)
+        _pack(_Formats.UINT8_TRACES, stream, *self.subtract)
+
+        _pack(_Formats.PRESET_3, stream, \
+            self.measurement, self.spur_removal, self.disable_correction, self.normalized_trace, self.listen, \
+            self.tracking, self.atten_step, self.active_marker, self.unit_scale_index, self.noise, \
+            self.lo_drive, self.rx_drive, self.test, self.harmonic, self.fast_speedup, self.faster_speedup, \
+            self.traces, self.draw_line, self.lock_display, self.jog_jump, self.multi_band, \
+            self.multi_trace, self.trigger_trace, self.repeat, self.linearity_step, self.sweep_points, \
+            self.attenuate_x2, self.step_delay, self.offset_delay, self.freq_mode, self.refer, \
+            self.modulation_depth_x100, self.modulation_deviation_div100, self.decay, self.attack, \
+            self.slider_position, self.slider_span, self.rbw_x10, self.vbw_x100)
+        _pack(_Formats.UINT_TRACES, stream, *self.scan_after_dirty)
+        _pack(_Formats.PRESET_4, stream, \
+            self.modulation_frequency, self.reflevel, self.scale, self.external_gain, self.trigger_level, self.level, \
+            self.level_sweep, self.unit_scale, self.normalize_level, self.frequency_step, self.frequency0, \
+            self.frequency1, self.frequency_var, self.frequency_if, self.frequency_offset, self.trace_scale, \
+            self.trace_refpos)
+
+        self._save_struct_items(stream, self.markers, self.MARKERS_MAX)
+
+        for limit in self.limits:
+            self._save_struct_items(stream, limit, self.REFERENCE_MAX)
+
+        _pack(_Formats.PRESET_5, stream, \
+            self.sweep_time_us, self.measure_sweep_time_us, self.actual_sweep_time_us, self.additional_step_delay_us, \
+            self.trigger_grid, self.ultra, self.extra_lna, self.r, self.exp_aver, self.increased_r, self.mixer_output, \
+            self.interval, self.preset_name.encode(), self.dbuv, self.test_argument)
+
+        checksum = _calculate_checksum(stream, start_pos)
+        _pack(_Formats.CHECKSUM, stream, checksum)
+
+    @staticmethod
+    def _save_struct_items(stream: typing.BinaryIO, collection: list, count: int):
+        # TODO: Ensure correct item count in collection
+        assert len(collection) == count
+
+        for item in collection:
+            item.to_binary(stream)
+
+    def from_json(self, stream: typing.TextIO):
+        self.from_dict(json.load(stream))
+
+    def to_json(self, indent:int = 4):
         return json.dumps(self.__dict__, cls=Struct.JSONEncoder, indent=indent)
 
 
-def convert(path: str):
-    stream = open(path, 'rb')
-    preset = Preset.load(stream)
+class _Formats:
+    MARKER = '<5B3xQ'
+    LIMIT = '<B3xfQh6x'
+    BAND = '<9s?6x2Qf2i4x'
+    MAGIC = '<I'
+    PRESET_1 = '<8?'
+    PRESET_2 = '<14B'
+    PRESET_3 = '<3BbBbBb15Bx3Hh3Hh2H2x3iQ2I'
+    PRESET_4 = '<9f4x6Q2f'
+    PRESET_5 = f'<5IB?2x2i2?2xI{Preset.PRESET_NAME_LENGTH}s?5xQ'
+    CHECKSUM = '<I4x'
+    BOOL_TRACES = f'<{Preset.TRACES_MAX}?'
+    UINT8_TRACES = f'<{Preset.TRACES_MAX}B'
+    UINT_TRACES = f'<{Preset.TRACES_MAX}I'
 
-    # TODO
-    print(preset.tojson())
+
+def convert(path: str):
+    preset = Preset()
+
+    if path.endswith('.prs'):
+        with open(path, 'rb') as f:
+            preset.from_binary(f)
+
+        path_noext, _ = os.path.splitext(path)
+        text = preset.to_json()
+
+        with open(path_noext + '.json', 'w', encoding=_TEXT_ENCODING) as f:
+            f.write(text)
+            f.write('\n')
+    elif path.endswith('.json'):
+        stream = io.BytesIO()
+
+        with open(path, encoding=_TEXT_ENCODING) as f:
+            preset.from_json(f)
+            preset.to_binary(stream)
+
+        path_noext, _ = os.path.splitext(path)
+        binary = stream.getbuffer()
+
+        with open(path_noext + '.prs', 'wb') as f:
+            f.write(binary)
+    else:
+        assert False
 
 
 def main():
