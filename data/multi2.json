@@ -1,0 +1,475 @@
+{
+    "auto_reflevel": false,
+    "auto_attenuation": false,
+    "mirror_masking": false,
+    "tracking_output": false,
+    "mute": true,
+    "auto_if": true,
+    "sweep": false,
+    "pulse": false,
+    "stored": [
+        false,
+        false,
+        false,
+        true
+    ],
+    "normalized": [
+        true,
+        true,
+        false,
+        false
+    ],
+    "bands": [
+        {
+            "name": "",
+            "enabled": true,
+            "start": 880000000,
+            "end": 960000000,
+            "level": 10.0,
+            "start_index": 0,
+            "stop_index": 61
+        },
+        {
+            "name": "",
+            "enabled": true,
+            "start": 1710000000,
+            "end": 1880000000,
+            "level": 20.0,
+            "start_index": 62,
+            "stop_index": 191
+        },
+        {
+            "name": "",
+            "enabled": true,
+            "start": 1920000000,
+            "end": 1980000000,
+            "level": 0.0,
+            "start_index": 192,
+            "stop_index": 237
+        },
+        {
+            "name": "",
+            "enabled": true,
+            "start": 2110000000,
+            "end": 2170000000,
+            "level": 0.0,
+            "start_index": 238,
+            "stop_index": 283
+        },
+        {
+            "name": "",
+            "enabled": true,
+            "start": 2355000000,
+            "end": 2395000000,
+            "level": 0.0,
+            "start_index": 284,
+            "stop_index": 314
+        },
+        {
+            "name": "",
+            "enabled": true,
+            "start": 2510000000,
+            "end": 2690000000,
+            "level": 15.0,
+            "start_index": 315,
+            "stop_index": 449
+        },
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        },
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        }
+    ],
+    "mode": 0,
+    "below_if": 2,
+    "unit": 0,
+    "agc": 3,
+    "lna": 2,
+    "modulation": 0,
+    "trigger": 0,
+    "trigger_mode": 9,
+    "trigger_direction": 4,
+    "trigger_beep": 0,
+    "trigger_auto_save": 0,
+    "step_delay_mode": 2,
+    "waterfall": 1,
+    "level_meter": 0,
+    "average": [
+        0,
+        1,
+        3,
+        3
+    ],
+    "subtract": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "measurement": 0,
+    "spur_removal": 1,
+    "disable_correction": 0,
+    "normalized_trace": 0,
+    "listen": 0,
+    "tracking": 0,
+    "atten_step": 0,
+    "_active_marker": 0,
+    "unit_scale_index": 0,
+    "noise": 5,
+    "lo_drive": 5,
+    "rx_drive": 18,
+    "test": 0,
+    "harmonic": 3,
+    "fast_speedup": 0,
+    "faster_speedup": 0,
+    "_traces": 7,
+    "draw_line": 0,
+    "lock_display": 0,
+    "jog_jump": 0,
+    "multi_band": 1,
+    "multi_trace": 0,
+    "trigger_trace": 255,
+    "repeat": 1,
+    "linearity_step": 0,
+    "_sweep_points": 450,
+    "attenuate_x2": 0,
+    "step_delay": 0,
+    "offset_delay": 0,
+    "freq_mode": 0,
+    "refer": -1,
+    "modulation_depth_x100": 80,
+    "modulation_deviation_div100": 30,
+    "decay": 20,
+    "attack": 1,
+    "slider_position": 0,
+    "slider_span": 100000,
+    "rbw_x10": 6000,
+    "vbw_x100": 0,
+    "scan_after_dirty": [
+        53,
+        53,
+        53,
+        53
+    ],
+    "modulation_frequency": 1000.0,
+    "reflevel": -10.0,
+    "scale": 10.0,
+    "external_gain": 0.0,
+    "trigger_level": -150.0,
+    "level": 0.0,
+    "level_sweep": 0.0,
+    "unit_scale": 1.0,
+    "normalize_level": 0.0,
+    "frequency_step": 1311111,
+    "frequency0": 800000000,
+    "frequency1": 800000000,
+    "frequency_var": 0,
+    "frequency_if": 976900000,
+    "frequency_offset": 100000000,
+    "trace_scale": 10.0,
+    "trace_refpos": -10.0,
+    "_markers": [
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 0,
+            "index": 83,
+            "frequency": 1737594618
+        },
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 3,
+            "index": 37,
+            "frequency": 928524590
+        },
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 3,
+            "index": 0,
+            "frequency": 880000000
+        },
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 3,
+            "index": 0,
+            "frequency": 880000000
+        },
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 3,
+            "index": 0,
+            "frequency": 880000000
+        },
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 3,
+            "index": 0,
+            "frequency": 880000000
+        },
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 3,
+            "index": 0,
+            "frequency": 880000000
+        },
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 3,
+            "index": 0,
+            "frequency": 880000000
+        }
+    ],
+    "limits": [
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ]
+    ],
+    "sweep_time_us": 0,
+    "measure_sweep_time_us": 0,
+    "actual_sweep_time_us": 412800,
+    "additional_step_delay_us": 0,
+    "trigger_grid": 0,
+    "ultra": 0,
+    "extra_lna": true,
+    "r": 0,
+    "exp_aver": 1,
+    "increased_r": false,
+    "mixer_output": true,
+    "interval": 0,
+    "preset_name": "MOBILE",
+    "dbuv": false,
+    "test_argument": 0
+}
