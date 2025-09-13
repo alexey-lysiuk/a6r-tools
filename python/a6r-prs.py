@@ -305,7 +305,7 @@ class Preset(Struct):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1268-L1295
         self.tracking = 0  # int8_t
         self.atten_step = 0  # uint8_t
-        self._active_marker = 0  # int8_t
+        self.active_marker = 0  # int8_t
         self.unit_scale_index = 0  # uint8_t
         self.noise = 5  # uint8_t
         self.lo_drive = 5  # uint8_t
@@ -314,7 +314,7 @@ class Preset(Struct):
         self.harmonic = 3  # uint8_t
         self.fast_speedup = 0  # uint8_t
         self.faster_speedup = 0  # uint8_t
-        self._traces = 1  # uint8_t
+        self.traces = 1  # uint8_t
         self.draw_line = 0  # uint8_t
         self.lock_display = 0  # uint8_t
         self.jog_jump = 0  # uint8_t
@@ -323,7 +323,7 @@ class Preset(Struct):
         self.trigger_trace = 255  # uint8_t
         self.repeat = 1  # uint16_t
         self.linearity_step = 0  # uint16_t
-        self._sweep_points = 450  # uint16_t
+        self.sweep_points = 450  # uint16_t
         self.attenuate_x2 = 0  # int16_t
 
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L1297-L1323
@@ -359,7 +359,7 @@ class Preset(Struct):
         self.frequency_offset = 100000000  # freq_t (uint64_t)
         self.trace_scale = 10.0  # float
         self.trace_refpos = -10.0  # float
-        self._markers = [Marker() for _ in range(Preset.MARKERS_MAX)]  # marker_t
+        self.markers = [Marker() for _ in range(Preset.MARKERS_MAX)]  # marker_t
         self.limits = [[Limit() for _ in range(Preset.REFERENCE_MAX)] for _ in range(Preset.LIMITS_MAX)]  # limit_t
         self.sweep_time_us = 0  # systime_t (uint32_t)
         self.measure_sweep_time_us = 0  # systime_t (uint32_t)
@@ -402,10 +402,10 @@ class Preset(Struct):
         self.subtract = _unpack(_Formats.UINT8_TRACES, stream)
 
         self.measurement, self.spur_removal, self.disable_correction, self.normalized_trace, self.listen, \
-            self.tracking, self.atten_step, self._active_marker, self.unit_scale_index, self.noise, \
+            self.tracking, self.atten_step, self.active_marker, self.unit_scale_index, self.noise, \
             self.lo_drive, self.rx_drive, self.test, self.harmonic, self.fast_speedup, self.faster_speedup, \
-            self._traces, self.draw_line, self.lock_display, self.jog_jump, self.multi_band, \
-            self.multi_trace, self.trigger_trace, self.repeat, self.linearity_step, self._sweep_points, \
+            self.traces, self.draw_line, self.lock_display, self.jog_jump, self.multi_band, \
+            self.multi_trace, self.trigger_trace, self.repeat, self.linearity_step, self.sweep_points, \
             self.attenuate_x2, self.step_delay, self.offset_delay, self.freq_mode, self.refer, \
             self.modulation_depth_x100, self.modulation_deviation_div100, self.decay, self.attack, \
             self.slider_position, self.slider_span, self.rbw_x10, self.vbw_x100 = _unpack(_Formats.PRESET_3, stream)
@@ -415,7 +415,7 @@ class Preset(Struct):
             self.frequency1, self.frequency_var, self.frequency_if, self.frequency_offset, self.trace_scale, \
             self.trace_refpos = _unpack(_Formats.PRESET_4, stream)
 
-        self._load_struct_items(stream, self._markers, self.MARKERS_MAX)
+        self._load_struct_items(stream, self.markers, self.MARKERS_MAX)
 
         assert len(self.limits) == self.LIMITS_MAX
 
@@ -466,10 +466,10 @@ class Preset(Struct):
 
         _pack(_Formats.PRESET_3, stream, \
             self.measurement, self.spur_removal, self.disable_correction, self.normalized_trace, self.listen, \
-            self.tracking, self.atten_step, self._active_marker, self.unit_scale_index, self.noise, \
+            self.tracking, self.atten_step, self.active_marker, self.unit_scale_index, self.noise, \
             self.lo_drive, self.rx_drive, self.test, self.harmonic, self.fast_speedup, self.faster_speedup, \
-            self._traces, self.draw_line, self.lock_display, self.jog_jump, self.multi_band, \
-            self.multi_trace, self.trigger_trace, self.repeat, self.linearity_step, self._sweep_points, \
+            self.traces, self.draw_line, self.lock_display, self.jog_jump, self.multi_band, \
+            self.multi_trace, self.trigger_trace, self.repeat, self.linearity_step, self.sweep_points, \
             self.attenuate_x2, self.step_delay, self.offset_delay, self.freq_mode, self.refer, \
             self.modulation_depth_x100, self.modulation_deviation_div100, self.decay, self.attack, \
             self.slider_position, self.slider_span, self.rbw_x10, self.vbw_x100)
