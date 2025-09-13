@@ -12,19 +12,12 @@ jobs:
       - name: Test a6r-bmp.py
         run: |
           ./python/a6r-bmp.py data/capture.bmp
-          # sudo apt-get install openimageio-tools
-          # idiff -hardfail 0 data/capture.bmp data/capture_converted.bmp
 
-          # sudo apt-get install libfuse2t64
-          wget -q https://imagemagick.org/archive/binaries/magick
-          chmod +x magick
-          export APPIMAGE_EXTRACT_AND_RUN=1
-          ./magick compare -metric AE data/capture.bmp data/capture_converted.bmp null:
-          rm magick data/capture_converted.bmp
-          # ./magick data/capture.bmp -type truecolor data/capture_truecolor.bmp
-          # ./magick compare -verbose -metric AE data/capture.bmp data/capture_truecolor.bmp null:
-          # ./magick data/capture.bmp -type Palette data/capture_paletted.bmp
-          # ./magick compare -verbose -metric AE data/capture.bmp data/capture_paletted.bmp null:
+          # wget -q https://imagemagick.org/archive/binaries/magick
+          # chmod +x magick
+          # export APPIMAGE_EXTRACT_AND_RUN=1
+          # ./magick compare -metric AE data/capture.bmp data/capture_converted.bmp null:
+          # rm magick data/capture_converted.bmp
 
       - name: Test a6r-prs.py
         run: |
@@ -36,9 +29,3 @@ jobs:
         run: |
           git status
           ls -lR
-
-      - name: Upload Package
-        uses: actions/upload-artifact@v4
-        with:
-          name: data
-          path: data
