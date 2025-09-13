@@ -2,16 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "a6r-prs.py",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/python/a6r-prs.py",
-            "console": "internalConsole",
-            "args": [
-                "${workspaceFolder}/data/multi1.prs"
-            ]
-        },
-        {
             "name": "a6r-bmp.py",
             "type": "debugpy",
             "request": "launch",
@@ -19,6 +9,29 @@
             "console": "internalConsole",
             "args": [
                 "${workspaceFolder}/data/capture.bmp"
+            ]
+        },
+        {
+            "name": "a6r-prs.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/a6r-prs.py",
+            "console": "internalConsole",
+            "args": [
+                "${workspaceFolder}/data/startup.prs",
+                "${workspaceFolder}/data/multi-band.prs",
+                "${workspaceFolder}/data/startup.json",
+                "${workspaceFolder}/data/multi-band.json"
+            ]
+        },
+        {
+            "name": "a6r-stm.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/a6r-stm.py",
+            "console": "internalConsole",
+            "args": [
+                "--help"
             ]
         }
     ]

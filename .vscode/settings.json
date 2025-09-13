@@ -9,5 +9,8 @@
         // # W0511: TODO ... (fixme)
         "--disable=C0103,C0114,C0115,C0116,R0902,R0903,W0511",
         "--max-line-length=120"
+    ],
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/python"
     ]
 }
