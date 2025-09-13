@@ -126,7 +126,7 @@
     "listen": 0,
     "tracking": 0,
     "atten_step": 0,
-    "_active_marker": 0,
+    "active_marker": 0,
     "unit_scale_index": 0,
     "noise": 5,
     "lo_drive": 5,
@@ -135,7 +135,7 @@
     "harmonic": 3,
     "fast_speedup": 0,
     "faster_speedup": 0,
-    "_traces": 7,
+    "traces": 7,
     "draw_line": 0,
     "lock_display": 0,
     "jog_jump": 0,
@@ -144,7 +144,7 @@
     "trigger_trace": 255,
     "repeat": 1,
     "linearity_step": 0,
-    "_sweep_points": 450,
+    "sweep_points": 450,
     "attenuate_x2": 0,
     "step_delay": 0,
     "offset_delay": 0,
@@ -181,7 +181,7 @@
     "frequency_offset": 100000000,
     "trace_scale": 10.0,
     "trace_refpos": -10.0,
-    "_markers": [
+    "markers": [
         {
             "mtype": 32,
             "enabled": 1,
