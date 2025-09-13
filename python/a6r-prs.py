@@ -480,7 +480,7 @@ class Preset(Struct):
             self.frequency1, self.frequency_var, self.frequency_if, self.frequency_offset, self.trace_scale, \
             self.trace_refpos)
 
-        self._save_struct_items(stream, self._markers, self.MARKERS_MAX)
+        self._save_struct_items(stream, self.markers, self.MARKERS_MAX)
 
         for limit in self.limits:
             self._save_struct_items(stream, limit, self.REFERENCE_MAX)
