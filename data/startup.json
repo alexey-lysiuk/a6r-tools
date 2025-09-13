@@ -1,0 +1,475 @@
+{
+    "auto_reflevel": true,
+    "auto_attenuation": true,
+    "mirror_masking": false,
+    "tracking_output": false,
+    "mute": true,
+    "auto_if": true,
+    "sweep": false,
+    "pulse": false,
+    "stored": [
+        false,
+        false,
+        false,
+        false
+    ],
+    "normalized": [
+        false,
+        false,
+        false,
+        false
+    ],
+    "bands": [
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        },
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        },
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        },
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        },
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        },
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        },
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        },
+        {
+            "name": "",
+            "enabled": false,
+            "start": 0,
+            "end": 0,
+            "level": 0.0,
+            "start_index": 0,
+            "stop_index": 0
+        }
+    ],
+    "mode": 0,
+    "below_if": 2,
+    "unit": 0,
+    "agc": 3,
+    "lna": 2,
+    "modulation": 0,
+    "trigger": 0,
+    "trigger_mode": 9,
+    "trigger_direction": 4,
+    "trigger_beep": 0,
+    "trigger_auto_save": 0,
+    "step_delay_mode": 2,
+    "waterfall": 0,
+    "level_meter": 0,
+    "average": [
+        0,
+        1,
+        3,
+        2
+    ],
+    "subtract": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "measurement": 0,
+    "spur_removal": 1,
+    "disable_correction": 0,
+    "normalized_trace": -1,
+    "listen": 0,
+    "tracking": 0,
+    "atten_step": 0,
+    "active_marker": 0,
+    "unit_scale_index": 0,
+    "noise": 5,
+    "lo_drive": 5,
+    "rx_drive": 18,
+    "test": 0,
+    "harmonic": 3,
+    "fast_speedup": 0,
+    "faster_speedup": 0,
+    "traces": 15,
+    "draw_line": 0,
+    "lock_display": 0,
+    "jog_jump": 0,
+    "multi_band": 0,
+    "multi_trace": 0,
+    "trigger_trace": 255,
+    "repeat": 2,
+    "linearity_step": 0,
+    "sweep_points": 450,
+    "attenuate_x2": 0,
+    "step_delay": 0,
+    "offset_delay": 0,
+    "freq_mode": 0,
+    "refer": -1,
+    "modulation_depth_x100": 80,
+    "modulation_deviation_div100": 30,
+    "decay": 20,
+    "attack": 1,
+    "slider_position": 0,
+    "slider_span": 100000,
+    "rbw_x10": 6000,
+    "vbw_x100": 3,
+    "scan_after_dirty": [
+        52,
+        52,
+        52,
+        52
+    ],
+    "modulation_frequency": 1000.0,
+    "reflevel": -30.0,
+    "scale": 10.0,
+    "external_gain": 5.0,
+    "trigger_level": -150.0,
+    "level": 0.0,
+    "level_sweep": 0.0,
+    "unit_scale": 1.0,
+    "normalize_level": 0.0,
+    "frequency_step": 1770601,
+    "frequency0": 5000000,
+    "frequency1": 800000000,
+    "frequency_var": 0,
+    "frequency_if": 977367706,
+    "frequency_offset": 115000000,
+    "trace_scale": 10.0,
+    "trace_refpos": -30.0,
+    "markers": [
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 0,
+            "index": 144,
+            "frequency": 259796130
+        },
+        {
+            "mtype": 0,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 1,
+            "index": 215,
+            "frequency": 385000000
+        },
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 2,
+            "index": 158,
+            "frequency": 738171233
+        },
+        {
+            "mtype": 48,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 2,
+            "index": 0,
+            "frequency": 5000000
+        },
+        {
+            "mtype": 32,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 3,
+            "index": 158,
+            "frequency": 737774277
+        },
+        {
+            "mtype": 36,
+            "enabled": 1,
+            "ref": 0,
+            "trace": 3,
+            "index": 0,
+            "frequency": 5000000
+        },
+        {
+            "mtype": 34,
+            "enabled": 1,
+            "ref": 4,
+            "trace": 3,
+            "index": 0,
+            "frequency": 5000000
+        },
+        {
+            "mtype": 34,
+            "enabled": 1,
+            "ref": 7,
+            "trace": 3,
+            "index": 0,
+            "frequency": 5000000
+        }
+    ],
+    "limits": [
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ],
+        [
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            },
+            {
+                "enabled": 0,
+                "level": 0.0,
+                "frequency": 0,
+                "index": 0
+            }
+        ]
+    ],
+    "sweep_time_us": 0,
+    "measure_sweep_time_us": 0,
+    "actual_sweep_time_us": 1588500,
+    "additional_step_delay_us": 0,
+    "trigger_grid": 0,
+    "ultra": 0,
+    "extra_lna": true,
+    "r": 0,
+    "exp_aver": 1,
+    "increased_r": false,
+    "mixer_output": true,
+    "interval": 0,
+    "preset_name": "",
+    "dbuv": false,
+    "test_argument": 0
+}
