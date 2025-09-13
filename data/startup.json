@@ -469,7 +469,7 @@
     "increased_r": false,
     "mixer_output": true,
     "interval": 0,
-    "preset_name": "",
+    "preset_name": "startup",
     "dbuv": false,
     "test_argument": 0
 }
