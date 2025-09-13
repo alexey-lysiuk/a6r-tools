@@ -82,7 +82,7 @@ class BMPFile:
             assert compression == BMPFile.BI_BITFIELDS
 
             data = f.read(datasize)
-            pixels = [pixel[0] for pixel in struct.iter_unpack('<h', data)]
+            pixels = [pixel[0] for pixel in struct.iter_unpack('<H', data)]
 
             palette = {}
             colorscount = 0
