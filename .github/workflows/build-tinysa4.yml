@@ -1,0 +1,36 @@
+name: Build TinySA Ultra Firmware
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install toolchain
+        run: |
+          wget --quiet https://developer.arm.com/-/media/Files/downloads/gnu-rm/7-2017q4/gcc-arm-none-eabi-7-2017-q4-major-linux.tar.bz2
+          sudo tar --directory /usr/local --strip-components 1 --extract --file *.bz2
+
+      - name: Fetch source code
+        run: |
+          git clone --recurse-submodules https://github.com/erikkaashoek/tinySA.git
+
+          echo "GCC_VERSION=$(arm-none-eabi-gcc -dumpversion)" >> $GITHUB_ENV
+          echo "TINYSA_VERSION=$(git -C tinySA describe --tags --long)" >> $GITHUB_ENV
+
+      - name: Get number of CPU cores
+        uses: SimenB/github-actions-cpu-cores@v2
+        id: cpu-cores
+
+      - name: Build firmware
+        run: |
+          echo "Building $TINYSA_VERSION with GCC $GCC_VERSION"
+          cd tinySA
+          make --jobs ${{ steps.cpu-cores.outputs.count }} --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1
+          rm -r build/lst build/obj
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}
+          path: tinySA/build
