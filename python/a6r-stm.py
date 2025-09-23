@@ -41,6 +41,9 @@ class SMTVirtualCOMPort:
     VID = 0x0483  # 1155
     PID = 0x5740  # 22336
 
+    S1P = 0
+    S2P = 1
+
     def __init__(self, device_name: str, verbose: bool = False):
         self.verbose = verbose
 
@@ -189,6 +192,38 @@ class SMTVirtualCOMPort:
 
         print(self._list(pattern))
 
+    def save_sNp(self, port: int, path: str):
+        if self.verbose:
+            print(f'Getting S{port + 1}P data...')
+
+        self.send('frequencies')
+        frequencies = self.receive().split('\n')
+
+        self.send(f'data {port}')
+        values = self.receive().split('\n')
+
+        count = len(frequencies)
+        assert count == len(values)
+        count -= 1
+
+        # Remove empty strings at the end
+        del frequencies[count]
+        del values[count]
+
+        path = self._prepare_filename(path, f's{port + 1}p')
+
+        if self.verbose:
+            print(f'Saving to {path}...')
+
+        with open(path, 'w', encoding='ascii') as f:
+            f.write('!File created by NanoVNA\n# Hz S RI R 50\n')
+
+            for entry in zip(frequencies, values):
+                f.write(entry[0])
+                f.write(' ')
+                f.write(entry[1])
+                f.write('\n')
+
     def _list(self, pattern: str) -> str:
         self.send(f'sd_list {pattern}')
         return self.receive()
@@ -227,6 +262,8 @@ class SMTVirtualCOMPort:
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-1', '--s1p', const='*', help='save S1P', metavar='s1p-file', nargs='?')
+    parser.add_argument('-2', '--s2p', const='*', help='save S2P', metavar='s2p-file', nargs='?')
     parser.add_argument('-C', '--capture', const='*', help='save screen to file', metavar='bmp-file', nargs='?')
     parser.add_argument('-D', '--delete', help='delete files from SD card', metavar='pattern')
     parser.add_argument('-X', '--copy', help='copy files from SD card', metavar='pattern')
@@ -252,6 +289,12 @@ def main():
 
     if args.list:
         device.list(args.list)
+
+    if args.s1p:
+        device.save_sNp(SMTVirtualCOMPort.S1P, args.s1p)
+
+    if args.s2p:
+        device.save_sNp(SMTVirtualCOMPort.S2P, args.s2p)
 
 
 if '__main__' == __name__:
