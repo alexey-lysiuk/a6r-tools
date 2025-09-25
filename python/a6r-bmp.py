@@ -284,7 +284,7 @@ def _create_test_pattern():
         f.write(header)
 
         for i in range(2 ** 16):
-            color = struct.pack('>H', i)
+            color = struct.pack('<H', i)
             f.write(color)
 
         f.write(b'\0\0' * (480 * 320 - 2 ** 16))
@@ -306,8 +306,8 @@ def _print_color_table():
 
 
 def main():
-    # _create_test_pattern()
-    _print_color_table()
+    _create_test_pattern()
+    # _print_color_table()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('files', metavar='bmp-file', type=str, nargs='+')
