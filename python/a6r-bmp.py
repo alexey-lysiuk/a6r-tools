@@ -273,11 +273,7 @@ def convert(filename: str, inplace: bool = False):
     bmpfile.save(filename)
 
 
-def create_test_pattern():
-    # f = open('/Volumes/ramdisk/a6r-tools/data/capture.bmp', 'rb')
-    # header = f.read(14+108)
-    # print(header)
-
+def _create_test_pattern():
     header = b'BMz\xb0\x04\0\0\x00\x00\x00z\x00\x00\x00l\x00\x00\x00\xe0\x01\x00\x00@\x01\x00\x00' \
         b'\x01\x00\x10\x00\x03\x00\x00\x00\x00\xb0\x04\x00\xc4\x0e\x00\x00\xc4\x0e\x00\x00\x00\x00\x00' \
         b'\x00\x00\x00\x00\x00\x00\xf8\x00\x00\xe0\x07\x00\x00\x1f\x00\x00\x00\x00\x00\x00\x00BGRs\x00' \
@@ -294,8 +290,18 @@ def create_test_pattern():
         f.write(b'\0\0' * (480 * 320 - 2 ** 16))
 
 
+def _print_color_table():
+    with open('test-pattern-24bit.bmp', 'rb') as f:
+        f.seek(54)
+
+        for i in range(2 ** 16):
+            color = struct.unpack('3B', f.read(3))
+            print(f'{i:x}: {color[0]:x} {color[1]:x} {color[2]:x}')
+
+
 def main():
-    create_test_pattern()
+    # _create_test_pattern()
+    _print_color_table()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('files', metavar='bmp-file', type=str, nargs='+')
