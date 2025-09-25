@@ -25,10 +25,10 @@
             ]
         },
         {
-            "name": "a6r-stm.py",
+            "name": "a6r-rc.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/python/a6r-stm.py",
+            "program": "${workspaceFolder}/python/a6r-rc.py",
             "console": "internalConsole",
             "args": [
                 "--help"
