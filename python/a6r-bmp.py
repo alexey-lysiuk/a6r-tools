@@ -273,7 +273,30 @@ def convert(filename: str, inplace: bool = False):
     bmpfile.save(filename)
 
 
+def create_test_pattern():
+    # f = open('/Volumes/ramdisk/a6r-tools/data/capture.bmp', 'rb')
+    # header = f.read(14+108)
+    # print(header)
+
+    header = b'BMz\xb0\x04\0\0\x00\x00\x00z\x00\x00\x00l\x00\x00\x00\xe0\x01\x00\x00@\x01\x00\x00' \
+        b'\x01\x00\x10\x00\x03\x00\x00\x00\x00\xb0\x04\x00\xc4\x0e\x00\x00\xc4\x0e\x00\x00\x00\x00\x00' \
+        b'\x00\x00\x00\x00\x00\x00\xf8\x00\x00\xe0\x07\x00\x00\x1f\x00\x00\x00\x00\x00\x00\x00BGRs\x00' \
+        b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
+        b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+    with open('test-pattern.bmp', 'wb') as f:
+        f.write(header)
+
+        for i in range(2 ** 16):
+            color = struct.pack('>H', i)
+            f.write(color)
+
+        f.write(b'\0\0' * (480 * 320 - 2 ** 16))
+
+
 def main():
+    create_test_pattern()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('files', metavar='bmp-file', type=str, nargs='+')
     parser.add_argument('--profile', action='store_true', help='enable profiling')
