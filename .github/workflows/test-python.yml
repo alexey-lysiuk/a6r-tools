@@ -24,6 +24,10 @@ jobs:
           ./python/a6r-prs.py data/*.prs
           ./python/a6r-prs.py data/*.json
 
+      - name: Test a6r-rc.py
+        run: |
+          ./python/a6r-rc.py --help
+
       - name: List Directory
         if: always()
         run: |
