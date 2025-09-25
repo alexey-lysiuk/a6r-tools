@@ -291,12 +291,18 @@ def _create_test_pattern():
 
 
 def _print_color_table():
-    with open('test-pattern-24bit.bmp', 'rb') as f:
-        f.seek(54)
+    # with open('test-pattern-24bit.bmp', 'rb') as f:
+    #     f.seek(54)
 
-        for i in range(2 ** 16):
-            color = struct.unpack('3B', f.read(3))
-            print(f'{i:x}: {color[0]:x} {color[1]:x} {color[2]:x}')
+    #     for i in range(2 ** 16):
+    #         color = struct.unpack('3B', f.read(3))
+    #         print(f'{i:x}: {color[0]:x} {color[1]:x} {color[2]:x}')
+
+    BMPFile._init_color_conversion()
+
+    for i in range(2 ** 16):
+        red, green, blue = BMPFile._COLOR_CONVERSION[i]
+        print(f'{i:x}: {red:x} {green:x} {blue:x}')
 
 
 def main():
