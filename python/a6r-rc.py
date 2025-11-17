@@ -186,6 +186,22 @@ class SMTVirtualCOMPort:
 
         self.send(f'sd_delete {pattern}')
 
+    def write(self, filename: str):
+        if self.verbose:
+            print(f'Writing file {filename} to SD card...')
+
+        with open(filename, 'rb') as f:
+            data = f.read()
+
+        filesize = len(data)
+
+        if filesize == 0:
+            print(f'Skipped empty file {filename}')
+            return
+
+        self.send(f'sd_write {filename} {filesize}')
+        self._device.write(data)
+
     def list(self, pattern: str):
         if self.verbose:
             print(f'Listing files {pattern}...')
@@ -267,6 +283,7 @@ def main():
     parser.add_argument('-C', '--capture', const='*', help='save screen to file', metavar='bmp-file', nargs='?')
     parser.add_argument('-D', '--delete', help='delete files from SD card', metavar='pattern')
     parser.add_argument('-X', '--copy', help='copy files from SD card', metavar='pattern')
+    parser.add_argument('-W', '--write', help='write file to SD card', metavar='file')
     parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
     parser.add_argument('--device', help='specify device explicitly', metavar='device-name')
     parser.add_argument('--verbose', action='store_true', help='enable verbose output')
@@ -286,6 +303,9 @@ def main():
 
     if args.delete:
         device.delete(args.delete)
+
+    if args.write:
+        device.write(args.write)
 
     if args.list:
         device.list(args.list)
