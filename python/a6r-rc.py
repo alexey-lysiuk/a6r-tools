@@ -253,9 +253,9 @@ class SMTVirtualCOMPort:
 
     def _filename_prefix(self):
         if self.is_tinysa_ultra():
-            return 'SA'
+            return 'sa'
         elif self.is_nanovna_fvx():
-            return 'VNA'
+            return 'vna'
         else:
             raise RuntimeError('Invalid device type')
 
