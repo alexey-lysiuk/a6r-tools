@@ -22,6 +22,7 @@ import datetime
 import enum
 import struct
 import sys
+from time import sleep
 
 import serial
 from serial.tools import list_ports
@@ -273,6 +274,7 @@ def main():
     parser.add_argument('-X', '--copy', help='copy files from SD card', metavar='pattern')
     parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
     parser.add_argument('--device', help='specify device explicitly', metavar='device-name')
+    parser.add_argument('--tinysa-unknown-hw', action='store_true')
     parser.add_argument('--verbose', action='store_true', help='enable verbose output')
     parser.add_argument('--version', action='store_true', help='obtain device version information')
     args = parser.parse_args()
@@ -282,6 +284,24 @@ def main():
         return
 
     device = SMTVirtualCOMPort(args.device, args.verbose)
+
+    if args.tinysa_unknown_hw:
+        # device.send('menu 10 4')
+        device.send('menu 10')  # config
+        sleep(0.2)
+        device.send('touch 440 110')  # version
+        sleep(0.2)
+        device.send('release')
+        sleep(0.2)
+
+        device.capture('*')
+        sleep(0.2)
+        device.send('touch 0 0')
+        sleep(0.2)
+        device.send('release')
+        sleep(0.2)
+
+        device.capture('*')
 
     if args.capture:
         device.capture(args.capture)
