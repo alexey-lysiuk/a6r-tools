@@ -224,6 +224,10 @@ class SMTVirtualCOMPort:
                 f.write(entry[1])
                 f.write('\n')
 
+    def version(self):
+        self.send('version')
+        print(self.receive())
+
     def _list(self, pattern: str) -> str:
         self.send(f'sd_list {pattern}')
         return self.receive()
@@ -270,6 +274,7 @@ def main():
     parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
     parser.add_argument('--device', help='specify device explicitly', metavar='device-name')
     parser.add_argument('--verbose', action='store_true', help='enable verbose output')
+    parser.add_argument('--version', action='store_true', help='obtain device version information')
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
@@ -295,6 +300,9 @@ def main():
 
     if args.s2p:
         device.save_sNp(SMTVirtualCOMPort.S2P, args.s2p)
+
+    if args.version:
+        device.version()
 
 
 if '__main__' == __name__:
