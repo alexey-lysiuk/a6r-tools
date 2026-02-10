@@ -8,9 +8,13 @@
         // # R0903: Too few public methods (.../2) (too-few-public-methods)
         // # W0511: TODO ... (fixme)
         "--disable=C0103,C0114,C0115,C0116,R0902,R0903,W0511",
+        "--ignore-paths=^.*/python/serial/.*$",
         "--max-line-length=120"
     ],
     "python.analysis.extraPaths": [
         "${workspaceFolder}/python"
+    ],
+    "python.analysis.ignore": [
+        "${workspaceFolder}/python/serial"
     ]
 }
