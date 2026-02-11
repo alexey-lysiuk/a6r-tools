@@ -38,3 +38,16 @@
  
  //  ts = samplesVBAT[2];
  //  uint16_t vts = (ADC_FULL_SCALE * VREFINT_CAL * ts / (vrefint * ((1<<12)-1)));
+diff --git a/chconf.h b/chconf.h
+index 682a459..d11185e 100644
+--- a/chconf.h
++++ b/chconf.h
+@@ -187,7 +187,7 @@
+  *
+  * @note    The default is @p TRUE.
+  */
+-#define CH_CFG_USE_MUTEXES                  FALSE
++#define CH_CFG_USE_MUTEXES                  TRUE
+ 
+ /**
+  * @brief   Enables recursive behavior on mutexes.
