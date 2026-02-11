@@ -11,6 +11,8 @@ jobs:
       TINYSA_VERSION: ""
 
     steps:
+      - uses: actions/checkout@v5
+
       - name: Install toolchain
         run: |
           wget --quiet https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi.tar.xz
@@ -31,6 +33,7 @@ jobs:
         run: |
           echo "Building $TINYSA_VERSION with GCC $GCC_VERSION"
           cd tinySA
+          patch --strip=1 --input=../.github/workflows/tinysa-adc-lock.diff
           make --jobs ${{ steps.cpu-cores.outputs.count }} --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1
           rm -r build/lst build/obj
 
