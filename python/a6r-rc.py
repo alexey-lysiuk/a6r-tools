@@ -22,6 +22,7 @@ import datetime
 import enum
 import struct
 import sys
+from time import sleep
 
 import serial
 from serial.tools import list_ports
@@ -225,8 +226,38 @@ class SMTVirtualCOMPort:
                 f.write('\n')
 
     def version(self):
-        self.send('version')
-        print(self.receive())
+        for i in range(10_000):
+            self.send('version')
+            response = self.receive()
+
+            if 'Unknown' in response:
+                print(f'{i}> {response}')
+
+            sleep(0.25)
+
+    def adc1(self):
+        with open(self._prepare_filename('*', 'log'), 'w', encoding='ascii') as f:
+            ranges = (
+                (165, 196),   # zs-405
+                (250, 351),   # zs-406
+                (2200, 2300)  # zs-407
+            )
+
+            known = set()
+
+            for r in ranges:
+                known |= set(range(r[0], r[1]))
+
+            for _ in range(10_000):
+                self.send('adc1')
+                response = self.receive()
+                value = int(response.strip())
+
+                if value not in known:
+                    response = f'{value} <- !!!\n'
+
+                f.write(response)
+                sleep(0.1)
 
     def _list(self, pattern: str) -> str:
         self.send(f'sd_list {pattern}')
@@ -272,6 +303,7 @@ def main():
     parser.add_argument('-D', '--delete', help='delete files from SD card', metavar='pattern')
     parser.add_argument('-X', '--copy', help='copy files from SD card', metavar='pattern')
     parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
+    parser.add_argument('--adc1', action='store_true')
     parser.add_argument('--device', help='specify device explicitly', metavar='device-name')
     parser.add_argument('--verbose', action='store_true', help='enable verbose output')
     parser.add_argument('--version', action='store_true', help='obtain device version information')
@@ -282,6 +314,9 @@ def main():
         return
 
     device = SMTVirtualCOMPort(args.device, args.verbose)
+
+    if args.adc1:
+        device.adc1()
 
     if args.capture:
         device.capture(args.capture)
