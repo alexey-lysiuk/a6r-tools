@@ -233,7 +233,7 @@ class SMTVirtualCOMPort:
             if 'Unknown' in response:
                 print(f'{i}> {response}')
 
-            sleep(0.25)
+            sleep(0.1)
 
     def adc1(self):
         with open(self._prepare_filename('*', 'log'), 'w', encoding='ascii') as f:
