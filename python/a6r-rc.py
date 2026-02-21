@@ -230,6 +230,17 @@ class SMTVirtualCOMPort:
             self.send('version')
             response = self.receive()
 
+            if i % 100 == 0 and i > 0:
+                t = i // 1000
+
+                if t == 0:
+                    s = i
+                else:
+                    h = i % 1000 // 100 or ''
+                    s = f'{t}k{h}'
+
+                print(f'{s}...')
+
             if 'Unknown' in response:
                 print(f'{i}> {response}')
 
