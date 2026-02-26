@@ -22,6 +22,7 @@ import datetime
 import enum
 import struct
 import sys
+import time
 
 import serial
 from serial.tools import list_ports
@@ -186,6 +187,22 @@ class SMTVirtualCOMPort:
 
         self.send(f'sd_delete {pattern}')
 
+    @staticmethod
+    def _checksum(data):
+        uint_count = len(data) // 4
+        uints = struct.unpack(f'<{uint_count}I', data)
+
+        checksum = 0
+        mask = (1 << 32) - 1
+
+        for n in uints:
+            checksum = (checksum >> 31) | (checksum << 1)
+            checksum &= mask
+            checksum += n
+            checksum &= mask
+
+        return checksum
+
     def write(self, filename: str):
         if self.verbose:
             print(f'Writing file {filename} to SD card...')
@@ -200,7 +217,21 @@ class SMTVirtualCOMPort:
             return
 
         self.send(f'sd_write {filename} {filesize}')
-        self._device.write(data)
+
+        bytes_to_send = filesize
+        chunk_size = 256
+
+        while bytes_to_send:
+            current_chunk_size = chunk_size if bytes_to_send > chunk_size else bytes_to_send
+            chunk = data[filesize - bytes_to_send:current_chunk_size]
+            self._device.write(chunk)
+            time.sleep(0.01)
+
+            source_checksum = self._checksum(chunk)
+            target_checksum = struct.unpack('<I', self._device.read(4))
+            print(f'{source_checksum} - {target_checksum[0]}')
+
+            bytes_to_send -= current_chunk_size
 
     def list(self, pattern: str):
         if self.verbose:
