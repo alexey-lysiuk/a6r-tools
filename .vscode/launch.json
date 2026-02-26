@@ -27,6 +27,19 @@
             ]
         },
         {
+            "name": "a6r-sanitize-prs.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/a6r-sanitize-prs.py",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}/data",
+            "args": [
+                "--markers=6",
+                "startup.prs",
+                "multi-band.prs",
+            ]
+        },
+        {
             "name": "a6r-rc.py",
             "type": "debugpy",
             "request": "launch",
