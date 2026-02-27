@@ -223,9 +223,11 @@ class SMTVirtualCOMPort:
 
         while bytes_to_send:
             current_chunk_size = chunk_size if bytes_to_send > chunk_size else bytes_to_send
-            chunk = data[filesize - bytes_to_send:current_chunk_size]
+            start = filesize - bytes_to_send
+            end = start + current_chunk_size
+            chunk = data[start:end]
             self._device.write(chunk)
-            time.sleep(0.01)
+            # time.sleep(0.01)
 
             source_checksum = self._checksum(chunk)
             target_checksum = struct.unpack('<I', self._device.read(4))
