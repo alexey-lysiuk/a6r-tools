@@ -22,7 +22,7 @@ import datetime
 import enum
 import struct
 import sys
-import time
+# import time
 
 import serial
 from serial.tools import list_ports
