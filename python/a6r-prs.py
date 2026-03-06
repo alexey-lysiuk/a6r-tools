@@ -549,8 +549,6 @@ def convert(path: str):
 
         with open(path_noext + '.prs', 'wb') as f:
             f.write(binary)
-    else:
-        assert False
 
 
 def main():
