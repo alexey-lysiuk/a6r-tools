@@ -17,11 +17,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import argparse
 import io
 import json
 import os
 import struct
-import sys
 import typing
 
 _TEXT_ENCODING = 'latin_1'
@@ -551,13 +551,81 @@ def convert(path: str):
             f.write(binary)
 
 
-def main():
-    if len(sys.argv) == 1:
-        print(f'Usage: {sys.argv[0]} .prs ...')
-        sys.exit(1)
+def update(path: str, args):
+    with open(path, 'rb') as f:
+        preset = Preset()
+        preset.from_binary(f)
 
-    for path in sys.argv[1:]:
-        convert(path)
+    markers = args.markers
+
+    if markers is not None:
+        markers = max(0, min(markers, Preset.MARKERS_MAX))
+        start_frequency = preset.frequency0
+
+        for band in preset.bands:
+            if band.enabled:
+                start_frequency = band.start
+                break
+
+        for i in range(Preset.MARKERS_MAX):
+            if i < markers:
+                marker = preset.markers[i]
+                marker.mtype = Enums.M_TRACKING
+                marker.enabled = True
+                marker.ref = 0
+                marker.trace = 3 if i > 0 else 0
+                marker.index = 0
+                marker.frequency = start_frequency
+            else:
+                preset.markers[i] = Marker()
+
+    waterfall = args.waterfall
+
+    if waterfall is not None:
+        preset.waterfall = max(Enums.W_OFF, min(waterfall, Enums.W_SUPER))
+
+    name = args.name
+
+    if name is None:
+        name = ''
+
+    preset.active_marker = 0
+    preset.actual_sweep_time_us = 0
+    preset.preset_name = name
+    preset.scan_after_dirty = [0 for _ in range(Preset.TRACES_MAX)]
+
+    with open(path, 'wb') as f:
+        stream = io.BytesIO()
+        preset.to_binary(stream)
+        f.write(stream.getbuffer())
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('paths', metavar='path', type=str, nargs='*', help='path to preset file')
+
+    command_group = parser.add_mutually_exclusive_group()
+    command_group.add_argument('-C', '--convert', action='store_true', help='convert presets from/to binary format')
+    command_group.add_argument('-U', '--update', action='store_true', help='update presets in binary format')
+
+    parser.add_argument('-M', '--markers', metavar='count', type=int,
+                         help=f'number of markers, 0..{Preset.MARKERS_MAX}')
+    parser.add_argument('-N', '--name', type=str,
+                         help=f'preset name, up to {Preset.PRESET_NAME_LENGTH} characters')
+    parser.add_argument('-W', '--waterfall', metavar='number', type=int,
+                         help=f'waterfall height, {Enums.W_OFF}..{Enums.W_SUPER}')
+
+    args = parser.parse_args()
+    paths = args.paths
+
+    if len(paths) == 0:
+        parser.print_help()
+    elif args.update:
+        for path in paths:
+            update(path, args)
+    else:
+        for path in paths:
+            convert(path)
 
 
 if '__main__' == __name__:
