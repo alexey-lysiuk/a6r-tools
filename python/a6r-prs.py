@@ -198,7 +198,7 @@ class Marker(Struct):
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L937-L944
         self.mtype = 0  # uint8_t
-        self.enabled = 0  # uint8_t
+        self.enabled = False  # uint8_t
         self.ref = 0  # uint8_t
         self.trace = 0  # uint8_t
         self.index = 0  # uint8_t
@@ -214,7 +214,7 @@ class Marker(Struct):
 class Limit(Struct):
     def __init__(self):
         # https://github.com/erikkaashoek/tinySA/blob/26e33a0d9c367a3e1ca71463e80fd2118c3e9ea7/nanovna.h#L953-L958
-        self.enabled = 0  # uint8_t
+        self.enabled = False  # uint8_t
         self.level = 0.0  # float
         self.frequency = 0  # # freq_t (uint64_t)
         self.index = 0  # int16_t
@@ -509,8 +509,8 @@ class Preset(Struct):
 
 
 class _Formats:
-    MARKER = '<5B3xQ'
-    LIMIT = '<B3xfQh6x'
+    MARKER = '<B?3B3xQ'
+    LIMIT = '<?3xfQh6x'
     BAND = '<9s?6x2Qf2i4x'
     MAGIC = '<I'
     PRESET_1 = '<8?'
