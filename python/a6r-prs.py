@@ -527,7 +527,7 @@ class _Formats:
 def convert(path: str):
     preset = Preset()
 
-    if path.endswith('.prs'):
+    if path.lower().endswith('.prs'):
         with open(path, 'rb') as f:
             preset.from_binary(f)
 
@@ -537,7 +537,7 @@ def convert(path: str):
         with open(path_noext + '.json', 'w', encoding=_TEXT_ENCODING) as f:
             f.write(text)
             f.write('\n')
-    elif path.endswith('.json'):
+    else:
         stream = io.BytesIO()
 
         with open(path, encoding=_TEXT_ENCODING) as f:
