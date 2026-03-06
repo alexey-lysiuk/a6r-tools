@@ -184,7 +184,7 @@
     "markers": [
         {
             "mtype": 32,
-            "enabled": 1,
+            "enabled": true,
             "ref": 0,
             "trace": 0,
             "index": 144,
@@ -192,7 +192,7 @@
         },
         {
             "mtype": 0,
-            "enabled": 1,
+            "enabled": true,
             "ref": 0,
             "trace": 1,
             "index": 215,
@@ -200,7 +200,7 @@
         },
         {
             "mtype": 32,
-            "enabled": 1,
+            "enabled": true,
             "ref": 0,
             "trace": 2,
             "index": 158,
@@ -208,7 +208,7 @@
         },
         {
             "mtype": 48,
-            "enabled": 1,
+            "enabled": true,
             "ref": 0,
             "trace": 2,
             "index": 0,
@@ -216,7 +216,7 @@
         },
         {
             "mtype": 32,
-            "enabled": 1,
+            "enabled": true,
             "ref": 0,
             "trace": 3,
             "index": 158,
@@ -224,7 +224,7 @@
         },
         {
             "mtype": 36,
-            "enabled": 1,
+            "enabled": true,
             "ref": 0,
             "trace": 3,
             "index": 0,
@@ -232,7 +232,7 @@
         },
         {
             "mtype": 34,
-            "enabled": 1,
+            "enabled": true,
             "ref": 4,
             "trace": 3,
             "index": 0,
@@ -240,7 +240,7 @@
         },
         {
             "mtype": 34,
-            "enabled": 1,
+            "enabled": true,
             "ref": 7,
             "trace": 3,
             "index": 0,
@@ -250,25 +250,25 @@
     "limits": [
         [
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
@@ -276,25 +276,25 @@
         ],
         [
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
@@ -302,25 +302,25 @@
         ],
         [
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
@@ -328,25 +328,25 @@
         ],
         [
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
@@ -354,25 +354,25 @@
         ],
         [
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
@@ -380,25 +380,25 @@
         ],
         [
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
@@ -406,25 +406,25 @@
         ],
         [
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
@@ -432,25 +432,25 @@
         ],
         [
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
             },
             {
-                "enabled": 0,
+                "enabled": false,
                 "level": 0.0,
                 "frequency": 0,
                 "index": 0
