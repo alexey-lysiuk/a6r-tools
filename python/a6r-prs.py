@@ -579,6 +579,11 @@ def update(path: str, args):
             else:
                 preset.markers[i] = Marker()
 
+    reflevel = args.reflevel
+
+    if reflevel is not None:
+        preset.reflevel = reflevel
+
     waterfall = args.waterfall
 
     if waterfall is not None:
@@ -610,6 +615,8 @@ def main():
 
     parser.add_argument('-M', '--markers', metavar='count', type=int,
                          help=f'number of markers, 0..{Preset.MARKERS_MAX}')
+    parser.add_argument('-R', '--reflevel', metavar='number', type=float,
+                         help='trace reference level')
     parser.add_argument('-N', '--name', type=str,
                          help=f'preset name, up to {Preset.PRESET_NAME_LENGTH} characters')
     parser.add_argument('-W', '--waterfall', metavar='number', type=int,
