@@ -579,6 +579,11 @@ def update(path: str, args):
             else:
                 preset.markers[i] = Marker()
 
+    name = args.name
+
+    if name is not None:
+        preset.preset_name = name
+
     reflevel = args.reflevel
 
     if reflevel is not None:
@@ -589,11 +594,7 @@ def update(path: str, args):
     if waterfall is not None:
         preset.waterfall = max(Enums.W_OFF, min(waterfall, Enums.W_SUPER))
 
-    name = args.name
-
-    if name is not None:
-        preset.preset_name = name
-
+    # Reset transient members
     preset.active_marker = 0
     preset.actual_sweep_time_us = 0
     preset.scan_after_dirty = [0 for _ in range(Preset.TRACES_MAX)]
@@ -614,10 +615,10 @@ def main():
 
     parser.add_argument('-M', '--markers', metavar='count', type=int,
                          help=f'number of markers, 0..{Preset.MARKERS_MAX}')
-    parser.add_argument('-R', '--reflevel', metavar='number', type=float,
-                         help='trace reference level')
     parser.add_argument('-N', '--name', type=str,
                          help=f'preset name, up to {Preset.PRESET_NAME_LENGTH} characters')
+    parser.add_argument('-R', '--reflevel', metavar='number', type=float,
+                         help='trace reference level')
     parser.add_argument('-W', '--waterfall', metavar='number', type=int,
                          help=f'waterfall height, {Enums.W_OFF}..{Enums.W_SUPER}')
 
