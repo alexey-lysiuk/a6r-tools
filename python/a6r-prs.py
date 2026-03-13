@@ -591,12 +591,11 @@ def update(path: str, args):
 
     name = args.name
 
-    if name is None:
-        name = ''
+    if name is not None:
+        preset.preset_name = name
 
     preset.active_marker = 0
     preset.actual_sweep_time_us = 0
-    preset.preset_name = name
     preset.scan_after_dirty = [0 for _ in range(Preset.TRACES_MAX)]
 
     with open(path, 'wb') as f:
