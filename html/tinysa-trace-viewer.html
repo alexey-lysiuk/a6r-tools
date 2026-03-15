@@ -320,9 +320,6 @@
                 tick:          '#7890a8',
                 axisLabel:     '#b0b8c8',
                 plotBorder:    '#334466',
-                legendBg:      'rgba(10,20,40,0.75)',
-                legendBorder:  '#334466',
-                legendText:    '#b0b8c8',
                 chartTitle:    '#607090',
                 crosshair:     'rgba(255,255,255,0.45)',
                 bandSeparator: 'rgba(160,200,255,0.40)',
@@ -333,9 +330,6 @@
                 tick:          '#607080',
                 axisLabel:     '#404860',
                 plotBorder:    '#8090a8',
-                legendBg:      'rgba(240,242,245,0.90)',
-                legendBorder:  '#8090a8',
-                legendText:    '#404860',
                 chartTitle:    '#6080a0',
                 crosshair:     'rgba(0,0,0,0.35)',
                 bandSeparator: 'rgba(20,50,120,0.28)',
@@ -761,46 +755,6 @@
             ctx.textAlign    = 'center';
             ctx.textBaseline = 'top';
             ctx.fillText(filename, PAD_LEFT + plotW / 2, 6);
-
-            /* ── Legend (only when more than one trace is visible) ── */
-            const visTraceIndices = [];
-            for (let i = 0; i < traces.length; i++) {
-                if (traceVisible[i]) visTraceIndices.push(i);
-            }
-            if (visTraceIndices.length > 1) {
-                const lineLen   = 18;
-                const gap       = 4;
-                const labelW    = 52;  // width of "Trace X" in 11px font
-                const itemH     = 18;
-                const legW      = lineLen + gap + labelW + 12;
-                const legH      = visTraceIndices.length * itemH + 8;
-                const lx        = PAD_LEFT + plotW - legW - 6;
-                const ly        = PAD_TOP + 8;
-
-                /* semi-transparent background box */
-                ctx.fillStyle = th.legendBg;
-                ctx.fillRect(lx, ly, legW, legH);
-                ctx.strokeStyle = th.legendBorder;
-                ctx.lineWidth   = 1;
-                ctx.strokeRect(lx + 0.5, ly + 0.5, legW, legH);
-
-                for (let row = 0; row < visTraceIndices.length; row++) {
-                    const ti = visTraceIndices[row];
-                    const y = ly + 4 + row * itemH;
-                    ctx.strokeStyle = traceColors[ti];
-                    ctx.lineWidth   = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(lx + 6,              y + itemH / 2);
-                    ctx.lineTo(lx + 6 + lineLen,    y + itemH / 2);
-                    ctx.stroke();
-
-                    ctx.fillStyle    = th.legendText;
-                    ctx.font         = '11px sans-serif';
-                    ctx.textAlign    = 'left';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('Trace ' + (ti + 1), lx + 6 + lineLen + gap, y + itemH / 2);
-                }
-            }
 
             /* ── Store layout for tooltip ── */
             canvas._layout = { xScale, yScale, plotW, plotH, yMin, yMax };
