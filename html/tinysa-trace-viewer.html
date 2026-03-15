@@ -223,6 +223,11 @@
             padding: 8px;
         }
 
+        .chart-wrapper.drag-over {
+            border-color: #ffd700;
+            box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.35);
+        }
+
         #chart {
             display: block;
             width: 100%;
@@ -433,6 +438,32 @@
         fileInput.addEventListener('change', () => {
             const file = fileInput.files[0];
             if (!file) return;
+            loadFile(file);
+        });
+
+        /* ── Drag-and-drop on chart wrapper ─────────────────────────────────── */
+        wrapper.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            wrapper.classList.add('drag-over');
+        });
+        wrapper.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            wrapper.classList.add('drag-over');
+        });
+        wrapper.addEventListener('dragleave', () => {
+            wrapper.classList.remove('drag-over');
+        });
+        wrapper.addEventListener('drop', (e) => {
+            e.preventDefault();
+            wrapper.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            loadFile(file);
+        });
+
+        window.addEventListener('resize', () => { if (chartData) drawChart(); });
+
+        function loadFile(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -449,9 +480,7 @@
                 }
             };
             reader.readAsText(file);
-        });
-
-        window.addEventListener('resize', () => { if (chartData) drawChart(); });
+        }
 
         function showMessage(text) {
             messageEl.textContent = text;
