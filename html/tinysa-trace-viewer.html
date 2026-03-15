@@ -575,10 +575,19 @@
             const plotW = cssW - PAD_LEFT - PAD_RIGHT;
             const plotH = cssH - PAD_TOP  - PAD_BOTTOM;
 
-            /* ── Data ranges ── */
-            const freqMin = frequencies[0];
-            const freqMax = frequencies[frequencies.length - 1];
+            /* ── Band list (built first so xScale can be band-aware) ── */
+            const n  = frequencies.length;
+            const bands = [];
+            {
+                let bandStart = 0;
+                for (const bi of [...bandBoundaries].sort((a, b) => a - b)) {
+                    bands.push({ start: bandStart, end: bi });
+                    bandStart = bi + 1;
+                }
+                bands.push({ start: bandStart, end: n - 1 });
+            }
 
+            /* ── Data ranges ── */
             const allDbm = traces.flatMap((t, i) => traceVisible[i] ? t : []);
             const dbmForAxisRange = allDbm.length > 0 ? allDbm : traces.flat();
             const rawMin = Math.min(...dbmForAxisRange);
@@ -595,8 +604,38 @@
             const yMin = manualScale !== null ? yMax - step * 10
                                               : Math.floor(rawMin / step) * step;
 
-            /* ── Coordinate transforms ── */
-            const xScale = (f)   => PAD_LEFT + (f - freqMin) / (freqMax - freqMin) * plotW;
+            /* ── Band-aware X scale ── */
+            /* Only the measured frequency ranges contribute to plotW; gaps are
+               excluded entirely so no blank space appears between bands. */
+            const totalBandSpan = bands.reduce(
+                (sum, { start, end }) => sum + Math.max(0, frequencies[end] - frequencies[start]), 0
+            );
+            const bandPixelStart = [];
+            const bandPixelWidth = [];
+            {
+                let cumPx = 0;
+                for (const { start, end } of bands) {
+                    bandPixelStart.push(cumPx);
+                    const bPxW = totalBandSpan > 0
+                        ? (frequencies[end] - frequencies[start]) / totalBandSpan * plotW
+                        : plotW;
+                    bandPixelWidth.push(bPxW);
+                    cumPx += bPxW;
+                }
+            }
+            const xScale = (f) => {
+                for (let bi = 0; bi < bands.length; bi++) {
+                    const { start, end } = bands[bi];
+                    const bMin = frequencies[start];
+                    const bMax = frequencies[end];
+                    if (bi === bands.length - 1 || f <= bMax + 1e-9) {
+                        const bSpan = bMax - bMin;
+                        return PAD_LEFT + bandPixelStart[bi] +
+                               (bSpan > 0 ? (f - bMin) / bSpan * bandPixelWidth[bi] : 0);
+                    }
+                }
+                return PAD_LEFT + plotW;
+            };
             const yScale = (dbm) => PAD_TOP  + (yMax - dbm)  / (yMax   - yMin)     * plotH;
 
             /* ── Clear ── */
@@ -623,22 +662,31 @@
                 ctx.fillText(v.toFixed(0) + ' dBm', PAD_LEFT - 6, y);
             }
 
-            /* ── Grid + X-axis ticks ── */
-            const xTicks = niceFreqTicks(freqMin, freqMax, 10);
+            /* ── Grid + X-axis ticks (one set of ticks per band) ── */
             ctx.textAlign    = 'center';
             ctx.textBaseline = 'top';
 
-            for (const f of xTicks) {
-                const x = Math.round(xScale(f)) + 0.5;
-                ctx.strokeStyle = th.grid;
-                ctx.lineWidth   = 1;
-                ctx.beginPath();
-                ctx.moveTo(x, PAD_TOP);
-                ctx.lineTo(x, PAD_TOP + plotH);
-                ctx.stroke();
+            for (let bi = 0; bi < bands.length; bi++) {
+                const { start, end } = bands[bi];
+                const bMin  = frequencies[start];
+                const bMax  = frequencies[end];
+                const bPxW  = totalBandSpan > 0
+                    ? (bMax - bMin) / totalBandSpan * plotW
+                    : plotW;
+                const tickCount = Math.max(2, Math.round(10 * bPxW / plotW));
+                const xTicks = niceFreqTicks(bMin, bMax, tickCount);
+                for (const f of xTicks) {
+                    const x = Math.round(xScale(f)) + 0.5;
+                    ctx.strokeStyle = th.grid;
+                    ctx.lineWidth   = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, PAD_TOP);
+                    ctx.lineTo(x, PAD_TOP + plotH);
+                    ctx.stroke();
 
-                ctx.fillStyle = th.tick;
-                ctx.fillText(formatFreq(f), x, PAD_TOP + plotH + 6);
+                    ctx.fillStyle = th.tick;
+                    ctx.fillText(formatFreq(f), x, PAD_TOP + plotH + 6);
+                }
             }
 
             /* ── Plot border ── */
@@ -651,17 +699,7 @@
             ctx.rect(PAD_LEFT, PAD_TOP, plotW, plotH);
             ctx.clip();
 
-            const n  = frequencies.length;
             const px = frequencies.map(f => xScale(f));
-
-            /* Split the index range into contiguous per-band segments */
-            const bands = [];
-            let bandStart = 0;
-            for (const bi of [...bandBoundaries].sort((a, b) => a - b)) {
-                bands.push({ start: bandStart, end: bi });
-                bandStart = bi + 1;
-            }
-            bands.push({ start: bandStart, end: n - 1 });
 
             for (let ti = 0; ti < traces.length; ti++) {
                 if (!traceVisible[ti]) continue;
@@ -687,13 +725,12 @@
             }
 
             /* ── Band separator lines ── */
-            if (bandBoundaries.size > 0) {
+            if (bands.length > 1) {
                 ctx.strokeStyle = th.bandSeparator;
                 ctx.lineWidth   = 1;
                 ctx.setLineDash([5, 4]);
-                for (const bi of bandBoundaries) {
-                    const xMid = (xScale(frequencies[bi]) + xScale(frequencies[bi + 1])) / 2;
-                    const x = Math.round(xMid) + 0.5;
+                for (let bi = 0; bi < bands.length - 1; bi++) {
+                    const x = Math.round(xScale(frequencies[bands[bi].end])) + 0.5;
                     ctx.beginPath();
                     ctx.moveTo(x, PAD_TOP);
                     ctx.lineTo(x, PAD_TOP + plotH);
@@ -766,7 +803,7 @@
             }
 
             /* ── Store layout for tooltip ── */
-            canvas._layout = { xScale, yScale, plotW, plotH, freqMin, freqMax, yMin, yMax };
+            canvas._layout = { xScale, yScale, plotW, plotH, yMin, yMax };
 
             /* ── Re-apply crosshair after full redraw (e.g. resize / theme change) ── */
             drawCrosshair(hoveredIdx);
@@ -775,7 +812,7 @@
         /* ── Tooltip on mouse move ──────────────────────────────────────────── */
         canvas.addEventListener('mousemove', (e) => {
             if (!chartData || !canvas._layout) return;
-            const { xScale, yScale, plotW, plotH, freqMin, freqMax } = canvas._layout;
+            const { xScale, yScale, plotW, plotH } = canvas._layout;
             const { frequencies, traces } = chartData;
 
             const rect = canvas.getBoundingClientRect();
@@ -790,13 +827,13 @@
                 return;
             }
 
-            /* Find closest frequency index */
-            const frac = (mx - PAD_LEFT) / plotW;
-            const fVal = freqMin + frac * (freqMax - freqMin);
+            /* Find closest frequency index by pixel-x distance.
+               This works correctly with the band-aware xScale where the
+               inter-band gaps are collapsed and contribute no plot width. */
             let idx = 0;
             let bestDist = Infinity;
             for (let i = 0; i < frequencies.length; i++) {
-                const d = Math.abs(frequencies[i] - fVal);
+                const d = Math.abs(xScale(frequencies[i]) - mx);
                 if (d < bestDist) { bestDist = d; idx = i; }
             }
 
