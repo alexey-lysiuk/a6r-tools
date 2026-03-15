@@ -9,10 +9,49 @@
             box-sizing: border-box;
         }
 
+        /* ── Theme variables ────────────────────────────────────────────────── */
+        :root {
+            --body-bg:        #1a1a2e;
+            --text:           #e0e0e0;
+            --heading:        #a0c4ff;
+            --label:          #b0b8c8;
+            --input-bg:       #16213e;
+            --input-border:   #334455;
+            --input-text:     #e0e0e0;
+            --btn-bg:         #0f3460;
+            --btn-text:       #a0c4ff;
+            --btn-hover:      #1a5276;
+            --error:          #f08080;
+            --wrapper-bg:     #16213e;
+            --wrapper-border: #334455;
+            --tooltip-bg:     rgba(10, 20, 40, 0.92);
+            --tooltip-border: #446688;
+            --tooltip-text:   #d0dce8;
+        }
+
+        body.light {
+            --body-bg:        #f0f2f5;
+            --text:           #303848;
+            --heading:        #1a3a6e;
+            --label:          #404860;
+            --input-bg:       #ffffff;
+            --input-border:   #b0bcc8;
+            --input-text:     #303848;
+            --btn-bg:         #3060a0;
+            --btn-text:       #ffffff;
+            --btn-hover:      #204080;
+            --error:          #c02020;
+            --wrapper-bg:     #ffffff;
+            --wrapper-border: #b0bcc8;
+            --tooltip-bg:     rgba(240, 242, 245, 0.95);
+            --tooltip-border: #8090a8;
+            --tooltip-text:   #303848;
+        }
+
         body {
             font-family: sans-serif;
-            background: #1a1a2e;
-            color: #e0e0e0;
+            background: var(--body-bg);
+            color: var(--text);
             margin: 0;
             padding: 16px;
         }
@@ -20,7 +59,7 @@
         h1 {
             font-size: 1.4rem;
             margin: 0 0 16px;
-            color: #a0c4ff;
+            color: var(--heading);
         }
 
         .toolbar {
@@ -31,16 +70,23 @@
             flex-wrap: wrap;
         }
 
+        .toolbar-sep {
+            width: 1px;
+            height: 24px;
+            background: var(--input-border);
+            flex-shrink: 0;
+        }
+
         label[for="fileInput"] {
             font-size: 0.9rem;
-            color: #b0b8c8;
+            color: var(--label);
         }
 
         input[type="file"] {
             font-size: 0.85rem;
-            color: #e0e0e0;
-            background: #16213e;
-            border: 1px solid #334;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
             border-radius: 4px;
             padding: 4px 8px;
             cursor: pointer;
@@ -48,8 +94,8 @@
 
         input[type="file"]::-webkit-file-upload-button,
         input[type="file"]::file-selector-button {
-            background: #0f3460;
-            color: #a0c4ff;
+            background: var(--btn-bg);
+            color: var(--btn-text);
             border: none;
             border-radius: 3px;
             padding: 4px 10px;
@@ -59,20 +105,68 @@
 
         input[type="file"]::-webkit-file-upload-button:hover,
         input[type="file"]::file-selector-button:hover {
-            background: #1a5276;
+            background: var(--btn-hover);
         }
 
         #message {
             font-size: 0.85rem;
-            color: #f08080;
+            color: var(--error);
             min-height: 1.2em;
+        }
+
+        /* ── Theme toggle button ────────────────────────────────────────────── */
+        #themeBtn {
+            font-size: 0.82rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #themeBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        /* ── Trace colour pickers ───────────────────────────────────────────── */
+        .color-pickers {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-pickers > span {
+            font-size: 0.82rem;
+            color: var(--label);
+        }
+
+        .cp-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            color: var(--label);
+            cursor: pointer;
+        }
+
+        .cp-item input[type="color"] {
+            width: 28px;
+            height: 22px;
+            padding: 1px 2px;
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            background: var(--input-bg);
+            cursor: pointer;
         }
 
         .chart-wrapper {
             position: relative;
             width: 100%;
-            background: #16213e;
-            border: 1px solid #334;
+            background: var(--wrapper-bg);
+            border: 1px solid var(--wrapper-border);
             border-radius: 6px;
             padding: 8px;
         }
@@ -85,12 +179,12 @@
 
         #tooltip {
             position: absolute;
-            background: rgba(10, 20, 40, 0.92);
-            border: 1px solid #446;
+            background: var(--tooltip-bg);
+            border: 1px solid var(--tooltip-border);
             border-radius: 4px;
             padding: 6px 10px;
             font-size: 0.78rem;
-            color: #d0dce8;
+            color: var(--tooltip-text);
             pointer-events: none;
             white-space: nowrap;
             display: none;
@@ -104,6 +198,26 @@
         <label for="fileInput">Load trace file (.csv):</label>
         <input type="file" id="fileInput" accept=".csv">
         <span id="message"></span>
+
+        <div class="toolbar-sep"></div>
+        <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
+
+        <div class="toolbar-sep"></div>
+        <div class="color-pickers">
+            <span>Trace colors:</span>
+            <label class="cp-item" title="Trace 1 color" aria-label="Trace 1 color picker">
+                1 <input type="color" id="color0" value="#ffcc00">
+            </label>
+            <label class="cp-item" title="Trace 2 color" aria-label="Trace 2 color picker">
+                2 <input type="color" id="color1" value="#44dd44">
+            </label>
+            <label class="cp-item" title="Trace 3 color" aria-label="Trace 3 color picker">
+                3 <input type="color" id="color2" value="#ff44cc">
+            </label>
+            <label class="cp-item" title="Trace 4 color" aria-label="Trace 4 color picker">
+                4 <input type="color" id="color3" value="#ff4444">
+            </label>
+        </div>
     </div>
 
     <div class="chart-wrapper" id="chartWrapper">
@@ -114,13 +228,39 @@
     <script>
         'use strict';
 
-        /* ── Colour palette for up to 4 traces ─────────────────────────────── */
-        const TRACE_COLORS = [
-            '#64b4ff',
-            '#ff8264',
-            '#64dc82',
-            '#ffd250',
-        ];
+        /* ── Default trace colours (yellow, light green, magenta, red) ─────── */
+        const DEFAULT_TRACE_COLORS = ['#ffcc00', '#44dd44', '#ff44cc', '#ff4444'];
+
+        /* Mutable per-trace colours, kept in sync with the colour pickers */
+        const traceColors = DEFAULT_TRACE_COLORS.slice();
+
+        /* ── Canvas theme palettes ──────────────────────────────────────────── */
+        const THEMES = {
+            dark: {
+                canvasBg:     '#16213e',
+                grid:         'rgba(255,255,255,0.07)',
+                tick:         '#7890a8',
+                axisLabel:    '#b0b8c8',
+                plotBorder:   '#334466',
+                legendBg:     'rgba(10,20,40,0.75)',
+                legendBorder: '#334466',
+                legendText:   '#b0b8c8',
+                chartTitle:   '#607090',
+            },
+            light: {
+                canvasBg:     '#ffffff',
+                grid:         'rgba(0,0,0,0.07)',
+                tick:         '#607080',
+                axisLabel:    '#404860',
+                plotBorder:   '#8090a8',
+                legendBg:     'rgba(240,242,245,0.90)',
+                legendBorder: '#8090a8',
+                legendText:   '#404860',
+                chartTitle:   '#6080a0',
+            },
+        };
+
+        let currentTheme = 'dark';
 
         /* ── DOM references ─────────────────────────────────────────────────── */
         const fileInput  = document.getElementById('fileInput');
@@ -128,6 +268,30 @@
         const canvas     = document.getElementById('chart');
         const tooltip    = document.getElementById('tooltip');
         const wrapper    = document.getElementById('chartWrapper');
+        const themeBtn   = document.getElementById('themeBtn');
+
+        /* ── Theme toggle ───────────────────────────────────────────────────── */
+        themeBtn.addEventListener('click', () => {
+            if (currentTheme === 'dark') {
+                currentTheme = 'light';
+                document.body.classList.add('light');
+                themeBtn.textContent = '🌙 Dark';
+            } else {
+                currentTheme = 'dark';
+                document.body.classList.remove('light');
+                themeBtn.textContent = '☀ Light';
+            }
+            if (chartData) drawChart();
+        });
+
+        /* ── Colour picker sync ─────────────────────────────────────────────── */
+        for (let i = 0; i < DEFAULT_TRACE_COLORS.length; i++) {
+            const picker = document.getElementById('color' + i);
+            picker.addEventListener('input', () => {
+                traceColors[i] = picker.value;
+                if (chartData) drawChart();
+            });
+        }
 
         /* ── Chart state ────────────────────────────────────────────────────── */
         let chartData = null;   // { frequencies, traces, filename }
@@ -216,7 +380,8 @@
 
         function drawChart() {
             const { frequencies, traces, filename } = chartData;
-            const dpr = window.devicePixelRatio || 1;
+            const th   = THEMES[currentTheme];
+            const dpr  = window.devicePixelRatio || 1;
 
             /* Size the canvas to fill the wrapper */
             const cssW = wrapper.clientWidth - 16; // 8px padding each side
@@ -251,14 +416,14 @@
             ctx.clearRect(0, 0, cssW, cssH);
 
             /* ── Background ── */
-            ctx.fillStyle = '#16213e';
+            ctx.fillStyle = th.canvasBg;
             ctx.fillRect(0, 0, cssW, cssH);
 
             /* ── Grid + Y-axis ticks ── */
-            ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+            ctx.strokeStyle = th.grid;
             ctx.lineWidth   = 1;
             ctx.font        = '11px sans-serif';
-            ctx.fillStyle   = '#7890a8';
+            ctx.fillStyle   = th.tick;
             ctx.textAlign   = 'right';
             ctx.textBaseline = 'middle';
 
@@ -278,19 +443,19 @@
 
             for (const f of xTicks) {
                 const x = Math.round(xScale(f)) + 0.5;
-                ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+                ctx.strokeStyle = th.grid;
                 ctx.lineWidth   = 1;
                 ctx.beginPath();
                 ctx.moveTo(x, PAD_TOP);
                 ctx.lineTo(x, PAD_TOP + plotH);
                 ctx.stroke();
 
-                ctx.fillStyle = '#7890a8';
+                ctx.fillStyle = th.tick;
                 ctx.fillText(formatFreq(f), x, PAD_TOP + plotH + 6);
             }
 
             /* ── Plot border ── */
-            ctx.strokeStyle = '#334466';
+            ctx.strokeStyle = th.plotBorder;
             ctx.lineWidth   = 1;
             ctx.strokeRect(PAD_LEFT + 0.5, PAD_TOP + 0.5, plotW, plotH);
 
@@ -301,7 +466,7 @@
 
             for (let ti = 0; ti < traces.length; ti++) {
                 const trace = traces[ti];
-                ctx.strokeStyle = TRACE_COLORS[ti];
+                ctx.strokeStyle = traceColors[ti];
                 ctx.lineWidth   = 1.5;
                 ctx.beginPath();
                 for (let i = 0; i < frequencies.length; i++) {
@@ -316,7 +481,7 @@
             ctx.restore();
 
             /* ── Axis labels ── */
-            ctx.fillStyle    = '#b0b8c8';
+            ctx.fillStyle    = th.axisLabel;
             ctx.font         = '12px sans-serif';
             ctx.textAlign    = 'center';
             ctx.textBaseline = 'bottom';
@@ -330,7 +495,7 @@
             ctx.restore();
 
             /* ── File name title ── */
-            ctx.fillStyle    = '#607090';
+            ctx.fillStyle    = th.chartTitle;
             ctx.font         = '11px sans-serif';
             ctx.textAlign    = 'center';
             ctx.textBaseline = 'top';
@@ -348,22 +513,22 @@
                 const ly        = PAD_TOP + 8;
 
                 /* semi-transparent background box */
-                ctx.fillStyle = 'rgba(10, 20, 40, 0.75)';
+                ctx.fillStyle = th.legendBg;
                 ctx.fillRect(lx, ly, legW, legH);
-                ctx.strokeStyle = '#334466';
+                ctx.strokeStyle = th.legendBorder;
                 ctx.lineWidth   = 1;
                 ctx.strokeRect(lx + 0.5, ly + 0.5, legW, legH);
 
                 for (let ti = 0; ti < traces.length; ti++) {
                     const y = ly + 4 + ti * itemH;
-                    ctx.strokeStyle = TRACE_COLORS[ti];
+                    ctx.strokeStyle = traceColors[ti];
                     ctx.lineWidth   = 2;
                     ctx.beginPath();
                     ctx.moveTo(lx + 6,              y + itemH / 2);
                     ctx.lineTo(lx + 6 + lineLen,    y + itemH / 2);
                     ctx.stroke();
 
-                    ctx.fillStyle    = '#b0b8c8';
+                    ctx.fillStyle    = th.legendText;
                     ctx.font         = '11px sans-serif';
                     ctx.textAlign    = 'left';
                     ctx.textBaseline = 'middle';
@@ -404,7 +569,7 @@
             let html = '<b>' + formatFreq(frequencies[idx]) + '</b>';
             for (let ti = 0; ti < traces.length; ti++) {
                 const label = traces.length > 1 ? 'Trace ' + (ti + 1) : 'Power';
-                html += '<br><span style="color:' + TRACE_COLORS[ti] + '">' + label + '</span>: '
+                html += '<br><span style="color:' + traceColors[ti] + '">' + label + '</span>: '
                       + traces[ti][idx].toFixed(2) + ' dBm';
             }
             tooltip.innerHTML = html;
