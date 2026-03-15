@@ -530,12 +530,23 @@
                 ctx.strokeStyle = traceColors[ti];
                 ctx.lineWidth   = 1.5;
                 ctx.beginPath();
-                for (let i = 0; i < frequencies.length; i++) {
-                    const x = xScale(frequencies[i]);
-                    const y = yScale(trace[i]);
-                    if (i === 0) ctx.moveTo(x, y);
-                    else         ctx.lineTo(x, y);
+
+                const n  = frequencies.length;
+                const px = frequencies.map(f => xScale(f));
+                const py = trace.map(v => yScale(v));
+
+                /* Draw with midpoint quadratic-bezier smoothing: each interior
+                   data point becomes a bezier control point whose endpoint is
+                   the midpoint to the next sample.  The rounding is subtle on
+                   gentle slopes and most visible where power levels differ
+                   noticeably between adjacent measurements. */
+                ctx.moveTo(px[0], py[0]);
+                for (let i = 0; i < n - 2; i++) {
+                    const mx = (px[i + 1] + px[i + 2]) / 2;
+                    const my = (py[i + 1] + py[i + 2]) / 2;
+                    ctx.quadraticCurveTo(px[i + 1], py[i + 1], mx, my);
                 }
+                if (n > 1) ctx.lineTo(px[n - 1], py[n - 1]);
                 ctx.stroke();
             }
 
