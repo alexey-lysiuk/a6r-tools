@@ -267,6 +267,7 @@
 
     <div class="chart-wrapper" id="chartWrapper">
         <canvas id="chart"></canvas>
+        <canvas id="crosshair" style="position:absolute;top:8px;left:8px;pointer-events:none;"></canvas>
         <div id="tooltip"></div>
     </div>
 
@@ -291,6 +292,7 @@
                 legendBorder: '#334466',
                 legendText:   '#b0b8c8',
                 chartTitle:   '#607090',
+                crosshair:    'rgba(255,255,255,0.45)',
             },
             light: {
                 canvasBg:     '#ffffff',
@@ -302,18 +304,20 @@
                 legendBorder: '#8090a8',
                 legendText:   '#404860',
                 chartTitle:   '#6080a0',
+                crosshair:    'rgba(0,0,0,0.35)',
             },
         };
 
         let currentTheme = 'dark';
 
         /* ── DOM references ─────────────────────────────────────────────────── */
-        const fileInput  = document.getElementById('fileInput');
-        const messageEl  = document.getElementById('message');
-        const canvas     = document.getElementById('chart');
-        const tooltip    = document.getElementById('tooltip');
-        const wrapper    = document.getElementById('chartWrapper');
-        const themeBtn   = document.getElementById('themeBtn');
+        const fileInput       = document.getElementById('fileInput');
+        const messageEl       = document.getElementById('message');
+        const canvas          = document.getElementById('chart');
+        const crosshairCanvas = document.getElementById('crosshair');
+        const tooltip         = document.getElementById('tooltip');
+        const wrapper         = document.getElementById('chartWrapper');
+        const themeBtn        = document.getElementById('themeBtn');
 
         /* ── Restore persisted settings ─────────────────────────────────────── */
         (function restoreSettings() {
@@ -372,7 +376,8 @@
         });
 
         /* ── Chart state ────────────────────────────────────────────────────── */
-        let chartData = null;   // { frequencies, traces, filename }
+        let chartData   = null;   // { frequencies, traces, filename }
+        let hoveredIdx  = null;   // index of the frequency closest to the mouse
 
         /* ── File loading ───────────────────────────────────────────────────── */
         fileInput.addEventListener('change', () => {
@@ -468,6 +473,12 @@
             canvas.style.height = cssH + 'px';
             canvas.width  = Math.round(cssW * dpr);
             canvas.height = Math.round(cssH * dpr);
+
+            /* Match the crosshair overlay canvas to the main canvas */
+            crosshairCanvas.style.width  = cssW + 'px';
+            crosshairCanvas.style.height = cssH + 'px';
+            crosshairCanvas.width  = Math.round(cssW * dpr);
+            crosshairCanvas.height = Math.round(cssH * dpr);
 
             const ctx = canvas.getContext('2d');
             ctx.scale(dpr, dpr);
@@ -635,6 +646,9 @@
 
             /* ── Store layout for tooltip ── */
             canvas._layout = { xScale, yScale, plotW, plotH, freqMin, freqMax, yMin, yMax };
+
+            /* ── Re-apply crosshair after full redraw (e.g. resize / theme change) ── */
+            drawCrosshair(hoveredIdx);
         }
 
         /* ── Tooltip on mouse move ──────────────────────────────────────────── */
@@ -650,6 +664,8 @@
             if (mx < PAD_LEFT || mx > PAD_LEFT + plotW ||
                 my < PAD_TOP  || my > PAD_TOP  + plotH) {
                 tooltip.style.display = 'none';
+                hoveredIdx = null;
+                drawCrosshair(null);
                 return;
             }
 
@@ -663,7 +679,10 @@
                 if (d < bestDist) { bestDist = d; idx = i; }
             }
 
-            let html = '<b>' + formatFreq(frequencies[idx]) + '</b>';
+            hoveredIdx = idx;
+            drawCrosshair(idx);
+
+            let html = '<b>' + formatFreqTooltip(frequencies[idx]) + '</b>';
             for (let ti = 0; ti < traces.length; ti++) {
                 const label = traces.length > 1 ? 'Trace ' + (ti + 1) : 'Power';
                 html += '<br><span style="color:' + traceColors[ti] + '">' + label + '</span>: '
@@ -685,6 +704,8 @@
 
         canvas.addEventListener('mouseleave', () => {
             tooltip.style.display = 'none';
+            hoveredIdx = null;
+            drawCrosshair(null);
         });
 
         /* ── Utility functions ──────────────────────────────────────────────── */
@@ -719,6 +740,40 @@
             if (hz >= 1e6)  return (hz / 1e6).toFixed(3).replace(/\.?0+$/, '') + ' MHz';
             if (hz >= 1e3)  return (hz / 1e3).toFixed(3).replace(/\.?0+$/, '') + ' kHz';
             return hz.toFixed(0) + ' Hz';
+        }
+
+        /** Format a frequency with 6 decimal digits for the hover tooltip. */
+        function formatFreqTooltip(hz) {
+            if (hz >= 1e9)  return (hz / 1e9).toFixed(6) + ' GHz';
+            if (hz >= 1e6)  return (hz / 1e6).toFixed(6) + ' MHz';
+            if (hz >= 1e3)  return (hz / 1e3).toFixed(6) + ' kHz';
+            return hz.toFixed(6) + ' Hz';
+        }
+
+        /** Draw (or clear) the vertical frequency crosshair on the overlay canvas. */
+        function drawCrosshair(idx) {
+            const dpr  = window.devicePixelRatio || 1;
+            const ctx2 = crosshairCanvas.getContext('2d');
+            /* Reset to identity, clear the full physical canvas, then check early exit. */
+            ctx2.setTransform(1, 0, 0, 1, 0, 0);
+            ctx2.clearRect(0, 0, crosshairCanvas.width, crosshairCanvas.height);
+            if (idx === null || !canvas._layout || !chartData) return;
+
+            /* Apply DPR scaling once, after the early-return check. */
+            ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const { xScale, plotH } = canvas._layout;
+            const th = THEMES[currentTheme];
+
+            ctx2.strokeStyle = th.crosshair;
+            ctx2.lineWidth   = 1;
+            ctx2.setLineDash([4, 3]);
+            const xPos = Math.round(xScale(chartData.frequencies[idx])) + 0.5;
+            ctx2.beginPath();
+            ctx2.moveTo(xPos, PAD_TOP);
+            ctx2.lineTo(xPos, PAD_TOP + plotH);
+            ctx2.stroke();
+            ctx2.setLineDash([]);
         }
     </script>
 </body>
