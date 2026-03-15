@@ -162,6 +162,32 @@
             cursor: pointer;
         }
 
+        /* ── Y-axis controls ────────────────────────────────────────────────── */
+        .y-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .ctrl-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            color: var(--label);
+        }
+
+        .ctrl-item select,
+        .ctrl-item input[type="number"] {
+            font-size: 0.82rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 3px 6px;
+        }
+
         .chart-wrapper {
             position: relative;
             width: 100%;
@@ -216,6 +242,25 @@
             </label>
             <label class="cp-item" title="Trace 4 color" aria-label="Trace 4 color picker">
                 4 <input type="color" id="color3" value="#ff4444">
+            </label>
+        </div>
+
+        <div class="toolbar-sep"></div>
+        <div class="y-controls">
+            <label class="ctrl-item">Scale:
+                <select id="scaleSelect" title="Y axis scale (dB per division)">
+                    <option value="auto">Auto</option>
+                    <option value="1">1 dB/div</option>
+                    <option value="2">2 dB/div</option>
+                    <option value="5">5 dB/div</option>
+                    <option value="10">10 dB/div</option>
+                    <option value="15">15 dB/div</option>
+                    <option value="20">20 dB/div</option>
+                </select>
+            </label>
+            <label class="ctrl-item">Reference level (dBm):
+                <input type="number" id="refLevelInput" placeholder="Auto" step="1"
+                       title="Reference power level at the top of the Y axis">
             </label>
         </div>
     </div>
@@ -292,6 +337,14 @@
                 if (chartData) drawChart();
             });
         }
+
+        /* ── Y-axis control sync ────────────────────────────────────────────── */
+        document.getElementById('scaleSelect').addEventListener('change', () => {
+            if (chartData) drawChart();
+        });
+        document.getElementById('refLevelInput').addEventListener('input', () => {
+            if (chartData) drawChart();
+        });
 
         /* ── Chart state ────────────────────────────────────────────────────── */
         let chartData = null;   // { frequencies, traces, filename }
@@ -404,9 +457,17 @@
             const allDbm = traces.flat();
             const rawMin = Math.min(...allDbm);
             const rawMax = Math.max(...allDbm);
-            const step   = niceStep(rawMax - rawMin, 8);
-            const yMin   = Math.floor(rawMin / step) * step;
-            const yMax   = Math.ceil(rawMax  / step) * step;
+
+            const scaleVal    = document.getElementById('scaleSelect').value;
+            const refLevelVal = document.getElementById('refLevelInput').value;
+            const manualScale    = scaleVal !== 'auto' ? Number(scaleVal) : null;
+            const manualRefLevel = refLevelVal !== '' ? Number(refLevelVal) : null;
+
+            const step = manualScale !== null ? manualScale : niceStep(rawMax - rawMin, 8);
+            const yMax = manualRefLevel !== null ? manualRefLevel
+                                                 : Math.ceil(rawMax  / step) * step;
+            const yMin = manualScale !== null ? yMax - step * 10
+                                              : Math.floor(rawMin / step) * step;
 
             /* ── Coordinate transforms ── */
             const xScale = (f)   => PAD_LEFT + (f - freqMin) / (freqMax - freqMin) * plotW;
