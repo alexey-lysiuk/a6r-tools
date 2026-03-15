@@ -315,28 +315,30 @@
         /* ── Canvas theme palettes ──────────────────────────────────────────── */
         const THEMES = {
             dark: {
-                canvasBg:     '#16213e',
-                grid:         'rgba(255,255,255,0.07)',
-                tick:         '#7890a8',
-                axisLabel:    '#b0b8c8',
-                plotBorder:   '#334466',
-                legendBg:     'rgba(10,20,40,0.75)',
-                legendBorder: '#334466',
-                legendText:   '#b0b8c8',
-                chartTitle:   '#607090',
-                crosshair:    'rgba(255,255,255,0.45)',
+                canvasBg:      '#16213e',
+                grid:          'rgba(255,255,255,0.07)',
+                tick:          '#7890a8',
+                axisLabel:     '#b0b8c8',
+                plotBorder:    '#334466',
+                legendBg:      'rgba(10,20,40,0.75)',
+                legendBorder:  '#334466',
+                legendText:    '#b0b8c8',
+                chartTitle:    '#607090',
+                crosshair:     'rgba(255,255,255,0.45)',
+                bandSeparator: 'rgba(160,200,255,0.40)',
             },
             light: {
-                canvasBg:     '#ffffff',
-                grid:         'rgba(0,0,0,0.07)',
-                tick:         '#607080',
-                axisLabel:    '#404860',
-                plotBorder:   '#8090a8',
-                legendBg:     'rgba(240,242,245,0.90)',
-                legendBorder: '#8090a8',
-                legendText:   '#404860',
-                chartTitle:   '#6080a0',
-                crosshair:    'rgba(0,0,0,0.35)',
+                canvasBg:      '#ffffff',
+                grid:          'rgba(0,0,0,0.07)',
+                tick:          '#607080',
+                axisLabel:     '#404860',
+                plotBorder:    '#8090a8',
+                legendBg:      'rgba(240,242,245,0.90)',
+                legendBorder:  '#8090a8',
+                legendText:    '#404860',
+                chartTitle:    '#6080a0',
+                crosshair:     'rgba(0,0,0,0.35)',
+                bandSeparator: 'rgba(20,50,120,0.28)',
             },
         };
 
@@ -429,7 +431,7 @@
         });
 
         /* ── Chart state ────────────────────────────────────────────────────── */
-        let chartData   = null;   // { frequencies, traces, filename }
+        let chartData   = null;   // { frequencies, traces, bandBoundaries, filename }
         let hoveredIdx  = null;   // index of the frequency closest to the mouse
 
         /* ── File loading ───────────────────────────────────────────────────── */
@@ -468,8 +470,10 @@
          *   <frequency_hz>,  <power1> [power2] [power3] [power4]
          *
          * Returns:
-         *   frequencies – array of frequency values in Hz
-         *   traces      – array of up to 4 arrays of dBm values
+         *   frequencies    – array of frequency values in Hz
+         *   traces         – array of up to 4 arrays of dBm values
+         *   bandBoundaries – Set of indices i where a band break occurs between
+         *                    frequencies[i] and frequencies[i+1]
          */
         function parseCSV(text) {
             const lines = text.split('\n');
@@ -501,9 +505,41 @@
             }
 
             return {
-                frequencies: freqArr,
-                traces: rawTraces.slice(0, traceCount),
+                frequencies:    freqArr,
+                traces:         rawTraces.slice(0, traceCount),
+                bandBoundaries: detectBandBoundaries(freqArr),
             };
+        }
+
+        /**
+         * Detect band boundaries in a frequency array.
+         *
+         * In a single-band trace every adjacent step is constant.  A multi-band
+         * file concatenates several such ranges; the gap between adjacent bands
+         * is much larger than the regular step.
+         *
+         * Returns a Set of indices i such that the step from frequencies[i] to
+         * frequencies[i+1] is more than twice the median step.
+         */
+        function detectBandBoundaries(frequencies) {
+            const n = frequencies.length;
+            if (n < 3) return new Set();
+
+            const steps = [];
+            for (let i = 0; i < n - 1; i++) steps.push(frequencies[i + 1] - frequencies[i]);
+
+            const sorted = steps.slice().sort((a, b) => a - b);
+            const mid    = Math.floor(sorted.length / 2);
+            const median = sorted.length % 2 === 0
+                ? (sorted[mid - 1] + sorted[mid]) / 2
+                : sorted[mid];
+            const threshold = median * 2;
+
+            const boundaries = new Set();
+            for (let i = 0; i < steps.length; i++) {
+                if (steps[i] > threshold) boundaries.add(i);
+            }
+            return boundaries;
         }
 
         /* ── Canvas chart renderer ──────────────────────────────────────────── */
@@ -515,7 +551,7 @@
         const PAD_BOTTOM = 52;
 
         function drawChart() {
-            const { frequencies, traces, filename } = chartData;
+            const { frequencies, traces, bandBoundaries, filename } = chartData;
             const th   = THEMES[currentTheme];
             const dpr  = window.devicePixelRatio || 1;
 
@@ -615,30 +651,55 @@
             ctx.rect(PAD_LEFT, PAD_TOP, plotW, plotH);
             ctx.clip();
 
+            const n  = frequencies.length;
+            const px = frequencies.map(f => xScale(f));
+
+            /* Split the index range into contiguous per-band segments */
+            const bands = [];
+            let bandStart = 0;
+            for (const bi of [...bandBoundaries].sort((a, b) => a - b)) {
+                bands.push({ start: bandStart, end: bi });
+                bandStart = bi + 1;
+            }
+            bands.push({ start: bandStart, end: n - 1 });
+
             for (let ti = 0; ti < traces.length; ti++) {
                 if (!traceVisible[ti]) continue;
                 const trace = traces[ti];
+                const py = trace.map(v => yScale(v));
                 ctx.strokeStyle = traceColors[ti];
                 ctx.lineWidth   = 1.5;
-                ctx.beginPath();
 
-                const n  = frequencies.length;
-                const px = frequencies.map(f => xScale(f));
-                const py = trace.map(v => yScale(v));
-
-                /* Draw with midpoint quadratic-bezier smoothing: each interior
-                   data point becomes a bezier control point whose endpoint is
-                   the midpoint to the next sample.  The rounding is subtle on
-                   gentle slopes and most visible where power levels differ
-                   noticeably between adjacent measurements. */
-                ctx.moveTo(px[0], py[0]);
-                for (let i = 0; i < n - 2; i++) {
-                    const mx = (px[i + 1] + px[i + 2]) / 2;
-                    const my = (py[i + 1] + py[i + 2]) / 2;
-                    ctx.quadraticCurveTo(px[i + 1], py[i + 1], mx, my);
+                /* Draw each band as a separate bezier path so the line is never
+                   drawn across a band gap. */
+                for (const { start, end } of bands) {
+                    if (start > end) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(px[start], py[start]);
+                    for (let i = start; i < end - 1; i++) {
+                        const mx = (px[i + 1] + px[i + 2]) / 2;
+                        const my = (py[i + 1] + py[i + 2]) / 2;
+                        ctx.quadraticCurveTo(px[i + 1], py[i + 1], mx, my);
+                    }
+                    if (end > start) ctx.lineTo(px[end], py[end]);
+                    ctx.stroke();
                 }
-                if (n > 1) ctx.lineTo(px[n - 1], py[n - 1]);
-                ctx.stroke();
+            }
+
+            /* ── Band separator lines ── */
+            if (bandBoundaries.size > 0) {
+                ctx.strokeStyle = th.bandSeparator;
+                ctx.lineWidth   = 1;
+                ctx.setLineDash([5, 4]);
+                for (const bi of bandBoundaries) {
+                    const xMid = (xScale(frequencies[bi]) + xScale(frequencies[bi + 1])) / 2;
+                    const x = Math.round(xMid) + 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(x, PAD_TOP);
+                    ctx.lineTo(x, PAD_TOP + plotH);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
             }
 
             ctx.restore();
