@@ -149,7 +149,32 @@
             gap: 4px;
             font-size: 0.82rem;
             color: var(--label);
+        }
+
+        .vis-btn {
+            font-size: 0.8rem;
+            font-weight: bold;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            padding: 2px 6px;
             cursor: pointer;
+            line-height: 1;
+            min-width: 22px;
+        }
+
+        .vis-btn:hover {
+            background: var(--btn-hover);
+        }
+
+        .cp-item.trace-hidden .vis-btn {
+            opacity: 0.45;
+            text-decoration: line-through;
+        }
+
+        .cp-item.trace-hidden input[type="color"] {
+            opacity: 0.35;
         }
 
         .cp-item input[type="color"] {
@@ -231,18 +256,22 @@
         <div class="toolbar-sep"></div>
         <div class="color-pickers">
             <span>Trace colors:</span>
-            <label class="cp-item" title="Trace 1 color" aria-label="Trace 1 color picker">
-                1 <input type="color" id="color0" value="#ffcc00">
-            </label>
-            <label class="cp-item" title="Trace 2 color" aria-label="Trace 2 color picker">
-                2 <input type="color" id="color1" value="#44dd44">
-            </label>
-            <label class="cp-item" title="Trace 3 color" aria-label="Trace 3 color picker">
-                3 <input type="color" id="color2" value="#ff44cc">
-            </label>
-            <label class="cp-item" title="Trace 4 color" aria-label="Trace 4 color picker">
-                4 <input type="color" id="color3" value="#ff4444">
-            </label>
+            <span class="cp-item" id="cpitem0">
+                <button class="vis-btn" id="vis0" title="Hide Trace 1">1</button>
+                <input type="color" id="color0" value="#ffcc00" title="Trace 1 color" aria-label="Trace 1 color picker">
+            </span>
+            <span class="cp-item" id="cpitem1">
+                <button class="vis-btn" id="vis1" title="Hide Trace 2">2</button>
+                <input type="color" id="color1" value="#44dd44" title="Trace 2 color" aria-label="Trace 2 color picker">
+            </span>
+            <span class="cp-item" id="cpitem2">
+                <button class="vis-btn" id="vis2" title="Hide Trace 3">3</button>
+                <input type="color" id="color2" value="#ff44cc" title="Trace 3 color" aria-label="Trace 3 color picker">
+            </span>
+            <span class="cp-item" id="cpitem3">
+                <button class="vis-btn" id="vis3" title="Hide Trace 4">4</button>
+                <input type="color" id="color3" value="#ff4444" title="Trace 4 color" aria-label="Trace 4 color picker">
+            </span>
         </div>
 
         <div class="toolbar-sep"></div>
@@ -279,6 +308,9 @@
 
         /* Mutable per-trace colours, kept in sync with the colour pickers */
         const traceColors = DEFAULT_TRACE_COLORS.slice();
+
+        /* Mutable per-trace visibility flags */
+        const traceVisible = [true, true, true, true];
 
         /* ── Canvas theme palettes ──────────────────────────────────────────── */
         const THEMES = {
@@ -340,6 +372,17 @@
                     });
                 }
             } catch (_) {}
+
+            try {
+                const savedVis = JSON.parse(localStorage.getItem('tinysa-visibility'));
+                if (Array.isArray(savedVis)) {
+                    savedVis.forEach((v, i) => {
+                        if (i < traceVisible.length) traceVisible[i] = !!v;
+                    });
+                }
+            } catch (_) {}
+
+            for (let i = 0; i < 4; i++) updateVisBtn(i);
         })();
 
         /* ── Theme toggle ───────────────────────────────────────────────────── */
@@ -363,6 +406,16 @@
             picker.addEventListener('input', () => {
                 traceColors[i] = picker.value;
                 localStorage.setItem('tinysa-colors', JSON.stringify(traceColors));
+                if (chartData) drawChart();
+            });
+        }
+
+        /* ── Trace visibility toggle ────────────────────────────────────────── */
+        for (let i = 0; i < 4; i++) {
+            document.getElementById('vis' + i).addEventListener('click', () => {
+                traceVisible[i] = !traceVisible[i];
+                updateVisBtn(i);
+                localStorage.setItem('tinysa-visibility', JSON.stringify(traceVisible));
                 if (chartData) drawChart();
             });
         }
@@ -490,9 +543,10 @@
             const freqMin = frequencies[0];
             const freqMax = frequencies[frequencies.length - 1];
 
-            const allDbm = traces.flat();
-            const rawMin = Math.min(...allDbm);
-            const rawMax = Math.max(...allDbm);
+            const allDbm = traces.flatMap((t, i) => traceVisible[i] ? t : []);
+            const dbmForAxisRange = allDbm.length > 0 ? allDbm : traces.flat();
+            const rawMin = Math.min(...dbmForAxisRange);
+            const rawMax = Math.max(...dbmForAxisRange);
 
             const scaleVal    = document.getElementById('scaleSelect').value;
             const refLevelVal = document.getElementById('refLevelInput').value;
@@ -562,6 +616,7 @@
             ctx.clip();
 
             for (let ti = 0; ti < traces.length; ti++) {
+                if (!traceVisible[ti]) continue;
                 const trace = traces[ti];
                 ctx.strokeStyle = traceColors[ti];
                 ctx.lineWidth   = 1.5;
@@ -609,14 +664,18 @@
             ctx.textBaseline = 'top';
             ctx.fillText(filename, PAD_LEFT + plotW / 2, 6);
 
-            /* ── Legend (only when more than one trace) ── */
-            if (traces.length > 1) {
+            /* ── Legend (only when more than one trace is visible) ── */
+            const visTraceIndices = [];
+            for (let i = 0; i < traces.length; i++) {
+                if (traceVisible[i]) visTraceIndices.push(i);
+            }
+            if (visTraceIndices.length > 1) {
                 const lineLen   = 18;
                 const gap       = 4;
                 const labelW    = 52;  // width of "Trace X" in 11px font
                 const itemH     = 18;
                 const legW      = lineLen + gap + labelW + 12;
-                const legH      = traces.length * itemH + 8;
+                const legH      = visTraceIndices.length * itemH + 8;
                 const lx        = PAD_LEFT + plotW - legW - 6;
                 const ly        = PAD_TOP + 8;
 
@@ -627,8 +686,9 @@
                 ctx.lineWidth   = 1;
                 ctx.strokeRect(lx + 0.5, ly + 0.5, legW, legH);
 
-                for (let ti = 0; ti < traces.length; ti++) {
-                    const y = ly + 4 + ti * itemH;
+                for (let row = 0; row < visTraceIndices.length; row++) {
+                    const ti = visTraceIndices[row];
+                    const y = ly + 4 + row * itemH;
                     ctx.strokeStyle = traceColors[ti];
                     ctx.lineWidth   = 2;
                     ctx.beginPath();
@@ -683,8 +743,10 @@
             drawCrosshair(idx);
 
             let html = '<b>' + formatFreqTooltip(frequencies[idx]) + '</b>';
+            const visCount = traceVisible.filter(v => v).length;
             for (let ti = 0; ti < traces.length; ti++) {
-                const label = traces.length > 1 ? 'Trace ' + (ti + 1) : 'Power';
+                if (!traceVisible[ti]) continue;
+                const label = visCount > 1 ? 'Trace ' + (ti + 1) : 'Power';
                 html += '<br><span style="color:' + traceColors[ti] + '">' + label + '</span>: '
                       + traces[ti][idx].toFixed(2) + ' dBm';
             }
@@ -748,6 +810,20 @@
             if (hz >= 1e6)  return (hz / 1e6).toFixed(6) + ' MHz';
             if (hz >= 1e3)  return (hz / 1e3).toFixed(6) + ' kHz';
             return hz.toFixed(6) + ' Hz';
+        }
+
+        /** Update a trace visibility button to reflect the current traceVisible state. */
+        function updateVisBtn(i) {
+            const cpItem = document.getElementById('cpitem' + i);
+            if (!cpItem) return;
+            const btn = document.getElementById('vis' + i);
+            if (traceVisible[i]) {
+                cpItem.classList.remove('trace-hidden');
+                btn.title = 'Hide Trace ' + (i + 1);
+            } else {
+                cpItem.classList.add('trace-hidden');
+                btn.title = 'Show Trace ' + (i + 1);
+            }
         }
 
         /** Draw (or clear) the vertical frequency crosshair on the overlay canvas. */
