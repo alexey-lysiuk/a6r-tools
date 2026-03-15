@@ -315,6 +315,29 @@
         const wrapper    = document.getElementById('chartWrapper');
         const themeBtn   = document.getElementById('themeBtn');
 
+        /* ── Restore persisted settings ─────────────────────────────────────── */
+        (function restoreSettings() {
+            const savedTheme = localStorage.getItem('tinysa-theme');
+            if (savedTheme === 'light') {
+                currentTheme = 'light';
+                document.body.classList.add('light');
+                themeBtn.textContent = '🌙 Dark';
+            }
+
+            try {
+                const savedColors = JSON.parse(localStorage.getItem('tinysa-colors'));
+                if (Array.isArray(savedColors)) {
+                    savedColors.forEach((c, i) => {
+                        if (i < traceColors.length && typeof c === 'string') {
+                            traceColors[i] = c;
+                            const picker = document.getElementById('color' + i);
+                            if (picker) picker.value = c;
+                        }
+                    });
+                }
+            } catch (_) {}
+        })();
+
         /* ── Theme toggle ───────────────────────────────────────────────────── */
         themeBtn.addEventListener('click', () => {
             if (currentTheme === 'dark') {
@@ -326,6 +349,7 @@
                 document.body.classList.remove('light');
                 themeBtn.textContent = '☀ Light';
             }
+            localStorage.setItem('tinysa-theme', currentTheme);
             if (chartData) drawChart();
         });
 
@@ -334,6 +358,7 @@
             const picker = document.getElementById('color' + i);
             picker.addEventListener('input', () => {
                 traceColors[i] = picker.value;
+                localStorage.setItem('tinysa-colors', JSON.stringify(traceColors));
                 if (chartData) drawChart();
             });
         }
