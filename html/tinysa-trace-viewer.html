@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinySA Ultra Trace Viewer</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMyIgZmlsbD0iIzFlMWUxZSIvPgogIDxwb2x5bGluZSBmaWxsPSJub25lIiBzdHJva2U9IiNmZmQ3MDAiIHN0cm9rZS13aWR0aD0iMS41IgogICAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgcG9pbnRzPSIxLDI3IDMsMjYgNSwyNCA3LDkgOSwyMyAxMSwyNSAxMywyMCAxNSwxOCAxNywyMiAxOSwyNSAyMSwyNCAyMywxOSAyNSwyMyAyNywyNSAyOSwyNCAzMSwyNiIvPgo8L3N2Zz4=">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* ── Theme variables ────────────────────────────────────────────────── */
+        :root {
+            --body-bg:        #1e1e1e;
+            --text:           #e0e0e0;
+            --heading:        #c0c0c0;
+            --label:          #a0a0a0;
+            --input-bg:       #252525;
+            --input-border:   #404040;
+            --input-text:     #e0e0e0;
+            --btn-bg:         #383838;
+            --btn-text:       #d0d0d0;
+            --btn-hover:      #484848;
+            --error:          #f08080;
+            --wrapper-bg:     #252525;
+            --wrapper-border: #404040;
+            --tooltip-bg:     rgba(20, 20, 20, 0.92);
+            --tooltip-border: #505050;
+            --tooltip-text:   #d0d0d0;
+        }
+
+        body.light {
+            --body-bg:        #f0f2f5;
+            --text:           #303848;
+            --heading:        #1a3a6e;
+            --label:          #404860;
+            --input-bg:       #ffffff;
+            --input-border:   #b0bcc8;
+            --input-text:     #303848;
+            --btn-bg:         #3060a0;
+            --btn-text:       #ffffff;
+            --btn-hover:      #204080;
+            --error:          #c02020;
+            --wrapper-bg:     #ffffff;
+            --wrapper-border: #b0bcc8;
+            --tooltip-bg:     rgba(240, 242, 245, 0.95);
+            --tooltip-border: #8090a8;
+            --tooltip-text:   #303848;
+        }
+
+        body {
+            font-family: sans-serif;
+            background: var(--body-bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            margin: 0 0 16px;
+            color: var(--heading);
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-sep {
+            width: 1px;
+            height: 24px;
+            background: var(--input-border);
+            flex-shrink: 0;
+        }
+
+        label[for="fileInput"] {
+            font-size: 0.9rem;
+            color: var(--label);
+        }
+
+        input[type="file"] {
+            font-size: 0.85rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        input[type="file"]::-webkit-file-upload-button,
+        input[type="file"]::file-selector-button {
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: none;
+            border-radius: 3px;
+            padding: 4px 10px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+
+        input[type="file"]::-webkit-file-upload-button:hover,
+        input[type="file"]::file-selector-button:hover {
+            background: var(--btn-hover);
+        }
+
+        #message {
+            font-size: 0.85rem;
+            color: var(--error);
+            min-height: 1.2em;
+        }
+
+        /* ── Theme toggle button ────────────────────────────────────────────── */
+        #themeBtn {
+            font-size: 0.82rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+            margin-left: auto;
+        }
+
+        #themeBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        /* ── Trace colour pickers ───────────────────────────────────────────── */
+        .color-pickers {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-pickers > span {
+            font-size: 0.82rem;
+            color: var(--label);
+        }
+
+        .cp-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            color: var(--label);
+        }
+
+        .vis-btn {
+            font-size: 0.8rem;
+            font-weight: bold;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            padding: 2px 6px;
+            cursor: pointer;
+            line-height: 1;
+            min-width: 22px;
+        }
+
+        .vis-btn:hover {
+            background: var(--btn-hover);
+        }
+
+        .cp-item.trace-hidden .vis-btn {
+            opacity: 0.45;
+            text-decoration: line-through;
+        }
+
+        .cp-item.trace-hidden input[type="color"] {
+            opacity: 0.35;
+        }
+
+        .cp-item input[type="color"] {
+            width: 28px;
+            height: 22px;
+            padding: 1px 2px;
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            background: var(--input-bg);
+            cursor: pointer;
+        }
+
+        /* ── Y-axis controls ────────────────────────────────────────────────── */
+        .y-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .ctrl-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            color: var(--label);
+        }
+
+        .ctrl-item select,
+        .ctrl-item input[type="number"] {
+            font-size: 0.82rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 3px 6px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            background: var(--wrapper-bg);
+            border: 1px solid var(--wrapper-border);
+            border-radius: 6px;
+            padding: 8px;
+        }
+
+        .chart-wrapper.drag-over {
+            border-color: #ffd700;
+            box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.35);
+        }
+
+        #chart {
+            display: block;
+            width: 100%;
+            cursor: crosshair;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: var(--tooltip-bg);
+            border: 1px solid var(--tooltip-border);
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 0.78rem;
+            color: var(--tooltip-text);
+            pointer-events: none;
+            white-space: nowrap;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>tinySA Ultra Trace Viewer</h1>
+
+    <div class="toolbar">
+        <label for="fileInput">Load trace file (.csv):</label>
+        <input type="file" id="fileInput" accept=".csv">
+        <span id="message"></span>
+
+        <div class="toolbar-sep"></div>
+        <div class="color-pickers">
+            <span>Trace colors:</span>
+            <span class="cp-item" id="cpitem0">
+                <button class="vis-btn" id="vis0" title="Hide Trace 1">1</button>
+                <input type="color" id="color0" value="#ffcc00" title="Trace 1 color" aria-label="Trace 1 color picker">
+            </span>
+            <span class="cp-item" id="cpitem1">
+                <button class="vis-btn" id="vis1" title="Hide Trace 2">2</button>
+                <input type="color" id="color1" value="#44dd44" title="Trace 2 color" aria-label="Trace 2 color picker">
+            </span>
+            <span class="cp-item" id="cpitem2">
+                <button class="vis-btn" id="vis2" title="Hide Trace 3">3</button>
+                <input type="color" id="color2" value="#ff44cc" title="Trace 3 color" aria-label="Trace 3 color picker">
+            </span>
+            <span class="cp-item" id="cpitem3">
+                <button class="vis-btn" id="vis3" title="Hide Trace 4">4</button>
+                <input type="color" id="color3" value="#ff4444" title="Trace 4 color" aria-label="Trace 4 color picker">
+            </span>
+        </div>
+
+        <div class="toolbar-sep"></div>
+        <div class="y-controls">
+            <label class="ctrl-item">Scale:
+                <select id="scaleSelect" title="Y axis scale (dB per division)">
+                    <option value="auto">Auto</option>
+                    <option value="1">1 dB/div</option>
+                    <option value="2">2 dB/div</option>
+                    <option value="5">5 dB/div</option>
+                    <option value="10">10 dB/div</option>
+                    <option value="15">15 dB/div</option>
+                    <option value="20">20 dB/div</option>
+                </select>
+            </label>
+            <label class="ctrl-item">Reference level (dBm):
+                <input type="number" id="refLevelInput" placeholder="Auto" step="1"
+                       title="Reference power level at the top of the Y axis">
+            </label>
+        </div>
+        <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
+    </div>
+
+    <div class="chart-wrapper" id="chartWrapper">
+        <canvas id="chart"></canvas>
+        <canvas id="crosshair" style="position:absolute;top:8px;left:8px;pointer-events:none;"></canvas>
+        <div id="tooltip"></div>
+    </div>
+
+    <script>
+        'use strict';
+
+        /* ── Default trace colours (yellow, light green, magenta, red) ─────── */
+        const DEFAULT_TRACE_COLORS = ['#ffcc00', '#44dd44', '#ff44cc', '#ff4444'];
+
+        /* Mutable per-trace colours, kept in sync with the colour pickers */
+        const traceColors = DEFAULT_TRACE_COLORS.slice();
+
+        /* Mutable per-trace visibility flags */
+        const traceVisible = [true, true, true, true];
+
+        /* ── Canvas theme palettes ──────────────────────────────────────────── */
+        const THEMES = {
+            dark: {
+                canvasBg:      '#1e1e1e',
+                grid:          'rgba(255,255,255,0.07)',
+                tick:          '#808080',
+                axisLabel:     '#b0b0b0',
+                plotBorder:    '#404040',
+                chartTitle:    '#606060',
+                crosshair:     'rgba(255,255,255,0.45)',
+                bandSeparator: 'rgba(200,200,200,0.35)',
+                legendBg:      'rgba(30,30,30,0.85)',
+                legendText:    '#909090',
+            },
+            light: {
+                canvasBg:      '#ffffff',
+                grid:          'rgba(0,0,0,0.07)',
+                tick:          '#607080',
+                axisLabel:     '#404860',
+                plotBorder:    '#8090a8',
+                chartTitle:    '#6080a0',
+                crosshair:     'rgba(0,0,0,0.35)',
+                bandSeparator: 'rgba(20,50,120,0.28)',
+                legendBg:      'rgba(255,255,255,0.85)',
+                legendText:    '#506070',
+            },
+        };
+
+        let currentTheme = 'dark';
+
+        /* ── DOM references ─────────────────────────────────────────────────── */
+        const fileInput       = document.getElementById('fileInput');
+        const messageEl       = document.getElementById('message');
+        const canvas          = document.getElementById('chart');
+        const crosshairCanvas = document.getElementById('crosshair');
+        const tooltip         = document.getElementById('tooltip');
+        const wrapper         = document.getElementById('chartWrapper');
+        const themeBtn        = document.getElementById('themeBtn');
+
+        /* ── Restore persisted settings ─────────────────────────────────────── */
+        (function restoreSettings() {
+            const savedTheme = localStorage.getItem('tinysa-theme');
+            const systemLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+            if (savedTheme === 'light' || (savedTheme === null && systemLight)) {
+                currentTheme = 'light';
+                document.body.classList.add('light');
+                themeBtn.textContent = '🌙 Dark';
+            }
+
+            try {
+                const savedColors = JSON.parse(localStorage.getItem('tinysa-colors'));
+                if (Array.isArray(savedColors)) {
+                    savedColors.forEach((c, i) => {
+                        if (i < traceColors.length && typeof c === 'string') {
+                            traceColors[i] = c;
+                            const picker = document.getElementById('color' + i);
+                            if (picker) picker.value = c;
+                        }
+                    });
+                }
+            } catch (_) {}
+
+            try {
+                const savedVis = JSON.parse(localStorage.getItem('tinysa-visibility'));
+                if (Array.isArray(savedVis)) {
+                    savedVis.forEach((v, i) => {
+                        if (i < traceVisible.length) traceVisible[i] = !!v;
+                    });
+                }
+            } catch (_) {}
+
+            for (let i = 0; i < 4; i++) updateVisBtn(i);
+        })();
+
+        /* ── Theme toggle ───────────────────────────────────────────────────── */
+        themeBtn.addEventListener('click', () => {
+            if (currentTheme === 'dark') {
+                currentTheme = 'light';
+                document.body.classList.add('light');
+                themeBtn.textContent = '🌙 Dark';
+            } else {
+                currentTheme = 'dark';
+                document.body.classList.remove('light');
+                themeBtn.textContent = '☀ Light';
+            }
+            localStorage.setItem('tinysa-theme', currentTheme);
+            if (chartData) drawChart();
+        });
+
+        /* ── Colour picker sync ─────────────────────────────────────────────── */
+        for (let i = 0; i < DEFAULT_TRACE_COLORS.length; i++) {
+            const picker = document.getElementById('color' + i);
+            picker.addEventListener('input', () => {
+                traceColors[i] = picker.value;
+                localStorage.setItem('tinysa-colors', JSON.stringify(traceColors));
+                if (chartData) drawChart();
+            });
+        }
+
+        /* ── Trace visibility toggle ────────────────────────────────────────── */
+        for (let i = 0; i < 4; i++) {
+            document.getElementById('vis' + i).addEventListener('click', () => {
+                traceVisible[i] = !traceVisible[i];
+                updateVisBtn(i);
+                localStorage.setItem('tinysa-visibility', JSON.stringify(traceVisible));
+                if (chartData) drawChart();
+            });
+        }
+
+        /* ── Y-axis control sync ────────────────────────────────────────────── */
+        document.getElementById('scaleSelect').addEventListener('change', () => {
+            if (chartData) drawChart();
+        });
+        document.getElementById('refLevelInput').addEventListener('input', () => {
+            if (chartData) drawChart();
+        });
+
+        /* ── Chart state ────────────────────────────────────────────────────── */
+        let chartData   = null;   // { frequencies, traces, bandBoundaries, filename }
+        let hoveredIdx  = null;   // index of the frequency closest to the mouse
+
+        /* ── File loading ───────────────────────────────────────────────────── */
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            loadFile(file);
+        });
+
+        /* ── Drag-and-drop on chart wrapper ─────────────────────────────────── */
+        wrapper.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            wrapper.classList.add('drag-over');
+        });
+        wrapper.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            wrapper.classList.add('drag-over');
+        });
+        wrapper.addEventListener('dragleave', () => {
+            wrapper.classList.remove('drag-over');
+        });
+        wrapper.addEventListener('drop', (e) => {
+            e.preventDefault();
+            wrapper.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            loadFile(file);
+        });
+
+        window.addEventListener('resize', () => { if (chartData) drawChart(); });
+
+        function loadFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsed = parseCSV(e.target.result);
+                    if (parsed.frequencies.length === 0) {
+                        showMessage('No data found in the selected file.');
+                        return;
+                    }
+                    showMessage('');
+                    chartData = { ...parsed, filename: file.name };
+                    drawChart();
+                } catch (err) {
+                    showMessage('Failed to parse file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function showMessage(text) {
+            messageEl.textContent = text;
+        }
+
+        /* ── CSV parser ─────────────────────────────────────────────────────── */
+        /**
+         * Parse a tinySA Ultra CSV trace file.
+         *
+         * Each non-empty line has the form:
+         *   <frequency>,  <power1> [power2] [power3] [power4]
+         *
+         * Frequency format:
+         *   Integer (no decimal point) → value is in Hz.
+         *   Floating-point (has a decimal point) → value is in MHz; it is
+         *   multiplied by 1,000,000 and stored internally as Hz.
+         *
+         * Returns:
+         *   frequencies    – array of frequency values in Hz
+         *   traces         – array of up to 4 arrays of dBm values
+         *   bandBoundaries – Set of indices i where a band break occurs between
+         *                    frequencies[i] and frequencies[i+1]
+         */
+        function parseCSV(text) {
+            const lines = text.split('\n');
+            const freqArr  = [];
+            const rawTraces = [[], [], [], []];
+            let traceCount = 0;
+
+            /* Detect MHz vs Hz by examining the first valid frequency token.
+             * A dot in the token means the file stores frequencies in MHz. */
+            let freqMultiplier = 1;
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                const commaIdx = trimmed.indexOf(',');
+                if (commaIdx === -1) continue;
+                const token = trimmed.slice(0, commaIdx).trim();
+                if (token.includes('.')) freqMultiplier = 1e6;
+                break;
+            }
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+
+                const commaIdx = trimmed.indexOf(',');
+                if (commaIdx === -1) continue;
+
+                const freq = parseFloat(trimmed.slice(0, commaIdx)) * freqMultiplier;
+                if (!isFinite(freq)) continue;
+
+                const rest   = trimmed.slice(commaIdx + 1).trim();
+                const values = rest.split(/\s+/).filter(Boolean).map(Number);
+                if (values.length === 0 || values.some(v => !isFinite(v))) continue;
+
+                freqArr.push(freq);
+
+                const count = Math.min(values.length, 4);
+                for (let i = 0; i < count; i++) {
+                    rawTraces[i].push(values[i]);
+                    if (i + 1 > traceCount) traceCount = i + 1;
+                }
+            }
+
+            return {
+                frequencies:    freqArr,
+                traces:         rawTraces.slice(0, traceCount),
+                bandBoundaries: detectBandBoundaries(freqArr),
+            };
+        }
+
+        /**
+         * Detect band boundaries in a frequency array.
+         *
+         * In a single-band trace every adjacent step is constant.  A multi-band
+         * file concatenates several such ranges; the gap between adjacent bands
+         * is much larger than the regular step.
+         *
+         * Returns a Set of indices i such that the step from frequencies[i] to
+         * frequencies[i+1] is more than twice the median step.
+         */
+        function detectBandBoundaries(frequencies) {
+            const n = frequencies.length;
+            if (n < 3) return new Set();
+
+            const steps = [];
+            for (let i = 0; i < n - 1; i++) steps.push(frequencies[i + 1] - frequencies[i]);
+
+            const sorted = steps.slice().sort((a, b) => a - b);
+            const mid    = Math.floor(sorted.length / 2);
+            const median = sorted.length % 2 === 0
+                ? (sorted[mid - 1] + sorted[mid]) / 2
+                : sorted[mid];
+            const threshold = median * 2;
+
+            const boundaries = new Set();
+            for (let i = 0; i < steps.length; i++) {
+                if (steps[i] > threshold) boundaries.add(i);
+            }
+            return boundaries;
+        }
+
+        /* ── Canvas chart renderer ──────────────────────────────────────────── */
+
+        /** Layout constants (pixels) */
+        const PAD_LEFT   = 70;
+        const PAD_RIGHT  = 20;
+        const PAD_TOP    = 36;
+        const PAD_BOTTOM = 52;
+
+        function drawChart() {
+            const { frequencies, traces, bandBoundaries, filename } = chartData;
+            const th   = THEMES[currentTheme];
+            const dpr  = window.devicePixelRatio || 1;
+
+            /* Size the canvas to fill the wrapper */
+            const cssW = wrapper.clientWidth - 16; // 8px padding each side
+            const cssH = Math.max(320, Math.round(cssW / 2.6));
+            canvas.style.width  = cssW + 'px';
+            canvas.style.height = cssH + 'px';
+            canvas.width  = Math.round(cssW * dpr);
+            canvas.height = Math.round(cssH * dpr);
+
+            /* Match the crosshair overlay canvas to the main canvas */
+            crosshairCanvas.style.width  = cssW + 'px';
+            crosshairCanvas.style.height = cssH + 'px';
+            crosshairCanvas.width  = Math.round(cssW * dpr);
+            crosshairCanvas.height = Math.round(cssH * dpr);
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            const plotW = cssW - PAD_LEFT - PAD_RIGHT;
+            const plotH = cssH - PAD_TOP  - PAD_BOTTOM;
+
+            /* ── Band list (built first so xScale can be band-aware) ── */
+            const n  = frequencies.length;
+            const bands = [];
+            {
+                let bandStart = 0;
+                for (const bi of [...bandBoundaries].sort((a, b) => a - b)) {
+                    bands.push({ start: bandStart, end: bi });
+                    bandStart = bi + 1;
+                }
+                bands.push({ start: bandStart, end: n - 1 });
+            }
+
+            /* ── Data ranges ── */
+            const allDbm = traces.flatMap((t, i) => traceVisible[i] ? t : []);
+            const dbmForAxisRange = allDbm.length > 0 ? allDbm : traces.flat();
+            const rawMin = Math.min(...dbmForAxisRange);
+            const rawMax = Math.max(...dbmForAxisRange);
+
+            const scaleVal    = document.getElementById('scaleSelect').value;
+            const refLevelVal = document.getElementById('refLevelInput').value;
+            const manualScale    = scaleVal !== 'auto' ? Number(scaleVal) : null;
+            const manualRefLevel = refLevelVal !== '' ? Number(refLevelVal) : null;
+
+            const step = manualScale !== null ? manualScale : niceStep(rawMax - rawMin, 8);
+            const yMax = manualRefLevel !== null ? manualRefLevel
+                                                 : Math.ceil(rawMax  / step) * step;
+            const yMin = manualScale !== null ? yMax - step * 10
+                                              : Math.floor(rawMin / step) * step;
+
+            /* ── Band-aware X scale ── */
+            /* Only the measured frequency ranges contribute to plotW; gaps are
+               excluded entirely so no blank space appears between bands. */
+            const totalBandSpan = bands.reduce(
+                (sum, { start, end }) => sum + Math.max(0, frequencies[end] - frequencies[start]), 0
+            );
+            const bandPixelStart = [];
+            const bandPixelWidth = [];
+            {
+                let cumPx = 0;
+                for (const { start, end } of bands) {
+                    bandPixelStart.push(cumPx);
+                    const bPxW = totalBandSpan > 0
+                        ? (frequencies[end] - frequencies[start]) / totalBandSpan * plotW
+                        : plotW;
+                    bandPixelWidth.push(bPxW);
+                    cumPx += bPxW;
+                }
+            }
+            const xScale = (f) => {
+                for (let bi = 0; bi < bands.length; bi++) {
+                    const { start, end } = bands[bi];
+                    const bMin = frequencies[start];
+                    const bMax = frequencies[end];
+                    if (bi === bands.length - 1 || f <= bMax + 1e-9) {
+                        const bSpan = bMax - bMin;
+                        return PAD_LEFT + bandPixelStart[bi] +
+                               (bSpan > 0 ? (f - bMin) / bSpan * bandPixelWidth[bi] : 0);
+                    }
+                }
+                return PAD_LEFT + plotW;
+            };
+            const yScale = (dbm) => PAD_TOP  + (yMax - dbm)  / (yMax   - yMin)     * plotH;
+
+            /* ── Clear ── */
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            /* ── Background ── */
+            ctx.fillStyle = th.canvasBg;
+            ctx.fillRect(0, 0, cssW, cssH);
+
+            /* ── Grid + Y-axis ticks ── */
+            ctx.strokeStyle = th.grid;
+            ctx.lineWidth   = 1;
+            ctx.font        = '11px sans-serif';
+            ctx.fillStyle   = th.tick;
+            ctx.textAlign   = 'right';
+            ctx.textBaseline = 'middle';
+
+            for (let v = yMin; v <= yMax + 1e-9; v += step) {
+                const y = Math.round(yScale(v)) + 0.5;
+                ctx.beginPath();
+                ctx.moveTo(PAD_LEFT, y);
+                ctx.lineTo(PAD_LEFT + plotW, y);
+                ctx.stroke();
+                ctx.fillText(v.toFixed(0) + ' dBm', PAD_LEFT - 6, y);
+            }
+
+            /* ── Grid + X-axis ticks (one set of ticks per band) ── */
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'top';
+
+            let lastTickRightEdge = -Infinity;
+            for (let bi = 0; bi < bands.length; bi++) {
+                const { start, end } = bands[bi];
+                const bMin  = frequencies[start];
+                const bMax  = frequencies[end];
+                const bPxW  = totalBandSpan > 0
+                    ? (bMax - bMin) / totalBandSpan * plotW
+                    : plotW;
+                const tickCount = Math.max(2, Math.round(10 * bPxW / plotW));
+                const xTicks = niceFreqTicks(bMin, bMax, tickCount);
+                for (const f of xTicks) {
+                    const x = Math.round(xScale(f)) + 0.5;
+                    ctx.strokeStyle = th.grid;
+                    ctx.lineWidth   = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, PAD_TOP);
+                    ctx.lineTo(x, PAD_TOP + plotH);
+                    ctx.stroke();
+
+                    const label     = formatFreq(f);
+                    const halfWidth = ctx.measureText(label).width / 2;
+                    if (x - halfWidth >= lastTickRightEdge) {
+                        ctx.fillStyle = th.tick;
+                        ctx.fillText(label, x, PAD_TOP + plotH + 6);
+                        lastTickRightEdge = x + halfWidth;
+                    }
+                }
+            }
+
+            /* ── Plot border ── */
+            ctx.strokeStyle = th.plotBorder;
+            ctx.lineWidth   = 1;
+            ctx.strokeRect(PAD_LEFT + 0.5, PAD_TOP + 0.5, plotW, plotH);
+
+            /* ── Traces ── */
+            ctx.save();
+            ctx.rect(PAD_LEFT, PAD_TOP, plotW, plotH);
+            ctx.clip();
+
+            const px = frequencies.map(f => xScale(f));
+
+            for (let ti = 0; ti < traces.length; ti++) {
+                if (!traceVisible[ti]) continue;
+                const trace = traces[ti];
+                const py = trace.map(v => yScale(v));
+                ctx.strokeStyle = traceColors[ti];
+                ctx.lineWidth   = 1.5;
+
+                /* Draw each band as a separate bezier path so the line is never
+                   drawn across a band gap. */
+                for (const { start, end } of bands) {
+                    if (start > end) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(px[start], py[start]);
+                    for (let i = start; i < end - 1; i++) {
+                        const mx = (px[i + 1] + px[i + 2]) / 2;
+                        const my = (py[i + 1] + py[i + 2]) / 2;
+                        ctx.quadraticCurveTo(px[i + 1], py[i + 1], mx, my);
+                    }
+                    if (end > start) ctx.lineTo(px[end], py[end]);
+                    ctx.stroke();
+                }
+            }
+
+            /* ── Band separator lines ── */
+            if (bands.length > 1) {
+                ctx.strokeStyle = th.bandSeparator;
+                ctx.lineWidth   = 1;
+                ctx.setLineDash([5, 4]);
+                for (let bi = 0; bi < bands.length - 1; bi++) {
+                    const x = Math.round(xScale(frequencies[bands[bi].end])) + 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(x, PAD_TOP);
+                    ctx.lineTo(x, PAD_TOP + plotH);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+
+            ctx.restore();
+
+            /* ── Axis labels ── */
+            ctx.fillStyle    = th.axisLabel;
+            ctx.font         = '12px sans-serif';
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('Frequency', PAD_LEFT + plotW / 2, cssH - 2);
+
+            ctx.save();
+            ctx.translate(14, PAD_TOP + plotH / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textBaseline = 'top';
+            ctx.fillText('Power (dBm)', 0, 0);
+            ctx.restore();
+
+            /* ── File name title ── */
+            ctx.fillStyle    = th.chartTitle;
+            ctx.font         = '11px sans-serif';
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(filename, PAD_LEFT + plotW / 2, 6);
+
+            /* ── Info legend (top-right corner of plot area) ── */
+            {
+                const minPower = Math.min(...traces.map(t => Math.min(...t))).toFixed(2);
+                const maxPower = Math.max(...traces.map(t => Math.max(...t))).toFixed(2);
+                const lines = [
+                    'Start:  ' + formatFreq(frequencies[0]),
+                    'Stop:   ' + formatFreq(frequencies[n - 1]),
+                    'Min:    ' + minPower + ' dBm',
+                    'Max:    ' + maxPower + ' dBm',
+                    'Points: ' + n,
+                ];
+                const fSize = 11;
+                const lineH = fSize + 4;
+                const pad   = 6;
+                ctx.font = fSize + 'px monospace';
+                const maxW  = Math.max(...lines.map(l => ctx.measureText(l).width));
+                const boxW  = maxW + pad * 2;
+                const boxH  = lines.length * lineH + pad * 2;
+                const bx    = PAD_LEFT + plotW - boxW - 8;
+                const by    = PAD_TOP + 8;
+
+                ctx.fillStyle = th.legendBg;
+                ctx.fillRect(bx, by, boxW, boxH);
+                ctx.strokeStyle = th.plotBorder;
+                ctx.lineWidth   = 1;
+                ctx.strokeRect(bx + 0.5, by + 0.5, boxW, boxH);
+
+                ctx.fillStyle    = th.legendText;
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'top';
+                for (let i = 0; i < lines.length; i++) {
+                    ctx.fillText(lines[i], bx + pad, by + pad + i * lineH);
+                }
+            }
+
+            /* ── Store layout for tooltip ── */
+            canvas._layout = { xScale, yScale, plotW, plotH, yMin, yMax };
+
+            /* ── Re-apply crosshair after full redraw (e.g. resize / theme change) ── */
+            drawCrosshair(hoveredIdx);
+        }
+
+        /* ── Tooltip on mouse move ──────────────────────────────────────────── */
+        canvas.addEventListener('mousemove', (e) => {
+            if (!chartData || !canvas._layout) return;
+            const { xScale, yScale, plotW, plotH } = canvas._layout;
+            const { frequencies, traces } = chartData;
+
+            const rect = canvas.getBoundingClientRect();
+            const mx   = e.clientX - rect.left;
+            const my   = e.clientY - rect.top;
+
+            if (mx < PAD_LEFT || mx > PAD_LEFT + plotW ||
+                my < PAD_TOP  || my > PAD_TOP  + plotH) {
+                tooltip.style.display = 'none';
+                hoveredIdx = null;
+                drawCrosshair(null);
+                return;
+            }
+
+            /* Find closest frequency index by pixel-x distance.
+               This works correctly with the band-aware xScale where the
+               inter-band gaps are collapsed and contribute no plot width. */
+            let idx = 0;
+            let bestDist = Infinity;
+            for (let i = 0; i < frequencies.length; i++) {
+                const d = Math.abs(xScale(frequencies[i]) - mx);
+                if (d < bestDist) { bestDist = d; idx = i; }
+            }
+
+            hoveredIdx = idx;
+            drawCrosshair(idx);
+
+            let html = '<b>' + formatFreqTooltip(frequencies[idx]) + '</b>';
+            const visCount = traceVisible.filter(v => v).length;
+            for (let ti = 0; ti < traces.length; ti++) {
+                if (!traceVisible[ti]) continue;
+                const label = visCount > 1 ? 'Trace ' + (ti + 1) : 'Power';
+                html += '<br><span style="color:' + traceColors[ti] + '">' + label + '</span>: '
+                      + traces[ti][idx].toFixed(2) + ' dBm';
+            }
+            tooltip.innerHTML = html;
+
+            /* Position tooltip so it stays within wrapper */
+            tooltip.style.display = 'block';
+            const tw = tooltip.offsetWidth;
+            const th = tooltip.offsetHeight;
+            let tx = mx + 14;
+            let ty = my - th / 2;
+            if (tx + tw > wrapper.clientWidth - 8) tx = mx - tw - 14;
+            if (ty < 4) ty = 4;
+            tooltip.style.left = tx + 'px';
+            tooltip.style.top  = ty + 'px';
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+            hoveredIdx = null;
+            drawCrosshair(null);
+        });
+
+        /* ── Utility functions ──────────────────────────────────────────────── */
+
+        /** Choose a "nice" tick step for the given data range and target count. */
+        function niceStep(range, targetCount) {
+            const raw       = range / targetCount;
+            const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+            const n         = raw / magnitude;
+            let step;
+            if      (n <= 1)  step = 1;
+            else if (n <= 2)  step = 2;
+            else if (n <= 5)  step = 5;
+            else              step = 10;
+            return step * magnitude;
+        }
+
+        /** Generate evenly-spaced frequency tick values across [fMin, fMax]. */
+        function niceFreqTicks(fMin, fMax, maxCount) {
+            const step  = niceStep(fMax - fMin, maxCount);
+            const start = Math.ceil(fMin / step) * step;
+            const ticks = [];
+            for (let f = start; f <= fMax + 1e-9; f += step) {
+                ticks.push(f);
+            }
+            return ticks;
+        }
+
+        /** Format a frequency value (in Hz) with an appropriate SI suffix. */
+        function formatFreq(hz) {
+            if (hz >= 1e9)  return (hz / 1e9).toFixed(3).replace(/\.?0+$/, '') + ' GHz';
+            if (hz >= 1e6)  return (hz / 1e6).toFixed(3).replace(/\.?0+$/, '') + ' MHz';
+            if (hz >= 1e3)  return (hz / 1e3).toFixed(3).replace(/\.?0+$/, '') + ' kHz';
+            return hz.toFixed(0) + ' Hz';
+        }
+
+        /** Format a frequency with 6 decimal digits for the hover tooltip. */
+        function formatFreqTooltip(hz) {
+            if (hz >= 1e9)  return (hz / 1e9).toFixed(6) + ' GHz';
+            if (hz >= 1e6)  return (hz / 1e6).toFixed(6) + ' MHz';
+            if (hz >= 1e3)  return (hz / 1e3).toFixed(6) + ' kHz';
+            return hz.toFixed(6) + ' Hz';
+        }
+
+        /** Update a trace visibility button to reflect the current traceVisible state. */
+        function updateVisBtn(i) {
+            const cpItem = document.getElementById('cpitem' + i);
+            if (!cpItem) return;
+            const btn = document.getElementById('vis' + i);
+            if (traceVisible[i]) {
+                cpItem.classList.remove('trace-hidden');
+                btn.title = 'Hide Trace ' + (i + 1);
+            } else {
+                cpItem.classList.add('trace-hidden');
+                btn.title = 'Show Trace ' + (i + 1);
+            }
+        }
+
+        /** Draw (or clear) the vertical frequency crosshair on the overlay canvas. */
+        function drawCrosshair(idx) {
+            const dpr  = window.devicePixelRatio || 1;
+            const ctx2 = crosshairCanvas.getContext('2d');
+            /* Reset to identity, clear the full physical canvas, then check early exit. */
+            ctx2.setTransform(1, 0, 0, 1, 0, 0);
+            ctx2.clearRect(0, 0, crosshairCanvas.width, crosshairCanvas.height);
+            if (idx === null || !canvas._layout || !chartData) return;
+
+            /* Apply DPR scaling once, after the early-return check. */
+            ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const { xScale, plotH } = canvas._layout;
+            const th = THEMES[currentTheme];
+
+            ctx2.strokeStyle = th.crosshair;
+            ctx2.lineWidth   = 1;
+            ctx2.setLineDash([4, 3]);
+            const xPos = Math.round(xScale(chartData.frequencies[idx])) + 0.5;
+            ctx2.beginPath();
+            ctx2.moveTo(xPos, PAD_TOP);
+            ctx2.lineTo(xPos, PAD_TOP + plotH);
+            ctx2.stroke();
+            ctx2.setLineDash([]);
+        }
+    </script>
+</body>
+</html>
