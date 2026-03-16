@@ -711,6 +711,7 @@
             ctx.textAlign    = 'center';
             ctx.textBaseline = 'top';
 
+            let lastTickRightEdge = -Infinity;
             for (let bi = 0; bi < bands.length; bi++) {
                 const { start, end } = bands[bi];
                 const bMin  = frequencies[start];
@@ -729,8 +730,13 @@
                     ctx.lineTo(x, PAD_TOP + plotH);
                     ctx.stroke();
 
-                    ctx.fillStyle = th.tick;
-                    ctx.fillText(formatFreq(f), x, PAD_TOP + plotH + 6);
+                    const label     = formatFreq(f);
+                    const halfWidth = ctx.measureText(label).width / 2;
+                    if (x - halfWidth >= lastTickRightEdge) {
+                        ctx.fillStyle = th.tick;
+                        ctx.fillText(label, x, PAD_TOP + plotH + 6);
+                        lastTickRightEdge = x + halfWidth;
+                    }
                 }
             }
 
