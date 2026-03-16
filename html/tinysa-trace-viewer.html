@@ -115,6 +115,14 @@
             min-height: 1.2em;
         }
 
+        /* ── Toolbar right group ────────────────────────────────────────────── */
+        .toolbar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         /* ── Theme toggle button ────────────────────────────────────────────── */
         #themeBtn {
             font-size: 0.82rem;
@@ -125,10 +133,25 @@
             padding: 4px 10px;
             cursor: pointer;
             white-space: nowrap;
-            margin-left: auto;
         }
 
         #themeBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        /* ── Markers pane toggle button ──────────────────────────────────────── */
+        #markersBtn {
+            font-size: 0.82rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #markersBtn:hover {
             background: var(--btn-hover);
         }
 
@@ -247,6 +270,142 @@
             white-space: nowrap;
             display: none;
         }
+
+        /* ── Chart area (chart + markers pane side by side) ──────────────────── */
+        .chart-area {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .chart-area > .chart-wrapper {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* ── Markers pane ────────────────────────────────────────────────────── */
+        .markers-pane {
+            width: 190px;
+            flex-shrink: 0;
+            background: var(--wrapper-bg);
+            border: 1px solid var(--wrapper-border);
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 0.82rem;
+            color: var(--text);
+        }
+
+        .markers-pane.pane-hidden {
+            display: none;
+        }
+
+        .markers-pane-title {
+            font-size: 0.78rem;
+            font-weight: bold;
+            color: var(--heading);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .markers-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 6px;
+        }
+
+        .mc-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .mc-label {
+            font-size: 0.78rem;
+            color: var(--label);
+        }
+
+        .mc-btn {
+            font-size: 0.78rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            padding: 3px 7px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .mc-btn:hover {
+            background: var(--btn-hover);
+        }
+
+        .mc-btn:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        .mc-select {
+            font-size: 0.78rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            padding: 2px 4px;
+            width: 38px;
+        }
+
+        .markers-sep {
+            height: 1px;
+            background: var(--wrapper-border);
+            margin: 4px 0 6px;
+        }
+
+        .markers-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .marker-entry {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            padding: 2px 4px;
+            border-radius: 3px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            font-family: monospace;
+        }
+
+        .marker-entry:hover {
+            background: rgba(128,128,128,0.12);
+        }
+
+        .marker-entry.current {
+            border-color: var(--input-border);
+            background: rgba(128,128,128,0.08);
+        }
+
+        .me-num {
+            font-size: 0.78rem;
+            font-weight: bold;
+            min-width: 22px;
+        }
+
+        .me-freq {
+            flex: 1;
+            font-size: 0.72rem;
+            text-align: right;
+        }
+
+        .me-power {
+            font-size: 0.72rem;
+            text-align: right;
+            min-width: 58px;
+        }
     </style>
 </head>
 <body>
@@ -296,13 +455,41 @@
                        title="Reference power level at the top of the Y axis">
             </label>
         </div>
-        <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
+        <div class="toolbar-right">
+            <button id="markersBtn" title="Toggle markers pane">Markers</button>
+            <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
+        </div>
     </div>
 
-    <div class="chart-wrapper" id="chartWrapper">
-        <canvas id="chart"></canvas>
-        <canvas id="crosshair" style="position:absolute;top:8px;left:8px;pointer-events:none;"></canvas>
-        <div id="tooltip"></div>
+    <div class="chart-area" id="chartArea">
+        <div class="chart-wrapper" id="chartWrapper">
+            <canvas id="chart"></canvas>
+            <canvas id="crosshair" style="position:absolute;top:8px;left:8px;pointer-events:none;"></canvas>
+            <div id="tooltip"></div>
+        </div>
+
+        <div class="markers-pane pane-hidden" id="markersPane">
+            <div class="markers-pane-title">Markers</div>
+            <div class="markers-controls">
+                <div class="mc-row">
+                    <span class="mc-label">Trace:</span>
+                    <select id="markerTraceSelect" class="mc-select">
+                        <option value="0">1</option>
+                        <option value="1">2</option>
+                        <option value="2">3</option>
+                        <option value="3">4</option>
+                    </select>
+                    <button class="mc-btn" id="addMarkerBtn" title="Add marker at center frequency">Add</button>
+                </div>
+                <div class="mc-row">
+                    <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Remove</button>
+                    <button class="mc-btn" id="markerMinBtn" title="Move current marker to minimum power" disabled>Min</button>
+                    <button class="mc-btn" id="markerMaxBtn" title="Move current marker to maximum power" disabled>Max</button>
+                </div>
+            </div>
+            <div class="markers-sep"></div>
+            <div class="markers-list" id="markersList"></div>
+        </div>
     </div>
 
     <script>
@@ -355,6 +542,14 @@
         const tooltip         = document.getElementById('tooltip');
         const wrapper         = document.getElementById('chartWrapper');
         const themeBtn        = document.getElementById('themeBtn');
+        const markersBtn      = document.getElementById('markersBtn');
+        const markersPane     = document.getElementById('markersPane');
+        const markerTraceSelect = document.getElementById('markerTraceSelect');
+        const addMarkerBtn    = document.getElementById('addMarkerBtn');
+        const removeMarkerBtn = document.getElementById('removeMarkerBtn');
+        const markerMinBtn    = document.getElementById('markerMinBtn');
+        const markerMaxBtn    = document.getElementById('markerMaxBtn');
+        const markersList     = document.getElementById('markersList');
 
         /* ── Restore persisted settings ─────────────────────────────────────── */
         (function restoreSettings() {
@@ -438,6 +633,85 @@
         let chartData   = null;   // { frequencies, traces, bandBoundaries, filename }
         let hoveredIdx  = null;   // index of the frequency closest to the mouse
 
+        /* ── Marker state ────────────────────────────────────────────────────── */
+        let markers          = [];   // Array of { traceIndex, freqIndex }
+        let currentMarkerIdx = -1;   // index into markers array, -1 = none
+        let draggingMarkerIdx = null; // index of marker being dragged, null = none
+
+        /* ── Markers pane toggle ────────────────────────────────────────────── */
+        markersBtn.addEventListener('click', () => {
+            const hidden = markersPane.classList.toggle('pane-hidden');
+            markersBtn.textContent = hidden ? 'Markers' : 'Hide Markers';
+            if (chartData) drawChart();
+        });
+
+        /* ── Add marker ─────────────────────────────────────────────────────── */
+        addMarkerBtn.addEventListener('click', () => {
+            if (!chartData) return;
+            const traceIndex = parseInt(markerTraceSelect.value, 10);
+            if (traceIndex >= chartData.traces.length) return;
+            const freqIndex = Math.floor(chartData.frequencies.length / 2);
+            markers.push({ traceIndex, freqIndex });
+            currentMarkerIdx = markers.length - 1;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        /* ── Remove current marker ──────────────────────────────────────────── */
+        removeMarkerBtn.addEventListener('click', () => {
+            if (currentMarkerIdx < 0 || currentMarkerIdx >= markers.length) return;
+            markers.splice(currentMarkerIdx, 1);
+            currentMarkerIdx = markers.length === 0 ? -1
+                : Math.min(currentMarkerIdx, markers.length - 1);
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        /* ── Move current marker to min/max power ───────────────────────────── */
+        markerMinBtn.addEventListener('click', () => {
+            if (!chartData || currentMarkerIdx < 0) return;
+            const m = markers[currentMarkerIdx];
+            const trace = chartData.traces[m.traceIndex];
+            if (!trace) return;
+            let best = 0;
+            for (let i = 1; i < trace.length; i++) {
+                if (trace[i] < trace[best]) best = i;
+            }
+            m.freqIndex = best;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        markerMaxBtn.addEventListener('click', () => {
+            if (!chartData || currentMarkerIdx < 0) return;
+            const m = markers[currentMarkerIdx];
+            const trace = chartData.traces[m.traceIndex];
+            if (!trace) return;
+            let best = 0;
+            for (let i = 1; i < trace.length; i++) {
+                if (trace[i] > trace[best]) best = i;
+            }
+            m.freqIndex = best;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        /* ── Arrow-key movement of current marker ───────────────────────────── */
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            if (!chartData || currentMarkerIdx < 0 || currentMarkerIdx >= markers.length) return;
+            const tag = e.target.tagName;
+            if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+            const m = markers[currentMarkerIdx];
+            const maxIdx = chartData.frequencies.length - 1;
+            m.freqIndex = e.key === 'ArrowLeft'
+                ? Math.max(0, m.freqIndex - 1)
+                : Math.min(maxIdx, m.freqIndex + 1);
+            e.preventDefault();
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
         /* ── File loading ───────────────────────────────────────────────────── */
         fileInput.addEventListener('change', () => {
             const file = fileInput.files[0];
@@ -481,6 +755,9 @@
                     }
                     showMessage('');
                     chartData = { ...parsed, filename: file.name };
+                    markers = [];
+                    currentMarkerIdx = -1;
+                    updateMarkersPane();
                     drawChart();
                 } catch (err) {
                     showMessage('Failed to parse file: ' + err.message);
@@ -598,6 +875,11 @@
         const PAD_RIGHT  = 20;
         const PAD_TOP    = 36;
         const PAD_BOTTOM = 52;
+
+        /** Marker triangle geometry and hit-testing constants */
+        const MARKER_HW      = 8;   /* half-width of marker triangle base (px) */
+        const MARKER_H       = 13;  /* height of marker triangle (px)           */
+        const MARKER_HIT_PAD = 3;   /* extra hit-testing tolerance around triangle (px) */
 
         function drawChart() {
             const { frequencies, traces, bandBoundaries, filename } = chartData;
@@ -855,11 +1137,44 @@
             /* ── Store layout for tooltip ── */
             canvas._layout = { xScale, yScale, plotW, plotH, yMin, yMax };
 
-            /* ── Re-apply crosshair after full redraw (e.g. resize / theme change) ── */
-            drawCrosshair(hoveredIdx);
+            /* ── Re-apply overlay after full redraw (e.g. resize / theme change) ── */
+            drawOverlay(hoveredIdx);
         }
 
         /* ── Tooltip on mouse move ──────────────────────────────────────────── */
+        canvas.addEventListener('mousedown', (e) => {
+            if (!chartData || !canvas._layout) return;
+            const { xScale, yScale } = canvas._layout;
+            const { frequencies, traces } = chartData;
+
+            const rect = canvas.getBoundingClientRect();
+            const mx   = e.clientX - rect.left;
+            const my   = e.clientY - rect.top;
+
+            /* Check if click is on a marker triangle */
+            for (let mi = 0; mi < markers.length; mi++) {
+                const m = markers[mi];
+                if (!traceVisible[m.traceIndex] || m.traceIndex >= traces.length) continue;
+                const x = xScale(frequencies[m.freqIndex]);
+                const y = yScale(traces[m.traceIndex][m.freqIndex]);
+                if (mx >= x - MARKER_HW - MARKER_HIT_PAD && mx <= x + MARKER_HW + MARKER_HIT_PAD &&
+                    my >= y - MARKER_H   - MARKER_HIT_PAD && my <= y + MARKER_HIT_PAD) {
+                    currentMarkerIdx  = mi;
+                    draggingMarkerIdx = mi;
+                    canvas.style.cursor = 'grabbing';
+                    updateMarkersPane();
+                    drawOverlay(hoveredIdx);
+                    e.preventDefault();
+                    return;
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            draggingMarkerIdx = null;
+            canvas.style.cursor = 'crosshair';
+        });
+
         canvas.addEventListener('mousemove', (e) => {
             if (!chartData || !canvas._layout) return;
             const { xScale, yScale, plotW, plotH } = canvas._layout;
@@ -869,13 +1184,42 @@
             const mx   = e.clientX - rect.left;
             const my   = e.clientY - rect.top;
 
+            /* Handle marker drag */
+            if (draggingMarkerIdx !== null) {
+                let idx = 0, bestDist = Infinity;
+                for (let i = 0; i < frequencies.length; i++) {
+                    const d = Math.abs(xScale(frequencies[i]) - mx);
+                    if (d < bestDist) { bestDist = d; idx = i; }
+                }
+                markers[draggingMarkerIdx].freqIndex = idx;
+                updateMarkersPane();
+                drawOverlay(hoveredIdx);
+                return;
+            }
+
             if (mx < PAD_LEFT || mx > PAD_LEFT + plotW ||
                 my < PAD_TOP  || my > PAD_TOP  + plotH) {
                 tooltip.style.display = 'none';
                 hoveredIdx = null;
-                drawCrosshair(null);
+                canvas.style.cursor = 'crosshair';
+                drawOverlay(null);
                 return;
             }
+
+            /* Check if hovering over a marker triangle to change cursor */
+            let overMarker = false;
+            for (let mi = 0; mi < markers.length; mi++) {
+                const m = markers[mi];
+                if (!traceVisible[m.traceIndex] || m.traceIndex >= traces.length) continue;
+                const x = xScale(frequencies[m.freqIndex]);
+                const y = yScale(traces[m.traceIndex][m.freqIndex]);
+                if (mx >= x - MARKER_HW - MARKER_HIT_PAD && mx <= x + MARKER_HW + MARKER_HIT_PAD &&
+                    my >= y - MARKER_H   - MARKER_HIT_PAD && my <= y + MARKER_HIT_PAD) {
+                    overMarker = true;
+                    break;
+                }
+            }
+            canvas.style.cursor = overMarker ? 'pointer' : 'crosshair';
 
             /* Find closest frequency index by pixel-x distance.
                This works correctly with the band-aware xScale where the
@@ -888,7 +1232,7 @@
             }
 
             hoveredIdx = idx;
-            drawCrosshair(idx);
+            drawOverlay(idx);
 
             let html = '<b>' + formatFreqTooltip(frequencies[idx]) + '</b>';
             const visCount = traceVisible.filter(v => v).length;
@@ -915,7 +1259,8 @@
         canvas.addEventListener('mouseleave', () => {
             tooltip.style.display = 'none';
             hoveredIdx = null;
-            drawCrosshair(null);
+            draggingMarkerIdx = null;
+            drawOverlay(null);
         });
 
         /* ── Utility functions ──────────────────────────────────────────────── */
@@ -974,30 +1319,122 @@
             }
         }
 
-        /** Draw (or clear) the vertical frequency crosshair on the overlay canvas. */
-        function drawCrosshair(idx) {
+        /** Update the markers pane list and control button states. */
+        function updateMarkersPane() {
+            const hasMarker = currentMarkerIdx >= 0 && currentMarkerIdx < markers.length;
+            removeMarkerBtn.disabled = !hasMarker;
+            markerMinBtn.disabled    = !hasMarker;
+            markerMaxBtn.disabled    = !hasMarker;
+
+            /* Keep trace selector in sync with loaded data */
+            const traceCount = chartData ? chartData.traces.length : DEFAULT_TRACE_COLORS.length;
+            for (let i = 0; i < markerTraceSelect.options.length; i++) {
+                markerTraceSelect.options[i].disabled = i >= traceCount;
+            }
+
+            /* Rebuild the list */
+            markersList.innerHTML = '';
+            if (!chartData) return;
+            const { frequencies, traces } = chartData;
+            for (let mi = 0; mi < markers.length; mi++) {
+                const m      = markers[mi];
+                const color  = traceColors[m.traceIndex];
+                const freq   = frequencies[m.freqIndex];
+                const power  = traces[m.traceIndex] ? traces[m.traceIndex][m.freqIndex] : 0;
+
+                const entry = document.createElement('div');
+                entry.className = 'marker-entry' + (mi === currentMarkerIdx ? ' current' : '');
+                entry.style.color = color;
+
+                const numSpan   = document.createElement('span');
+                numSpan.className = 'me-num';
+                numSpan.textContent = 'M' + (mi + 1);
+
+                const freqSpan  = document.createElement('span');
+                freqSpan.className = 'me-freq';
+                freqSpan.textContent = formatFreq(freq);
+
+                const powerSpan = document.createElement('span');
+                powerSpan.className = 'me-power';
+                powerSpan.textContent = power.toFixed(2) + ' dBm';
+
+                entry.appendChild(numSpan);
+                entry.appendChild(freqSpan);
+                entry.appendChild(powerSpan);
+
+                entry.addEventListener('click', () => {
+                    currentMarkerIdx = mi;
+                    updateMarkersPane();
+                    drawOverlay(hoveredIdx);
+                });
+
+                markersList.appendChild(entry);
+            }
+        }
+
+        /** Draw a downward-pointing marker triangle with tip at (x, y). */
+        function drawMarkerTriangle(ctx2, x, y, color, label, isCurrent) {
+            ctx2.beginPath();
+            ctx2.moveTo(x,            y);              /* tip at trace level */
+            ctx2.lineTo(x - MARKER_HW, y - MARKER_H);  /* upper-left         */
+            ctx2.lineTo(x + MARKER_HW, y - MARKER_H);  /* upper-right        */
+            ctx2.closePath();
+            ctx2.fillStyle = color;
+            ctx2.fill();
+            if (isCurrent) {
+                ctx2.strokeStyle = 'rgba(255,255,255,0.8)';
+                ctx2.lineWidth   = 1.5;
+                ctx2.stroke();
+            }
+            /* Label above the triangle */
+            ctx2.fillStyle    = isCurrent ? '#ffffff' : color;
+            ctx2.font         = 'bold 9px sans-serif';
+            ctx2.textAlign    = 'center';
+            ctx2.textBaseline = 'bottom';
+            ctx2.fillText(label, x, y - MARKER_H - 1);
+        }
+
+        /** Draw marker triangles and the vertical crosshair on the overlay canvas. */
+        function drawOverlay(idx) {
             const dpr  = window.devicePixelRatio || 1;
             const ctx2 = crosshairCanvas.getContext('2d');
-            /* Reset to identity, clear the full physical canvas, then check early exit. */
+            /* Reset to identity and clear the full physical canvas. */
             ctx2.setTransform(1, 0, 0, 1, 0, 0);
             ctx2.clearRect(0, 0, crosshairCanvas.width, crosshairCanvas.height);
-            if (idx === null || !canvas._layout || !chartData) return;
+            if (!canvas._layout || !chartData) return;
 
-            /* Apply DPR scaling once, after the early-return check. */
+            /* Apply DPR scaling. */
             ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            const { xScale, plotH } = canvas._layout;
+            const { xScale, yScale, plotW, plotH } = canvas._layout;
             const th = THEMES[currentTheme];
 
-            ctx2.strokeStyle = th.crosshair;
-            ctx2.lineWidth   = 1;
-            ctx2.setLineDash([4, 3]);
-            const xPos = Math.round(xScale(chartData.frequencies[idx])) + 0.5;
-            ctx2.beginPath();
-            ctx2.moveTo(xPos, PAD_TOP);
-            ctx2.lineTo(xPos, PAD_TOP + plotH);
-            ctx2.stroke();
-            ctx2.setLineDash([]);
+            /* ── Draw marker triangles ── */
+            for (let mi = 0; mi < markers.length; mi++) {
+                const m = markers[mi];
+                if (!traceVisible[m.traceIndex] || m.traceIndex >= chartData.traces.length) continue;
+                const freq  = chartData.frequencies[m.freqIndex];
+                const power = chartData.traces[m.traceIndex][m.freqIndex];
+                const x = xScale(freq);
+                const y = yScale(power);
+                /* Skip markers that are outside the visible plot area */
+                if (x < PAD_LEFT - 1 || x > PAD_LEFT + plotW + 1) continue;
+                drawMarkerTriangle(ctx2, x, y, traceColors[m.traceIndex],
+                    'M' + (mi + 1), mi === currentMarkerIdx);
+            }
+
+            /* ── Draw crosshair ── */
+            if (idx !== null) {
+                ctx2.strokeStyle = th.crosshair;
+                ctx2.lineWidth   = 1;
+                ctx2.setLineDash([4, 3]);
+                const xPos = Math.round(xScale(chartData.frequencies[idx])) + 0.5;
+                ctx2.beginPath();
+                ctx2.moveTo(xPos, PAD_TOP);
+                ctx2.lineTo(xPos, PAD_TOP + plotH);
+                ctx2.stroke();
+                ctx2.setLineDash([]);
+            }
         }
     </script>
 </body>
