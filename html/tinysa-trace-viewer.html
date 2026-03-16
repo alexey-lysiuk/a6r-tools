@@ -458,6 +458,9 @@
             wrapper.classList.remove('drag-over');
             const file = e.dataTransfer.files[0];
             if (!file) return;
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
             loadFile(file);
         });
 
