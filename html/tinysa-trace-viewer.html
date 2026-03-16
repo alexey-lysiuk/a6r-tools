@@ -308,13 +308,6 @@
             letter-spacing: 0.04em;
         }
 
-        .markers-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            margin-bottom: 6px;
-        }
-
         .mc-row {
             display: flex;
             align-items: center;
@@ -470,25 +463,31 @@
 
         <div class="markers-pane pane-hidden" id="markersPane">
             <div class="markers-pane-title">Markers</div>
-            <div class="markers-controls">
-                <div class="mc-row">
-                    <span class="mc-label">Trace:</span>
-                    <select id="markerTraceSelect" class="mc-select">
-                        <option value="0">1</option>
-                        <option value="1">2</option>
-                        <option value="2">3</option>
-                        <option value="3">4</option>
-                    </select>
-                    <button class="mc-btn" id="addMarkerBtn" title="Add marker at center frequency">Add</button>
-                </div>
-                <div class="mc-row">
-                    <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Remove</button>
-                    <button class="mc-btn" id="markerMinBtn" title="Move current marker to minimum power" disabled>Min</button>
-                    <button class="mc-btn" id="markerMaxBtn" title="Move current marker to maximum power" disabled>Max</button>
-                </div>
+            <div class="mc-row">
+                <span class="mc-label">Trace:</span>
+                <select id="markerTraceSelect" class="mc-select">
+                    <option value="0">1</option>
+                    <option value="1">2</option>
+                    <option value="2">3</option>
+                    <option value="3">4</option>
+                </select>
+                <button class="mc-btn" id="addMarkerBtn" title="Add marker at center frequency">Add</button>
             </div>
             <div class="markers-sep"></div>
             <div class="markers-list" id="markersList"></div>
+            <div class="markers-sep pane-hidden" id="markerBottomSep"></div>
+            <div class="mc-row pane-hidden" id="markerBottomControls">
+                <span class="mc-label">Trace:</span>
+                <select id="markerChangeTraceSelect" class="mc-select" disabled>
+                    <option value="0">1</option>
+                    <option value="1">2</option>
+                    <option value="2">3</option>
+                    <option value="3">4</option>
+                </select>
+                <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Remove</button>
+                <button class="mc-btn" id="markerMinBtn" title="Move current marker to minimum power" disabled>Min</button>
+                <button class="mc-btn" id="markerMaxBtn" title="Move current marker to maximum power" disabled>Max</button>
+            </div>
         </div>
     </div>
 
@@ -550,6 +549,9 @@
         const markerMinBtn    = document.getElementById('markerMinBtn');
         const markerMaxBtn    = document.getElementById('markerMaxBtn');
         const markersList     = document.getElementById('markersList');
+        const markerChangeTraceSelect = document.getElementById('markerChangeTraceSelect');
+        const markerBottomSep      = document.getElementById('markerBottomSep');
+        const markerBottomControls = document.getElementById('markerBottomControls');
 
         /* ── Restore persisted settings ─────────────────────────────────────── */
         (function restoreSettings() {
@@ -607,7 +609,7 @@
             picker.addEventListener('input', () => {
                 traceColors[i] = picker.value;
                 localStorage.setItem('tinysa-colors', JSON.stringify(traceColors));
-                if (chartData) drawChart();
+                if (chartData) { drawChart(); updateMarkersPane(); }
             });
         }
 
@@ -692,6 +694,16 @@
                 if (trace[i] > trace[best]) best = i;
             }
             m.freqIndex = best;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        /* ── Change current marker's trace ──────────────────────────────────── */
+        markerChangeTraceSelect.addEventListener('change', () => {
+            if (currentMarkerIdx < 0 || currentMarkerIdx >= markers.length) return;
+            const newTrace = parseInt(markerChangeTraceSelect.value, 10);
+            if (!chartData || newTrace >= chartData.traces.length) return;
+            markers[currentMarkerIdx].traceIndex = newTrace;
             updateMarkersPane();
             drawOverlay(hoveredIdx);
         });
@@ -1325,11 +1337,24 @@
             removeMarkerBtn.disabled = !hasMarker;
             markerMinBtn.disabled    = !hasMarker;
             markerMaxBtn.disabled    = !hasMarker;
+            markerChangeTraceSelect.disabled = !hasMarker;
 
-            /* Keep trace selector in sync with loaded data */
+            /* Show/hide the bottom controls section */
+            const showBottom = markers.length > 0;
+            markerBottomSep.classList.toggle('pane-hidden', !showBottom);
+            markerBottomControls.classList.toggle('pane-hidden', !showBottom);
+
+            /* Sync the bottom trace selector to the current marker's trace */
+            if (hasMarker) {
+                markerChangeTraceSelect.value = String(markers[currentMarkerIdx].traceIndex);
+            }
+
+            /* Keep trace selectors in sync with loaded data */
             const traceCount = chartData ? chartData.traces.length : DEFAULT_TRACE_COLORS.length;
-            for (let i = 0; i < markerTraceSelect.options.length; i++) {
-                markerTraceSelect.options[i].disabled = i >= traceCount;
+            for (const sel of [markerTraceSelect, markerChangeTraceSelect]) {
+                for (let i = 0; i < sel.options.length; i++) {
+                    sel.options[i].disabled = i >= traceCount;
+                }
             }
 
             /* Rebuild the list */
@@ -1382,12 +1407,17 @@
             ctx2.fillStyle = color;
             ctx2.fill();
             if (isCurrent) {
-                ctx2.strokeStyle = 'rgba(255,255,255,0.8)';
+                /* Use a contrasting outline color depending on the active theme */
+                ctx2.strokeStyle = currentTheme === 'dark'
+                    ? 'rgba(255,255,255,0.85)'
+                    : 'rgba(0,0,0,0.75)';
                 ctx2.lineWidth   = 1.5;
                 ctx2.stroke();
             }
-            /* Label above the triangle */
-            ctx2.fillStyle    = isCurrent ? '#ffffff' : color;
+            /* Label above the triangle – also use contrasting color for current */
+            ctx2.fillStyle    = isCurrent
+                ? (currentTheme === 'dark' ? '#ffffff' : '#000000')
+                : color;
             ctx2.font         = 'bold 9px sans-serif';
             ctx2.textAlign    = 'center';
             ctx2.textBaseline = 'bottom';
