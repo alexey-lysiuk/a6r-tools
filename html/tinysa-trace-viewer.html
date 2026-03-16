@@ -477,16 +477,15 @@
             <div class="markers-list" id="markersList"></div>
             <div class="markers-sep pane-hidden" id="markerBottomSep"></div>
             <div class="mc-row pane-hidden" id="markerBottomControls">
-                <span class="mc-label">Trace:</span>
+                <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>&#8722;</button>
+                <button class="mc-btn" id="markerMinBtn" title="Move current marker to minimum power" disabled>&#8595;</button>
+                <button class="mc-btn" id="markerMaxBtn" title="Move current marker to maximum power" disabled>&#8593;</button>
                 <select id="markerChangeTraceSelect" class="mc-select" disabled>
                     <option value="0">1</option>
                     <option value="1">2</option>
                     <option value="2">3</option>
                     <option value="3">4</option>
                 </select>
-                <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Remove</button>
-                <button class="mc-btn" id="markerMinBtn" title="Move current marker to minimum power" disabled>Min</button>
-                <button class="mc-btn" id="markerMaxBtn" title="Move current marker to maximum power" disabled>Max</button>
             </div>
         </div>
     </div>
