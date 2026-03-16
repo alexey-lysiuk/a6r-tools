@@ -585,6 +585,11 @@
             } catch (_) {}
 
             for (let i = 0; i < 4; i++) updateVisBtn(i);
+
+            if (localStorage.getItem('tinysa-markers-pane') === 'open') {
+                markersPane.classList.remove('pane-hidden');
+                markersBtn.textContent = 'Hide Markers';
+            }
         })();
 
         /* ── Theme toggle ───────────────────────────────────────────────────── */
@@ -643,6 +648,7 @@
         markersBtn.addEventListener('click', () => {
             const hidden = markersPane.classList.toggle('pane-hidden');
             markersBtn.textContent = hidden ? 'Markers' : 'Hide Markers';
+            localStorage.setItem('tinysa-markers-pane', hidden ? 'closed' : 'open');
             if (chartData) drawChart();
         });
 
