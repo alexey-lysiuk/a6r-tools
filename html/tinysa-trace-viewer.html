@@ -115,8 +115,11 @@
             min-height: 1.2em;
         }
 
-        /* ── Theme toggle button ────────────────────────────────────────────── */
-        #themeBtn {
+        /* ── Toolbar buttons ───────────────────────────────────────────────── */
+        #themeBtn,
+        #markersToggleBtn,
+        .marker-btn,
+        .marker-row {
             font-size: 0.82rem;
             background: var(--btn-bg);
             color: var(--btn-text);
@@ -125,10 +128,16 @@
             padding: 4px 10px;
             cursor: pointer;
             white-space: nowrap;
+        }
+
+        #themeBtn {
             margin-left: auto;
         }
 
-        #themeBtn:hover {
+        #themeBtn:hover,
+        #markersToggleBtn:hover,
+        .marker-btn:hover,
+        .marker-row:hover {
             background: var(--btn-hover);
         }
 
@@ -216,6 +225,9 @@
         }
 
         .chart-wrapper {
+            display: flex;
+            align-items: stretch;
+            gap: 12px;
             position: relative;
             width: 100%;
             background: var(--wrapper-bg);
@@ -229,10 +241,99 @@
             box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.35);
         }
 
+        .chart-surface {
+            position: relative;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .markers-pane {
+            width: 280px;
+            flex: 0 0 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-left: 12px;
+            border-left: 1px solid var(--wrapper-border);
+        }
+
+        .chart-wrapper.markers-hidden .markers-pane {
+            display: none;
+        }
+
+        .markers-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .markers-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .markers-row .marker-btn {
+            flex: 1 1 calc(50% - 4px);
+            padding: 5px 10px;
+        }
+
+        .marker-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.8rem;
+            color: var(--label);
+        }
+
+        .marker-field select {
+            font-size: 0.82rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 5px 8px;
+        }
+
+        .markers-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-height: 96px;
+        }
+
+        .marker-row {
+            width: 100%;
+            text-align: left;
+            padding: 8px 10px;
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .marker-row.current {
+            box-shadow: 0 0 0 1px var(--tooltip-border);
+        }
+
+        .marker-row.trace-hidden {
+            opacity: 0.45;
+        }
+
+        .markers-empty {
+            font-size: 0.82rem;
+            color: var(--label);
+            padding: 8px 2px;
+        }
+
         #chart {
             display: block;
             width: 100%;
             cursor: crosshair;
+        }
+
+        #crosshair {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
         }
 
         #tooltip {
@@ -246,6 +347,21 @@
             pointer-events: none;
             white-space: nowrap;
             display: none;
+        }
+
+        @media (max-width: 960px) {
+            .chart-wrapper {
+                flex-direction: column;
+            }
+
+            .markers-pane {
+                width: 100%;
+                flex-basis: auto;
+                border-left: none;
+                border-top: 1px solid var(--wrapper-border);
+                padding-left: 0;
+                padding-top: 12px;
+            }
         }
     </style>
 </head>
@@ -296,13 +412,35 @@
                        title="Reference power level at the top of the Y axis">
             </label>
         </div>
+        <button id="markersToggleBtn" title="Hide markers pane">Hide Markers</button>
         <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
     </div>
 
     <div class="chart-wrapper" id="chartWrapper">
-        <canvas id="chart"></canvas>
-        <canvas id="crosshair" style="position:absolute;top:8px;left:8px;pointer-events:none;"></canvas>
-        <div id="tooltip"></div>
+        <div class="chart-surface" id="chartSurface">
+            <canvas id="chart"></canvas>
+            <canvas id="crosshair"></canvas>
+            <div id="tooltip"></div>
+        </div>
+        <aside class="markers-pane" id="markersPane">
+            <div class="markers-controls">
+                <div class="marker-field">
+                    <label for="markerSelect">Current marker</label>
+                    <select id="markerSelect" title="Select current marker"></select>
+                </div>
+                <div class="marker-field">
+                    <label for="markerTraceSelect">Associated trace</label>
+                    <select id="markerTraceSelect" title="Select current marker trace"></select>
+                </div>
+                <div class="markers-row">
+                    <button type="button" class="marker-btn" id="addMarkerBtn">Add</button>
+                    <button type="button" class="marker-btn" id="removeMarkerBtn">Remove</button>
+                    <button type="button" class="marker-btn" id="markerMinBtn">Min</button>
+                    <button type="button" class="marker-btn" id="markerMaxBtn">Max</button>
+                </div>
+            </div>
+            <div class="markers-list" id="markersList"></div>
+        </aside>
     </div>
 
     <script>
@@ -316,6 +454,9 @@
 
         /* Mutable per-trace visibility flags */
         const traceVisible = [true, true, true, true];
+
+        const MARKER_PANE_STORAGE_KEY = 'tinysa-markers-pane-visible';
+        const MARKER_HIT_RADIUS = 12;
 
         /* ── Canvas theme palettes ──────────────────────────────────────────── */
         const THEMES = {
@@ -351,12 +492,24 @@
         const fileInput       = document.getElementById('fileInput');
         const messageEl       = document.getElementById('message');
         const canvas          = document.getElementById('chart');
+        const chartSurface    = document.getElementById('chartSurface');
         const crosshairCanvas = document.getElementById('crosshair');
         const tooltip         = document.getElementById('tooltip');
         const wrapper         = document.getElementById('chartWrapper');
+        const markersToggleBtn = document.getElementById('markersToggleBtn');
+        const markersPane     = document.getElementById('markersPane');
+        const markerSelect    = document.getElementById('markerSelect');
+        const markerTraceSelect = document.getElementById('markerTraceSelect');
+        const addMarkerBtn    = document.getElementById('addMarkerBtn');
+        const removeMarkerBtn = document.getElementById('removeMarkerBtn');
+        const markerMinBtn    = document.getElementById('markerMinBtn');
+        const markerMaxBtn    = document.getElementById('markerMaxBtn');
+        const markersList     = document.getElementById('markersList');
         const themeBtn        = document.getElementById('themeBtn');
 
         /* ── Restore persisted settings ─────────────────────────────────────── */
+        let markersPaneVisible = true;
+
         (function restoreSettings() {
             const savedTheme = localStorage.getItem('tinysa-theme');
             const systemLight = window.matchMedia('(prefers-color-scheme: light)').matches;
@@ -388,7 +541,14 @@
                 }
             } catch (_) {}
 
+            try {
+                const savedMarkersPane = JSON.parse(localStorage.getItem(MARKER_PANE_STORAGE_KEY));
+                if (typeof savedMarkersPane === 'boolean') markersPaneVisible = savedMarkersPane;
+            } catch (_) {}
+
             for (let i = 0; i < 4; i++) updateVisBtn(i);
+            updateMarkersPaneVisibility(false);
+            renderMarkersPane();
         })();
 
         /* ── Theme toggle ───────────────────────────────────────────────────── */
@@ -406,12 +566,18 @@
             if (chartData) drawChart();
         });
 
+        markersToggleBtn.addEventListener('click', () => {
+            markersPaneVisible = !markersPaneVisible;
+            updateMarkersPaneVisibility(true);
+        });
+
         /* ── Colour picker sync ─────────────────────────────────────────────── */
         for (let i = 0; i < DEFAULT_TRACE_COLORS.length; i++) {
             const picker = document.getElementById('color' + i);
             picker.addEventListener('input', () => {
                 traceColors[i] = picker.value;
                 localStorage.setItem('tinysa-colors', JSON.stringify(traceColors));
+                renderMarkersPane();
                 if (chartData) drawChart();
             });
         }
@@ -422,6 +588,7 @@
                 traceVisible[i] = !traceVisible[i];
                 updateVisBtn(i);
                 localStorage.setItem('tinysa-visibility', JSON.stringify(traceVisible));
+                renderMarkersPane();
                 if (chartData) drawChart();
             });
         }
@@ -434,9 +601,60 @@
             if (chartData) drawChart();
         });
 
+        markerSelect.addEventListener('change', () => {
+            selectMarker(Number(markerSelect.value));
+        });
+
+        markerTraceSelect.addEventListener('change', () => {
+            const marker = getCurrentMarker();
+            if (!marker || !chartData) return;
+            marker.traceIndex = clamp(Number(markerTraceSelect.value), 0, chartData.traces.length - 1);
+            renderMarkersPane();
+            drawChart();
+        });
+
+        addMarkerBtn.addEventListener('click', () => {
+            if (!chartData) return;
+            const pointIndex = hoveredIdx !== null
+                ? hoveredIdx
+                : Math.floor((chartData.frequencies.length - 1) / 2);
+            markers.push({
+                traceIndex: getPreferredMarkerTraceIndex(),
+                pointIndex,
+            });
+            currentMarkerIndex = markers.length - 1;
+            renderMarkersPane();
+            drawChart();
+        });
+
+        removeMarkerBtn.addEventListener('click', () => {
+            if (currentMarkerIndex < 0 || currentMarkerIndex >= markers.length) return;
+            markers.splice(currentMarkerIndex, 1);
+            if (currentMarkerIndex >= markers.length) currentMarkerIndex = markers.length - 1;
+            renderMarkersPane();
+            if (chartData) drawChart();
+        });
+
+        markerMinBtn.addEventListener('click', () => {
+            positionCurrentMarkerAtExtremum('min');
+        });
+
+        markerMaxBtn.addEventListener('click', () => {
+            positionCurrentMarkerAtExtremum('max');
+        });
+
+        markersList.addEventListener('click', (e) => {
+            const row = e.target.closest('[data-marker-index]');
+            if (!row) return;
+            selectMarker(Number(row.dataset.markerIndex));
+        });
+
         /* ── Chart state ────────────────────────────────────────────────────── */
         let chartData   = null;   // { frequencies, traces, bandBoundaries, filename }
         let hoveredIdx  = null;   // index of the frequency closest to the mouse
+        const markers   = [];     // { traceIndex, pointIndex }
+        let currentMarkerIndex = -1;
+        let draggingMarkerIndex = null;
 
         /* ── File loading ───────────────────────────────────────────────────── */
         fileInput.addEventListener('change', () => {
@@ -470,6 +688,35 @@
 
         window.addEventListener('resize', () => { if (chartData) drawChart(); });
 
+        window.addEventListener('mousemove', (e) => {
+            if (draggingMarkerIndex === null || !chartData || !canvas._layout) return;
+            const rect = canvas.getBoundingClientRect();
+            const idx = getClosestFrequencyIndexForPixelX(e.clientX - rect.left);
+            if (idx === null) return;
+            if (!setMarkerPointIndex(draggingMarkerIndex, idx)) return;
+            hoveredIdx = markers[draggingMarkerIndex].pointIndex;
+            tooltip.style.display = 'none';
+            renderMarkersPane();
+            drawChart();
+        });
+
+        window.addEventListener('mouseup', () => {
+            draggingMarkerIndex = null;
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (!chartData || currentMarkerIndex < 0) return;
+            const tagName = e.target && e.target.tagName ? e.target.tagName.toLowerCase() : '';
+            if (tagName === 'input' || tagName === 'select' || tagName === 'textarea') return;
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                moveCurrentMarkerBy(-1);
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                moveCurrentMarkerBy(1);
+            }
+        });
+
         function loadFile(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -481,6 +728,11 @@
                     }
                     showMessage('');
                     chartData = { ...parsed, filename: file.name };
+                    markers.length = 0;
+                    currentMarkerIndex = -1;
+                    draggingMarkerIndex = null;
+                    hoveredIdx = null;
+                    renderMarkersPane();
                     drawChart();
                 } catch (err) {
                     showMessage('Failed to parse file: ' + err.message);
@@ -605,7 +857,7 @@
             const dpr  = window.devicePixelRatio || 1;
 
             /* Size the canvas to fill the wrapper */
-            const cssW = wrapper.clientWidth - 16; // 8px padding each side
+            const cssW = chartSurface.clientWidth;
             const cssH = Math.max(320, Math.round(cssW / 2.6));
             canvas.style.width  = cssW + 'px';
             canvas.style.height = cssH + 'px';
@@ -779,6 +1031,20 @@
                 }
             }
 
+            for (let i = 0; i < markers.length; i++) {
+                const marker = markers[i];
+                const markerData = getMarkerData(marker);
+                if (!markerData || !traceVisible[marker.traceIndex]) continue;
+                drawMarkerTriangle(
+                    ctx,
+                    px[marker.pointIndex],
+                    yScale(markerData.power),
+                    traceColors[marker.traceIndex],
+                    i === currentMarkerIndex,
+                    th
+                );
+            }
+
             /* ── Band separator lines ── */
             if (bands.length > 1) {
                 ctx.strokeStyle = th.bandSeparator;
@@ -853,7 +1119,15 @@
             }
 
             /* ── Store layout for tooltip ── */
-            canvas._layout = { xScale, yScale, plotW, plotH, yMin, yMax };
+            canvas._layout = {
+                xScale,
+                yScale,
+                plotW,
+                plotH,
+                yMin,
+                yMax,
+                px,
+            };
 
             /* ── Re-apply crosshair after full redraw (e.g. resize / theme change) ── */
             drawCrosshair(hoveredIdx);
@@ -862,34 +1136,280 @@
         /* ── Tooltip on mouse move ──────────────────────────────────────────── */
         canvas.addEventListener('mousemove', (e) => {
             if (!chartData || !canvas._layout) return;
-            const { xScale, yScale, plotW, plotH } = canvas._layout;
-            const { frequencies, traces } = chartData;
+            const { plotW, plotH } = canvas._layout;
 
             const rect = canvas.getBoundingClientRect();
             const mx   = e.clientX - rect.left;
             const my   = e.clientY - rect.top;
+
+            if (draggingMarkerIndex !== null) {
+                canvas.style.cursor = 'ew-resize';
+                return;
+            }
 
             if (mx < PAD_LEFT || mx > PAD_LEFT + plotW ||
                 my < PAD_TOP  || my > PAD_TOP  + plotH) {
                 tooltip.style.display = 'none';
                 hoveredIdx = null;
                 drawCrosshair(null);
+                canvas.style.cursor = 'crosshair';
                 return;
             }
 
-            /* Find closest frequency index by pixel-x distance.
-               This works correctly with the band-aware xScale where the
-               inter-band gaps are collapsed and contribute no plot width. */
-            let idx = 0;
-            let bestDist = Infinity;
-            for (let i = 0; i < frequencies.length; i++) {
-                const d = Math.abs(xScale(frequencies[i]) - mx);
-                if (d < bestDist) { bestDist = d; idx = i; }
-            }
+            const markerIdx = getMarkerAtCanvasPoint(mx, my);
+            canvas.style.cursor = markerIdx !== null ? 'pointer' : 'crosshair';
+
+            const idx = getClosestFrequencyIndexForPixelX(mx);
+            if (idx === null) return;
 
             hoveredIdx = idx;
             drawCrosshair(idx);
+            updateTooltip(idx, mx, my);
+        });
 
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button !== 0 || !chartData || !canvas._layout) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const markerIdx = getMarkerAtCanvasPoint(mx, my);
+            if (markerIdx === null) return;
+            currentMarkerIndex = markerIdx;
+            draggingMarkerIndex = markerIdx;
+            canvas.style.cursor = 'ew-resize';
+            renderMarkersPane();
+            drawChart();
+            e.preventDefault();
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            if (draggingMarkerIndex !== null) return;
+            tooltip.style.display = 'none';
+            hoveredIdx = null;
+            drawCrosshair(null);
+            canvas.style.cursor = 'crosshair';
+        });
+
+        /* ── Utility functions ──────────────────────────────────────────────── */
+
+        function updateMarkersPaneVisibility(persist) {
+            wrapper.classList.toggle('markers-hidden', !markersPaneVisible);
+            markersToggleBtn.textContent = markersPaneVisible ? 'Hide Markers' : 'Show Markers';
+            markersToggleBtn.title = markersPaneVisible ? 'Hide markers pane' : 'Show markers pane';
+            markersPane.setAttribute('aria-hidden', String(!markersPaneVisible));
+            if (persist) localStorage.setItem(MARKER_PANE_STORAGE_KEY, JSON.stringify(markersPaneVisible));
+            if (chartData) drawChart();
+        }
+
+        function renderMarkersPane() {
+            const hasData = !!chartData;
+            if (markers.length === 0) {
+                currentMarkerIndex = -1;
+            } else if (currentMarkerIndex < 0 || currentMarkerIndex >= markers.length) {
+                currentMarkerIndex = 0;
+            }
+
+            addMarkerBtn.disabled = !hasData;
+
+            markerSelect.innerHTML = '';
+            if (markers.length === 0) {
+                const option = document.createElement('option');
+                option.textContent = hasData ? 'No markers' : 'Load data first';
+                option.value = '';
+                markerSelect.appendChild(option);
+            } else {
+                for (let i = 0; i < markers.length; i++) {
+                    const option = document.createElement('option');
+                    option.value = String(i);
+                    option.textContent = 'Marker ' + (i + 1);
+                    option.selected = i === currentMarkerIndex;
+                    markerSelect.appendChild(option);
+                }
+            }
+            markerSelect.disabled = !hasData || markers.length === 0;
+
+            markerTraceSelect.innerHTML = '';
+            if (hasData) {
+                for (let i = 0; i < chartData.traces.length; i++) {
+                    const option = document.createElement('option');
+                    option.value = String(i);
+                    option.textContent = 'Trace ' + (i + 1);
+                    markerTraceSelect.appendChild(option);
+                }
+            }
+
+            const currentMarker = getCurrentMarker();
+            const hasCurrentMarker = !!currentMarker && hasData;
+            markerTraceSelect.disabled = !hasCurrentMarker;
+            removeMarkerBtn.disabled = !hasCurrentMarker;
+            markerMinBtn.disabled = !hasCurrentMarker;
+            markerMaxBtn.disabled = !hasCurrentMarker;
+
+            if (hasCurrentMarker) {
+                markerTraceSelect.value = String(currentMarker.traceIndex);
+            }
+
+            markersList.innerHTML = '';
+            if (!hasData) {
+                const empty = document.createElement('div');
+                empty.className = 'markers-empty';
+                empty.textContent = 'Load a trace file to add markers.';
+                markersList.appendChild(empty);
+                return;
+            }
+
+            if (markers.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'markers-empty';
+                empty.textContent = 'No markers defined.';
+                markersList.appendChild(empty);
+                return;
+            }
+
+            for (let i = 0; i < markers.length; i++) {
+                const marker = markers[i];
+                const markerData = getMarkerData(marker);
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'marker-row' + (i === currentMarkerIndex ? ' current' : '')
+                    + (!traceVisible[marker.traceIndex] ? ' trace-hidden' : '');
+                row.dataset.markerIndex = String(i);
+                row.style.color = traceColors[marker.traceIndex];
+                if (!markerData) {
+                    row.textContent = 'M' + (i + 1) + ' unavailable';
+                } else {
+                    row.textContent = [
+                        'M' + (i + 1),
+                        formatFreqTooltip(markerData.frequency),
+                        markerData.power.toFixed(2) + ' dBm',
+                        'T' + (marker.traceIndex + 1),
+                    ].join('  ');
+                }
+                markersList.appendChild(row);
+            }
+        }
+
+        function getCurrentMarker() {
+            return currentMarkerIndex >= 0 && currentMarkerIndex < markers.length
+                ? markers[currentMarkerIndex]
+                : null;
+        }
+
+        function getPreferredMarkerTraceIndex() {
+            const currentMarker = getCurrentMarker();
+            if (chartData && currentMarker && currentMarker.traceIndex < chartData.traces.length) {
+                return currentMarker.traceIndex;
+            }
+            if (!chartData) return 0;
+            const visibleTraceIndex = traceVisible.findIndex((visible, index) => (
+                visible && index < chartData.traces.length
+            ));
+            return visibleTraceIndex !== -1 ? visibleTraceIndex : 0;
+        }
+
+        function selectMarker(markerIndex) {
+            if (!Number.isInteger(markerIndex) || markerIndex < 0 || markerIndex >= markers.length) return;
+            currentMarkerIndex = markerIndex;
+            renderMarkersPane();
+            if (chartData) drawChart();
+        }
+
+        function positionCurrentMarkerAtExtremum(kind) {
+            const marker = getCurrentMarker();
+            if (!marker || !chartData) return;
+            const trace = chartData.traces[marker.traceIndex];
+            if (!trace || trace.length === 0) return;
+            let bestIndex = 0;
+            for (let i = 1; i < trace.length; i++) {
+                if ((kind === 'min' && trace[i] < trace[bestIndex]) ||
+                    (kind === 'max' && trace[i] > trace[bestIndex])) {
+                    bestIndex = i;
+                }
+            }
+            marker.pointIndex = bestIndex;
+            hoveredIdx = bestIndex;
+            renderMarkersPane();
+            drawChart();
+        }
+
+        function moveCurrentMarkerBy(delta) {
+            const marker = getCurrentMarker();
+            if (!marker || !chartData) return;
+            if (!setMarkerPointIndex(currentMarkerIndex, marker.pointIndex + delta)) return;
+            hoveredIdx = marker.pointIndex;
+            renderMarkersPane();
+            drawChart();
+        }
+
+        function setMarkerPointIndex(markerIndex, pointIndex) {
+            if (!chartData || markerIndex < 0 || markerIndex >= markers.length) return false;
+            const clampedIndex = clamp(pointIndex, 0, chartData.frequencies.length - 1);
+            if (markers[markerIndex].pointIndex === clampedIndex) return false;
+            markers[markerIndex].pointIndex = clampedIndex;
+            return true;
+        }
+
+        function getMarkerData(marker) {
+            if (!chartData || !marker) return null;
+            const { frequencies, traces } = chartData;
+            if (marker.pointIndex < 0 || marker.pointIndex >= frequencies.length) return null;
+            const trace = traces[marker.traceIndex];
+            if (!trace || marker.pointIndex >= trace.length) return null;
+            return {
+                frequency: frequencies[marker.pointIndex],
+                power: trace[marker.pointIndex],
+            };
+        }
+
+        function drawMarkerTriangle(ctx, x, y, color, isCurrent, theme) {
+            const size = isCurrent ? 8 : 7;
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - size, y - size - 3);
+            ctx.lineTo(x + size, y - size - 3);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.lineWidth = isCurrent ? 2 : 1;
+            ctx.strokeStyle = isCurrent ? theme.axisLabel : theme.plotBorder;
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function getMarkerAtCanvasPoint(mx, my) {
+            if (!chartData || !canvas._layout) return null;
+            for (let i = markers.length - 1; i >= 0; i--) {
+                const marker = markers[i];
+                if (!traceVisible[marker.traceIndex]) continue;
+                const markerData = getMarkerData(marker);
+                if (!markerData) continue;
+                const x = canvas._layout.px[marker.pointIndex];
+                const y = canvas._layout.yScale(markerData.power) - 5;
+                if (Math.hypot(mx - x, my - y) <= MARKER_HIT_RADIUS) return i;
+            }
+            return null;
+        }
+
+        function getClosestFrequencyIndexForPixelX(mx) {
+            if (!chartData || !canvas._layout) return null;
+            const px = canvas._layout.px;
+            const clampedX = clamp(mx, PAD_LEFT, PAD_LEFT + canvas._layout.plotW);
+            let bestIndex = 0;
+            let bestDistance = Infinity;
+            for (let i = 0; i < px.length; i++) {
+                const distance = Math.abs(px[i] - clampedX);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestIndex = i;
+                }
+            }
+            return bestIndex;
+        }
+
+        function updateTooltip(idx, mx, my) {
+            if (!chartData || idx === null) return;
+            const { frequencies, traces } = chartData;
             let html = '<b>' + formatFreqTooltip(frequencies[idx]) + '</b>';
             const visCount = traceVisible.filter(v => v).length;
             for (let ti = 0; ti < traces.length; ti++) {
@@ -899,26 +1419,21 @@
                       + traces[ti][idx].toFixed(2) + ' dBm';
             }
             tooltip.innerHTML = html;
-
-            /* Position tooltip so it stays within wrapper */
             tooltip.style.display = 'block';
-            const tw = tooltip.offsetWidth;
-            const th = tooltip.offsetHeight;
+
+            const tooltipWidth = tooltip.offsetWidth;
+            const tooltipHeight = tooltip.offsetHeight;
             let tx = mx + 14;
-            let ty = my - th / 2;
-            if (tx + tw > wrapper.clientWidth - 8) tx = mx - tw - 14;
+            let ty = my - tooltipHeight / 2;
+            if (tx + tooltipWidth > chartSurface.clientWidth - 8) tx = mx - tooltipWidth - 14;
             if (ty < 4) ty = 4;
             tooltip.style.left = tx + 'px';
             tooltip.style.top  = ty + 'px';
-        });
+        }
 
-        canvas.addEventListener('mouseleave', () => {
-            tooltip.style.display = 'none';
-            hoveredIdx = null;
-            drawCrosshair(null);
-        });
-
-        /* ── Utility functions ──────────────────────────────────────────────── */
+        function clamp(value, min, max) {
+            return Math.min(max, Math.max(min, value));
+        }
 
         /** Choose a "nice" tick step for the given data range and target count. */
         function niceStep(range, targetCount) {
