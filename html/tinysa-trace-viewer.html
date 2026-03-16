@@ -355,7 +355,8 @@
         /* ── Restore persisted settings ─────────────────────────────────────── */
         (function restoreSettings() {
             const savedTheme = localStorage.getItem('tinysa-theme');
-            if (savedTheme === 'light') {
+            const systemLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+            if (savedTheme === 'light' || (savedTheme === null && systemLight)) {
                 currentTheme = 'light';
                 document.body.classList.add('light');
                 themeBtn.textContent = '🌙 Dark';
