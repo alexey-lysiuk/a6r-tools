@@ -328,6 +328,8 @@
                 chartTitle:    '#606060',
                 crosshair:     'rgba(255,255,255,0.45)',
                 bandSeparator: 'rgba(200,200,200,0.35)',
+                legendBg:      'rgba(30,30,30,0.85)',
+                legendText:    '#909090',
             },
             light: {
                 canvasBg:      '#ffffff',
@@ -338,6 +340,8 @@
                 chartTitle:    '#6080a0',
                 crosshair:     'rgba(0,0,0,0.35)',
                 bandSeparator: 'rgba(20,50,120,0.28)',
+                legendBg:      'rgba(255,255,255,0.85)',
+                legendText:    '#506070',
             },
         };
 
@@ -812,6 +816,41 @@
             ctx.textAlign    = 'center';
             ctx.textBaseline = 'top';
             ctx.fillText(filename, PAD_LEFT + plotW / 2, 6);
+
+            /* ── Info legend (top-right corner of plot area) ── */
+            {
+                const minPower = Math.min(...traces.map(t => Math.min(...t))).toFixed(2);
+                const maxPower = Math.max(...traces.map(t => Math.max(...t))).toFixed(2);
+                const lines = [
+                    'Start:  ' + formatFreq(frequencies[0]),
+                    'Stop:   ' + formatFreq(frequencies[n - 1]),
+                    'Points: ' + n,
+                    'Min:    ' + minPower + ' dBm',
+                    'Max:    ' + maxPower + ' dBm',
+                ];
+                const fSize = 11;
+                const lineH = fSize + 4;
+                const pad   = 6;
+                ctx.font = fSize + 'px monospace';
+                const maxW  = Math.max(...lines.map(l => ctx.measureText(l).width));
+                const boxW  = maxW + pad * 2;
+                const boxH  = lines.length * lineH + pad * 2;
+                const bx    = PAD_LEFT + plotW - boxW - 8;
+                const by    = PAD_TOP + 8;
+
+                ctx.fillStyle = th.legendBg;
+                ctx.fillRect(bx, by, boxW, boxH);
+                ctx.strokeStyle = th.plotBorder;
+                ctx.lineWidth   = 1;
+                ctx.strokeRect(bx + 0.5, by + 0.5, boxW, boxH);
+
+                ctx.fillStyle    = th.legendText;
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'top';
+                for (let i = 0; i < lines.length; i++) {
+                    ctx.fillText(lines[i], bx + pad, by + pad + i * lineH);
+                }
+            }
 
             /* ── Store layout for tooltip ── */
             canvas._layout = { xScale, yScale, plotW, plotH, yMin, yMax };
