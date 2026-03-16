@@ -491,7 +491,12 @@
          * Parse a tinySA Ultra CSV trace file.
          *
          * Each non-empty line has the form:
-         *   <frequency_hz>,  <power1> [power2] [power3] [power4]
+         *   <frequency>,  <power1> [power2] [power3] [power4]
+         *
+         * Frequency format:
+         *   Integer (no decimal point) → value is in Hz.
+         *   Floating-point (has a decimal point) → value is in MHz; it is
+         *   multiplied by 1,000,000 and stored internally as Hz.
          *
          * Returns:
          *   frequencies    – array of frequency values in Hz
@@ -505,6 +510,19 @@
             const rawTraces = [[], [], [], []];
             let traceCount = 0;
 
+            /* Detect MHz vs Hz by examining the first valid frequency token.
+             * A dot in the token means the file stores frequencies in MHz. */
+            let freqMultiplier = 1;
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                const commaIdx = trimmed.indexOf(',');
+                if (commaIdx === -1) continue;
+                const token = trimmed.slice(0, commaIdx).trim();
+                if (token.includes('.')) freqMultiplier = 1e6;
+                break;
+            }
+
             for (const line of lines) {
                 const trimmed = line.trim();
                 if (!trimmed) continue;
@@ -512,7 +530,7 @@
                 const commaIdx = trimmed.indexOf(',');
                 if (commaIdx === -1) continue;
 
-                const freq = parseFloat(trimmed.slice(0, commaIdx));
+                const freq = parseFloat(trimmed.slice(0, commaIdx)) * freqMultiplier;
                 if (!isFinite(freq)) continue;
 
                 const rest   = trimmed.slice(commaIdx + 1).trim();
