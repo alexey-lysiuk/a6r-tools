@@ -109,6 +109,38 @@
             background: var(--btn-hover);
         }
 
+        .url-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #urlInput {
+            font-size: 0.85rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            width: 260px;
+            min-width: 80px;
+        }
+
+        #loadUrlBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #loadUrlBtn:hover {
+            background: var(--btn-hover);
+        }
+
         #message {
             font-size: 0.85rem;
             color: var(--error);
@@ -255,6 +287,11 @@
     <div class="toolbar">
         <label for="fileInput">Load trace file (.csv):</label>
         <input type="file" id="fileInput" accept=".csv">
+        <div class="url-group">
+            <label for="urlInput">URL:</label>
+            <input type="text" id="urlInput" placeholder="https://…/trace.csv">
+            <button id="loadUrlBtn">Load</button>
+        </div>
         <span id="message"></span>
 
         <div class="toolbar-sep"></div>
@@ -349,6 +386,8 @@
 
         /* ── DOM references ─────────────────────────────────────────────────── */
         const fileInput       = document.getElementById('fileInput');
+        const urlInput        = document.getElementById('urlInput');
+        const loadUrlBtn      = document.getElementById('loadUrlBtn');
         const messageEl       = document.getElementById('message');
         const canvas          = document.getElementById('chart');
         const crosshairCanvas = document.getElementById('crosshair');
@@ -488,6 +527,47 @@
             };
             reader.readAsText(file);
         }
+
+        async function loadFromURL(url) {
+            if (!url) return;
+            showMessage('Loading\u2026');
+            const controller = new AbortController();
+            const timeoutId  = setTimeout(() => controller.abort(), 30000);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    showMessage('Failed to fetch URL: ' + response.status + ' ' + response.statusText);
+                    return;
+                }
+                const text = await response.text();
+                try {
+                    const parsed = parseCSV(text);
+                    if (parsed.frequencies.length === 0) {
+                        showMessage('No data found in the fetched file.');
+                        return;
+                    }
+                    showMessage('');
+                    const urlPath  = url.split('?')[0];
+                    const filename = urlPath.split('/').filter(Boolean).pop() || url;
+                    chartData = { ...parsed, filename };
+                    drawChart();
+                } catch (err) {
+                    showMessage('Failed to parse file: ' + err.message);
+                }
+            } catch (err) {
+                clearTimeout(timeoutId);
+                showMessage('Failed to load URL: ' + err.message);
+            }
+        }
+
+        loadUrlBtn.addEventListener('click', () => {
+            loadFromURL(urlInput.value.trim());
+        });
+
+        urlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') loadFromURL(urlInput.value.trim());
+        });
 
         function showMessage(text) {
             messageEl.textContent = text;
@@ -999,6 +1079,16 @@
             ctx2.stroke();
             ctx2.setLineDash([]);
         }
+
+        /* ── Auto-load from ?url= query parameter ─────────────────────────── */
+        (function () {
+            const params   = new URLSearchParams(window.location.search);
+            const urlParam = params.get('url');
+            if (urlParam) {
+                urlInput.value = urlParam;
+                loadFromURL(urlParam);
+            }
+        })();
     </script>
 </body>
 </html>
