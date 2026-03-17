@@ -78,9 +78,29 @@
             flex-shrink: 0;
         }
 
-        label[for="fileInput"] {
-            font-size: 0.9rem;
-            color: var(--label);
+        #sourceToggleBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #sourceToggleBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        .source-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .source-group.hidden {
+            display: none;
         }
 
         input[type="file"] {
@@ -106,6 +126,32 @@
 
         input[type="file"]::-webkit-file-upload-button:hover,
         input[type="file"]::file-selector-button:hover {
+            background: var(--btn-hover);
+        }
+
+        #urlInput {
+            font-size: 0.85rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            width: 260px;
+            min-width: 80px;
+        }
+
+        #loadUrlBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #loadUrlBtn:hover {
             background: var(--btn-hover);
         }
 
@@ -401,8 +447,15 @@
     <h1>tinySA Ultra Trace Viewer</h1>
 
     <div class="toolbar">
-        <label for="fileInput">Load trace file (.csv):</label>
-        <input type="file" id="fileInput" accept=".csv">
+        <button id="sourceToggleBtn" title="Switch to URL loading">URL</button>
+        <div class="source-group" id="fileGroup">
+            <input type="file" id="fileInput" accept=".csv">
+        </div>
+        <div class="source-group hidden" id="urlGroup">
+            <label for="urlInput">URL:</label>
+            <input type="text" id="urlInput" placeholder="https://…/trace.csv">
+            <button id="loadUrlBtn">Load</button>
+        </div>
         <span id="message"></span>
 
         <div class="toolbar-sep"></div>
@@ -527,8 +580,13 @@
         let currentTheme = 'dark';
 
         /* ── DOM references ─────────────────────────────────────────────────── */
-        const fileInput       = document.getElementById('fileInput');
-        const messageEl       = document.getElementById('message');
+        const fileInput        = document.getElementById('fileInput');
+        const urlInput         = document.getElementById('urlInput');
+        const loadUrlBtn       = document.getElementById('loadUrlBtn');
+        const sourceToggleBtn  = document.getElementById('sourceToggleBtn');
+        const fileGroup        = document.getElementById('fileGroup');
+        const urlGroup         = document.getElementById('urlGroup');
+        const messageEl        = document.getElementById('message');
         const canvas          = document.getElementById('chart');
         const crosshairCanvas = document.getElementById('crosshair');
         const tooltip         = document.getElementById('tooltip');
@@ -748,6 +806,30 @@
             drawOverlay(hoveredIdx);
         });
 
+        /* ── Source toggle (file ↔ URL) ─────────────────────────────────────── */
+        let sourceMode = 'file';   // 'file' | 'url'
+
+        function switchSourceMode(mode) {
+            sourceMode = mode;
+            if (mode === 'url') {
+                fileGroup.classList.add('hidden');
+                urlGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'File';
+                sourceToggleBtn.title = 'Switch to file loading';
+            } else {
+                urlGroup.classList.add('hidden');
+                fileGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'URL';
+                sourceToggleBtn.title = 'Switch to URL loading';
+            }
+        }
+
+        sourceToggleBtn.addEventListener('click', () => {
+            switchSourceMode(sourceMode === 'file' ? 'url' : 'file');
+            if (sourceMode === 'url') urlInput.focus();
+            showMessage('');
+        });
+
         /* ── File loading ───────────────────────────────────────────────────── */
         fileInput.addEventListener('change', () => {
             const file = fileInput.files[0];
@@ -801,6 +883,47 @@
             };
             reader.readAsText(file);
         }
+
+        async function loadFromURL(url) {
+            if (!url) return;
+            showMessage('Loading\u2026');
+            const controller = new AbortController();
+            const timeoutId  = setTimeout(() => controller.abort(), 30000);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    showMessage('Failed to fetch URL: ' + response.status + ' ' + response.statusText);
+                    return;
+                }
+                const text = await response.text();
+                try {
+                    const parsed = parseCSV(text);
+                    if (parsed.frequencies.length === 0) {
+                        showMessage('No data found in the fetched file.');
+                        return;
+                    }
+                    showMessage('');
+                    const urlPath  = url.split('?')[0];
+                    const filename = urlPath.split('/').filter(Boolean).pop() || url;
+                    chartData = { ...parsed, filename };
+                    drawChart();
+                } catch (err) {
+                    showMessage('Failed to parse file: ' + err.message);
+                }
+            } catch (err) {
+                clearTimeout(timeoutId);
+                showMessage('Failed to load URL: ' + err.message);
+            }
+        }
+
+        loadUrlBtn.addEventListener('click', () => {
+            loadFromURL(urlInput.value.trim());
+        });
+
+        urlInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') loadFromURL(urlInput.value.trim());
+        });
 
         function showMessage(text) {
             messageEl.textContent = text;
@@ -1492,6 +1615,17 @@
                 ctx2.setLineDash([]);
             }
         }
+
+        /* ── Auto-load from ?url= query parameter ─────────────────────────── */
+        (function () {
+            const params   = new URLSearchParams(window.location.search);
+            const urlParam = params.get('url');
+            if (urlParam) {
+                switchSourceMode('url');
+                urlInput.value = urlParam;
+                loadFromURL(urlParam);
+            }
+        })();
     </script>
 </body>
 </html>
