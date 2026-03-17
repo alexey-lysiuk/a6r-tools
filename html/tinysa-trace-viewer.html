@@ -531,11 +531,11 @@
                     <option value="3" style="color: #ff4444">Trace 4</option>
                 </select>
                 <button class="mc-btn" id="markerPeakBtn" title="Move current marker to peak (maximum) of trace" disabled>Peak</button>
-                <button class="mc-btn" id="markerPeakLeftBtn" title="Move current marker to nearest peak to the left" disabled>&#9664; Peak</button>
-                <button class="mc-btn" id="markerPeakRightBtn" title="Move current marker to nearest peak to the right" disabled>Peak &#9654;</button>
-                <button class="mc-btn" id="markerBottomLeftBtn" title="Move current marker to nearest bottom (minimum) to the left" disabled>&#9664; Bottom</button>
-                <button class="mc-btn" id="markerBottomRightBtn" title="Move current marker to nearest bottom (minimum) to the right" disabled>Bottom &#9654;</button>
-                <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>&#8722;</button>
+                <button class="mc-btn" id="markerPeakLeftBtn" title="Move current marker to nearest maximum to the left" disabled>&#9664; Max</button>
+                <button class="mc-btn" id="markerPeakRightBtn" title="Move current marker to nearest maximum to the right" disabled>Max &#9654;</button>
+                <button class="mc-btn" id="markerBottomLeftBtn" title="Move current marker to nearest minimum to the left" disabled>&#9664; Min</button>
+                <button class="mc-btn" id="markerBottomRightBtn" title="Move current marker to nearest minimum to the right" disabled>Min &#9654;</button>
+                <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Delete</button>
             </div>
         </div>
     </div>
@@ -1126,8 +1126,6 @@
         const MARKER_HIT_PAD = 3;   /* extra hit-testing tolerance around triangle (px) */
 
         function drawChart() {
-            if (!chartData) return;
-            const { frequencies, traces, bandBoundaries, filename } = chartData;
             const th   = THEMES[currentTheme];
             const dpr  = window.devicePixelRatio || 1;
 
@@ -1147,6 +1145,20 @@
 
             const ctx = canvas.getContext('2d');
             ctx.scale(dpr, dpr);
+
+            /* ── Clear ── */
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            /* ── Background ── */
+            ctx.fillStyle = th.canvasBg;
+            ctx.fillRect(0, 0, cssW, cssH);
+
+            if (!chartData) {
+                drawOverlay(hoveredIdx);
+                return;
+            }
+
+            const { frequencies, traces, bandBoundaries, filename } = chartData;
 
             const plotW = cssW - PAD_LEFT - PAD_RIGHT;
             const plotH = cssH - PAD_TOP  - PAD_BOTTOM;
@@ -1213,13 +1225,6 @@
                 return PAD_LEFT + plotW;
             };
             const yScale = (dbm) => PAD_TOP  + (yMax - dbm)  / (yMax   - yMin)     * plotH;
-
-            /* ── Clear ── */
-            ctx.clearRect(0, 0, cssW, cssH);
-
-            /* ── Background ── */
-            ctx.fillStyle = th.canvasBg;
-            ctx.fillRect(0, 0, cssW, cssH);
 
             /* ── Grid + Y-axis ticks ── */
             ctx.strokeStyle = th.grid;
