@@ -940,6 +940,11 @@
         window.addEventListener('resize', () => { if (chartData) drawChart(); });
 
         function loadFile(file) {
+            chartData = null;
+            markers = [];
+            currentMarkerIdx = -1;
+            updateMarkersPane();
+            drawChart();
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -950,8 +955,6 @@
                     }
                     showMessage('');
                     chartData = { ...parsed, filename: file.name };
-                    markers = [];
-                    currentMarkerIdx = -1;
                     updateMarkersPane();
                     drawChart();
                 } catch (err) {
@@ -964,6 +967,11 @@
         async function loadFromURL(url) {
             if (!url) return;
             showMessage('Loading\u2026');
+            chartData = null;
+            markers = [];
+            currentMarkerIdx = -1;
+            updateMarkersPane();
+            drawChart();
             const controller = new AbortController();
             const timeoutId  = setTimeout(() => controller.abort(), 30000);
             try {
