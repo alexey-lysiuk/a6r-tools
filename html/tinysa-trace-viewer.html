@@ -197,7 +197,46 @@
         }
 
         .chk-label input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
             cursor: pointer;
+            flex-shrink: 0;
+            position: relative;
+            vertical-align: middle;
+            transition: background 0.1s, border-color 0.1s;
+        }
+
+        .chk-label input[type="checkbox"]:checked {
+            background: var(--btn-bg);
+            border-color: var(--btn-bg);
+        }
+
+        .chk-label input[type="checkbox"]::after {
+            content: '';
+            display: none;
+            position: absolute;
+            /* checkmark tick: 5×9 rectangle rotated 45° inside 14×14 box */
+            left: 3px;
+            top: 0;
+            width: 5px;
+            height: 9px;
+            border-right: 2px solid var(--btn-text);
+            border-bottom: 2px solid var(--btn-text);
+            transform: rotate(45deg);
+        }
+
+        .chk-label input[type="checkbox"]:checked::after {
+            display: block;
+        }
+
+        .chk-label input[type="checkbox"]:focus-visible {
+            outline: 2px solid var(--btn-bg);
+            outline-offset: 2px;
         }
 
         /* ── Trace colour pickers ───────────────────────────────────────────── */
