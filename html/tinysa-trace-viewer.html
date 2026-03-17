@@ -169,7 +169,7 @@
             gap: 8px;
         }
 
-        /* ── Toolbar right-side buttons (Legend / Markers / Theme) ─────────── */
+        /* ── Toolbar right-side buttons (Info / Markers / Theme) ───────────── */
         #legendBtn, #markersBtn, #themeBtn {
             font-size: 0.82rem;
             background: var(--btn-bg);
@@ -491,7 +491,7 @@
             </label>
         </div>
         <div class="toolbar-right">
-            <button id="legendBtn" title="Toggle chart legend" aria-pressed="true">✓ Legend</button>
+            <button id="legendBtn" title="Toggle chart info" aria-pressed="true">✓ Info</button>
             <button id="markersBtn" title="Toggle markers pane" aria-pressed="false">Markers</button>
             <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
         </div>
@@ -655,7 +655,7 @@
 
             if (localStorage.getItem('tinysa-legend') === 'hidden') {
                 legendVisible = false;
-                legendBtn.textContent = 'Legend';
+                legendBtn.textContent = 'Info';
                 legendBtn.setAttribute('aria-pressed', 'false');
             }
         })();
@@ -724,7 +724,7 @@
         /* ── Legend toggle ──────────────────────────────────────────────────── */
         legendBtn.addEventListener('click', () => {
             legendVisible = !legendVisible;
-            legendBtn.textContent = legendVisible ? '✓ Legend' : 'Legend';
+            legendBtn.textContent = legendVisible ? '✓ Info' : 'Info';
             legendBtn.setAttribute('aria-pressed', legendVisible ? 'true' : 'false');
             localStorage.setItem('tinysa-legend', legendVisible ? 'visible' : 'hidden');
             if (chartData) drawChart();
