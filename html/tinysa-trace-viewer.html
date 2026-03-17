@@ -299,7 +299,7 @@
     <h1>tinySA Ultra Trace Viewer</h1>
 
     <div class="toolbar">
-        <button id="sourceToggleBtn" title="Switch to URL loading">Load from URL</button>
+        <button id="sourceToggleBtn" title="Switch to URL loading">URL</button>
         <div class="source-group" id="fileGroup">
             <input type="file" id="fileInput" accept=".csv">
         </div>
@@ -504,12 +504,12 @@
             if (mode === 'url') {
                 fileGroup.classList.add('hidden');
                 urlGroup.classList.remove('hidden');
-                sourceToggleBtn.textContent = 'Load from File';
+                sourceToggleBtn.textContent = 'File';
                 sourceToggleBtn.title = 'Switch to file loading';
             } else {
                 urlGroup.classList.add('hidden');
                 fileGroup.classList.remove('hidden');
-                sourceToggleBtn.textContent = 'Load from URL';
+                sourceToggleBtn.textContent = 'URL';
                 sourceToggleBtn.title = 'Switch to URL loading';
             }
         }
