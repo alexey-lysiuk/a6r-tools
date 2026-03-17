@@ -169,8 +169,8 @@
             gap: 8px;
         }
 
-        /* ── Theme toggle button ────────────────────────────────────────────── */
-        #themeBtn {
+        /* ── Toolbar right-side buttons (Legend / Markers / Theme) ─────────── */
+        #legendBtn, #markersBtn, #themeBtn {
             font-size: 0.82rem;
             background: var(--btn-bg);
             color: var(--btn-text);
@@ -181,62 +181,8 @@
             white-space: nowrap;
         }
 
-        #themeBtn:hover {
+        #legendBtn:hover, #markersBtn:hover, #themeBtn:hover {
             background: var(--btn-hover);
-        }
-
-        /* ── Toolbar checkbox labels (Legend / Markers) ──────────────────────── */
-        .chk-label {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 0.82rem;
-            color: var(--label);
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .chk-label input[type="checkbox"] {
-            appearance: none;
-            -webkit-appearance: none;
-            width: 14px;
-            height: 14px;
-            background: var(--input-bg);
-            border: 1px solid var(--input-border);
-            border-radius: 3px;
-            cursor: pointer;
-            flex-shrink: 0;
-            position: relative;
-            vertical-align: middle;
-            transition: background 0.1s, border-color 0.1s;
-        }
-
-        .chk-label input[type="checkbox"]:checked {
-            background: var(--btn-bg);
-            border-color: var(--btn-bg);
-        }
-
-        .chk-label input[type="checkbox"]::after {
-            content: '';
-            display: none;
-            position: absolute;
-            /* checkmark tick: 5×9 rectangle rotated 45° inside 14×14 box */
-            left: 3px;
-            top: 0;
-            width: 5px;
-            height: 9px;
-            border-right: 2px solid var(--btn-text);
-            border-bottom: 2px solid var(--btn-text);
-            transform: rotate(45deg);
-        }
-
-        .chk-label input[type="checkbox"]:checked::after {
-            display: block;
-        }
-
-        .chk-label input[type="checkbox"]:focus-visible {
-            outline: 2px solid var(--btn-bg);
-            outline-offset: 2px;
         }
 
         /* ── Trace colour pickers ───────────────────────────────────────────── */
@@ -545,12 +491,8 @@
             </label>
         </div>
         <div class="toolbar-right">
-            <label class="chk-label" title="Toggle chart legend">
-                <input type="checkbox" id="legendChk" checked>Legend
-            </label>
-            <label class="chk-label" title="Toggle markers pane">
-                <input type="checkbox" id="markersChk">Markers
-            </label>
+            <button id="legendBtn" title="Toggle chart legend" aria-pressed="true">✓ Legend</button>
+            <button id="markersBtn" title="Toggle markers pane" aria-pressed="false">Markers</button>
             <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
         </div>
     </div>
@@ -656,8 +598,8 @@
         const tooltip         = document.getElementById('tooltip');
         const wrapper         = document.getElementById('chartWrapper');
         const themeBtn        = document.getElementById('themeBtn');
-        const legendChk       = document.getElementById('legendChk');
-        const markersChk      = document.getElementById('markersChk');
+        const legendBtn       = document.getElementById('legendBtn');
+        const markersBtn      = document.getElementById('markersBtn');
         const markersPane     = document.getElementById('markersPane');
         const markerTraceSelect = document.getElementById('markerTraceSelect');
         const addMarkerBtn    = document.getElementById('addMarkerBtn');
@@ -707,12 +649,14 @@
 
             if (localStorage.getItem('tinysa-markers-pane') === 'open') {
                 markersPane.classList.remove('pane-hidden');
-                markersChk.checked = true;
+                markersBtn.textContent = '✓ Markers';
+                markersBtn.setAttribute('aria-pressed', 'true');
             }
 
             if (localStorage.getItem('tinysa-legend') === 'hidden') {
                 legendVisible = false;
-                legendChk.checked = false;
+                legendBtn.textContent = 'Legend';
+                legendBtn.setAttribute('aria-pressed', 'false');
             }
         })();
 
@@ -769,15 +713,19 @@
         let draggingMarkerIdx = null; // index of marker being dragged, null = none
 
         /* ── Markers pane toggle ────────────────────────────────────────────── */
-        markersChk.addEventListener('change', () => {
-            markersPane.classList.toggle('pane-hidden', !markersChk.checked);
-            localStorage.setItem('tinysa-markers-pane', markersChk.checked ? 'open' : 'closed');
+        markersBtn.addEventListener('click', () => {
+            const nowHidden = markersPane.classList.toggle('pane-hidden');
+            markersBtn.textContent = nowHidden ? 'Markers' : '✓ Markers';
+            markersBtn.setAttribute('aria-pressed', nowHidden ? 'false' : 'true');
+            localStorage.setItem('tinysa-markers-pane', nowHidden ? 'closed' : 'open');
             if (chartData) drawChart();
         });
 
         /* ── Legend toggle ──────────────────────────────────────────────────── */
-        legendChk.addEventListener('change', () => {
-            legendVisible = legendChk.checked;
+        legendBtn.addEventListener('click', () => {
+            legendVisible = !legendVisible;
+            legendBtn.textContent = legendVisible ? '✓ Legend' : 'Legend';
+            legendBtn.setAttribute('aria-pressed', legendVisible ? 'true' : 'false');
             localStorage.setItem('tinysa-legend', legendVisible ? 'visible' : 'hidden');
             if (chartData) drawChart();
         });
