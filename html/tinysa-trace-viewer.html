@@ -1113,6 +1113,61 @@
 
         /* ── Canvas chart renderer ──────────────────────────────────────────── */
 
+        /**
+         * Compute monotone-cubic (Fritsch-Carlson) tangent slopes for a band.
+         * Returns a Float64Array of dy/dx slopes, one per point in [start..end].
+         * Guarantees the interpolated curve never overshoots the y range of any
+         * two adjacent data points (peaks and bottoms are exact; the curve stays
+         * strictly within [min(y_i, y_{i+1}), max(y_i, y_{i+1})] between them).
+         */
+        function monotoneTangents(px, py, start, end) {
+            const n = end - start + 1;
+            const m = new Float64Array(n);
+            if (n < 2) return m;
+
+            /* Secant (chord) slopes for each interval */
+            const d = new Float64Array(n - 1);
+            for (let k = 0; k < n - 1; k++) {
+                const h = px[start + k + 1] - px[start + k];
+                d[k] = h !== 0 ? (py[start + k + 1] - py[start + k]) / h : 0;
+            }
+
+            /* Initial tangent estimates: mean of adjacent secants for interior
+               points; secant slope for the two endpoints. */
+            m[0]     = d[0];
+            m[n - 1] = d[n - 2];
+            for (let k = 1; k < n - 1; k++) {
+                m[k] = (d[k - 1] + d[k]) / 2;
+            }
+
+            /* Fritsch-Carlson monotonicity constraints */
+            for (let k = 0; k < n - 1; k++) {
+                if (d[k] === 0) {
+                    /* Flat interval: force both endpoint tangents to zero so the
+                       curve does not drift above or below the flat level. */
+                    m[k]     = 0;
+                    m[k + 1] = 0;
+                    continue;
+                }
+                let alpha = m[k]     / d[k];
+                let beta  = m[k + 1] / d[k];
+                /* If a tangent points in the opposite direction to the secant,
+                   clamp it to zero (prevents overshoot on the entry/exit side). */
+                if (alpha < 0) { m[k]     = 0; alpha = 0; }
+                if (beta  < 0) { m[k + 1] = 0; beta  = 0; }
+                /* Circle-of-radius-3 constraint: scale down both tangents when
+                   the combined magnitude would cause overshoot within the segment. */
+                const h = Math.hypot(alpha, beta);
+                if (h > 3) {
+                    const t = 3 / h;
+                    m[k]     = alpha * t * d[k];
+                    m[k + 1] = beta  * t * d[k];
+                }
+            }
+
+            return m;
+        }
+
         /** Layout constants (pixels) */
         const PAD_LEFT   = 70;
         const PAD_RIGHT  = 20;
@@ -1294,28 +1349,26 @@
                 ctx.strokeStyle = traceColors[ti];
                 ctx.lineWidth   = 1.5;
 
-                /* Draw each band as a separate Catmull-Rom spline so the line
-                   passes exactly through every data point (preserving peaks and
-                   bottoms) while remaining smooth with no jagged segments.
-                   Each Catmull-Rom segment is converted to a cubic bezier. */
+                /* Draw each band as a separate monotone-cubic Hermite spline so
+                   the curve passes exactly through every data point and never
+                   overshoots the y range of two adjacent points (no excursions
+                   above peaks or below troughs). Each Hermite segment is
+                   converted to a cubic bezier for canvas rendering. */
                 for (const { start, end } of bands) {
                     if (start > end) continue;
                     ctx.beginPath();
                     ctx.moveTo(px[start], py[start]);
-                    for (let i = start; i < end; i++) {
-                        const x0 = px[Math.max(start, i - 1)];
-                        const y0 = py[Math.max(start, i - 1)];
-                        const x1 = px[i];
-                        const y1 = py[i];
-                        const x2 = px[i + 1];
-                        const y2 = py[i + 1];
-                        const x3 = px[Math.min(end, i + 2)];
-                        const y3 = py[Math.min(end, i + 2)];
-                        ctx.bezierCurveTo(
-                            x1 + (x2 - x0) / 6, y1 + (y2 - y0) / 6,
-                            x2 - (x3 - x1) / 6, y2 - (y3 - y1) / 6,
-                            x2, y2
-                        );
+                    if (end > start) {
+                        const mt = monotoneTangents(px, py, start, end);
+                        for (let i = start; i < end; i++) {
+                            const k   = i - start;
+                            const dx  = px[i + 1] - px[i];
+                            ctx.bezierCurveTo(
+                                px[i]     + dx / 3, py[i]     + mt[k]     * dx / 3,
+                                px[i + 1] - dx / 3, py[i + 1] - mt[k + 1] * dx / 3,
+                                px[i + 1], py[i + 1]
+                            );
+                        }
                     }
                     ctx.stroke();
                 }
