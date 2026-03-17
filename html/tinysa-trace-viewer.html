@@ -185,36 +185,19 @@
             background: var(--btn-hover);
         }
 
-        /* ── Markers pane toggle button ──────────────────────────────────────── */
-        #markersBtn {
+        /* ── Toolbar checkbox labels (Legend / Markers) ──────────────────────── */
+        .chk-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
             font-size: 0.82rem;
-            background: var(--btn-bg);
-            color: var(--btn-text);
-            border: 1px solid var(--input-border);
-            border-radius: 4px;
-            padding: 4px 10px;
+            color: var(--label);
             cursor: pointer;
             white-space: nowrap;
         }
 
-        #markersBtn:hover {
-            background: var(--btn-hover);
-        }
-
-        /* ── Legend toggle button ─────────────────────────────────────────────── */
-        #legendBtn {
-            font-size: 0.82rem;
-            background: var(--btn-bg);
-            color: var(--btn-text);
-            border: 1px solid var(--input-border);
-            border-radius: 4px;
-            padding: 4px 10px;
+        .chk-label input[type="checkbox"] {
             cursor: pointer;
-            white-space: nowrap;
-        }
-
-        #legendBtn:hover {
-            background: var(--btn-hover);
         }
 
         /* ── Trace colour pickers ───────────────────────────────────────────── */
@@ -523,8 +506,12 @@
             </label>
         </div>
         <div class="toolbar-right">
-            <button id="markersBtn" title="Toggle markers pane">Markers</button>
-            <button id="legendBtn" title="Toggle chart legend">Hide Legend</button>
+            <label class="chk-label" title="Toggle chart legend">
+                <input type="checkbox" id="legendChk" checked>Legend
+            </label>
+            <label class="chk-label" title="Toggle markers pane">
+                <input type="checkbox" id="markersChk">Markers
+            </label>
             <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
         </div>
     </div>
@@ -630,8 +617,8 @@
         const tooltip         = document.getElementById('tooltip');
         const wrapper         = document.getElementById('chartWrapper');
         const themeBtn        = document.getElementById('themeBtn');
-        const legendBtn       = document.getElementById('legendBtn');
-        const markersBtn      = document.getElementById('markersBtn');
+        const legendChk       = document.getElementById('legendChk');
+        const markersChk      = document.getElementById('markersChk');
         const markersPane     = document.getElementById('markersPane');
         const markerTraceSelect = document.getElementById('markerTraceSelect');
         const addMarkerBtn    = document.getElementById('addMarkerBtn');
@@ -681,12 +668,12 @@
 
             if (localStorage.getItem('tinysa-markers-pane') === 'open') {
                 markersPane.classList.remove('pane-hidden');
-                markersBtn.textContent = 'Hide Markers';
+                markersChk.checked = true;
             }
 
             if (localStorage.getItem('tinysa-legend') === 'hidden') {
                 legendVisible = false;
-                legendBtn.textContent = 'Show Legend';
+                legendChk.checked = false;
             }
         })();
 
@@ -743,17 +730,15 @@
         let draggingMarkerIdx = null; // index of marker being dragged, null = none
 
         /* ── Markers pane toggle ────────────────────────────────────────────── */
-        markersBtn.addEventListener('click', () => {
-            const hidden = markersPane.classList.toggle('pane-hidden');
-            markersBtn.textContent = hidden ? 'Markers' : 'Hide Markers';
-            localStorage.setItem('tinysa-markers-pane', hidden ? 'closed' : 'open');
+        markersChk.addEventListener('change', () => {
+            markersPane.classList.toggle('pane-hidden', !markersChk.checked);
+            localStorage.setItem('tinysa-markers-pane', markersChk.checked ? 'open' : 'closed');
             if (chartData) drawChart();
         });
 
         /* ── Legend toggle ──────────────────────────────────────────────────── */
-        legendBtn.addEventListener('click', () => {
-            legendVisible = !legendVisible;
-            legendBtn.textContent = legendVisible ? 'Hide Legend' : 'Show Legend';
+        legendChk.addEventListener('change', () => {
+            legendVisible = legendChk.checked;
             localStorage.setItem('tinysa-legend', legendVisible ? 'visible' : 'hidden');
             if (chartData) drawChart();
         });
