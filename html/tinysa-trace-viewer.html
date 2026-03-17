@@ -530,12 +530,11 @@
                     <option value="2" style="color: #ff44cc">Trace 3</option>
                     <option value="3" style="color: #ff4444">Trace 4</option>
                 </select>
-                <button class="mc-btn" id="markerPeakBtn" title="Move current marker to peak (maximum) of trace" disabled>Peak</button>
+                <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Delete</button>
                 <button class="mc-btn" id="markerPeakLeftBtn" title="Move current marker to nearest maximum to the left" disabled>&#9664; Max</button>
                 <button class="mc-btn" id="markerPeakRightBtn" title="Move current marker to nearest maximum to the right" disabled>Max &#9654;</button>
                 <button class="mc-btn" id="markerBottomLeftBtn" title="Move current marker to nearest minimum to the left" disabled>&#9664; Min</button>
                 <button class="mc-btn" id="markerBottomRightBtn" title="Move current marker to nearest minimum to the right" disabled>Min &#9654;</button>
-                <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Delete</button>
             </div>
         </div>
     </div>
@@ -600,7 +599,6 @@
         const markerTraceSelect = document.getElementById('markerTraceSelect');
         const addMarkerBtn    = document.getElementById('addMarkerBtn');
         const removeMarkerBtn = document.getElementById('removeMarkerBtn');
-        const markerPeakBtn        = document.getElementById('markerPeakBtn');
         const markerPeakLeftBtn    = document.getElementById('markerPeakLeftBtn');
         const markerPeakRightBtn   = document.getElementById('markerPeakRightBtn');
         const markerBottomLeftBtn  = document.getElementById('markerBottomLeftBtn');
@@ -786,21 +784,6 @@
             }
             return -1;
         }
-
-        /* ── Peak button: move to global maximum of trace ───────────────────── */
-        markerPeakBtn.addEventListener('click', () => {
-            if (!chartData || currentMarkerIdx < 0) return;
-            const m = markers[currentMarkerIdx];
-            const trace = chartData.traces[m.traceIndex];
-            if (!trace) return;
-            let best = 0;
-            for (let i = 1; i < trace.length; i++) {
-                if (trace[i] > trace[best]) best = i;
-            }
-            m.freqIndex = best;
-            updateMarkersPane();
-            drawOverlay(hoveredIdx);
-        });
 
         /* ── Peak ◀ / Peak ▶ buttons ────────────────────────────────────────── */
         markerPeakLeftBtn.addEventListener('click', () => {
@@ -1573,7 +1556,6 @@
         function updateMarkersPane() {
             const hasMarker = currentMarkerIdx >= 0 && currentMarkerIdx < markers.length;
             removeMarkerBtn.disabled        = !hasMarker;
-            markerPeakBtn.disabled          = !hasMarker;
             markerPeakLeftBtn.disabled      = !hasMarker;
             markerPeakRightBtn.disabled     = !hasMarker;
             markerBottomLeftBtn.disabled    = !hasMarker;
