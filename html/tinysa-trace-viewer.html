@@ -364,6 +364,7 @@
 
         .marker-entry {
             display: flex;
+            flex-wrap: nowrap;
             align-items: baseline;
             gap: 4px;
             padding: 2px 4px;
@@ -371,6 +372,8 @@
             cursor: pointer;
             border: 1px solid transparent;
             font-family: monospace;
+            white-space: nowrap;
+            overflow: hidden;
         }
 
         .marker-entry:hover {
