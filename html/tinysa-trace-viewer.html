@@ -657,7 +657,27 @@
             if (!chartData) return;
             const traceIndex = parseInt(markerTraceSelect.value, 10);
             if (traceIndex >= chartData.traces.length) return;
-            const freqIndex = Math.floor(chartData.frequencies.length / 2);
+            const trace = chartData.traces[traceIndex];
+            const occupiedOnTrace = new Set(
+                markers.filter(m => m.traceIndex === traceIndex).map(m => m.freqIndex)
+            );
+            /* Find global maximum index */
+            let globalMaxIdx = 0;
+            for (let i = 1; i < trace.length; i++) {
+                if (trace[i] > trace[globalMaxIdx]) globalMaxIdx = i;
+            }
+            /* Collect interior local-maximum indices sorted by power descending */
+            const peaks = [];
+            for (let i = 1; i < trace.length - 1; i++) {
+                if (trace[i] > trace[i - 1] && trace[i] > trace[i + 1]) peaks.push(i);
+            }
+            peaks.sort((a, b) => trace[b] - trace[a]);
+            /* Build candidate list: global max first, then remaining peaks */
+            const candidates = [globalMaxIdx, ...peaks.filter(p => p !== globalMaxIdx)];
+            let freqIndex = 0;
+            for (const c of candidates) {
+                if (!occupiedOnTrace.has(c)) { freqIndex = c; break; }
+            }
             markers.push({ traceIndex, freqIndex });
             currentMarkerIdx = markers.length - 1;
             updateMarkersPane();
