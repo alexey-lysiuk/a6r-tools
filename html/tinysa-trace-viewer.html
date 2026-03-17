@@ -169,8 +169,8 @@
             gap: 8px;
         }
 
-        /* ── Theme toggle button ────────────────────────────────────────────── */
-        #themeBtn {
+        /* ── Toolbar right-side buttons (Info / Markers / Theme) ───────────── */
+        #legendBtn, #markersBtn, #themeBtn {
             font-size: 0.82rem;
             background: var(--btn-bg);
             color: var(--btn-text);
@@ -181,23 +181,7 @@
             white-space: nowrap;
         }
 
-        #themeBtn:hover {
-            background: var(--btn-hover);
-        }
-
-        /* ── Markers pane toggle button ──────────────────────────────────────── */
-        #markersBtn {
-            font-size: 0.82rem;
-            background: var(--btn-bg);
-            color: var(--btn-text);
-            border: 1px solid var(--input-border);
-            border-radius: 4px;
-            padding: 4px 10px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        #markersBtn:hover {
+        #legendBtn:hover, #markersBtn:hover, #themeBtn:hover {
             background: var(--btn-hover);
         }
 
@@ -507,7 +491,8 @@
             </label>
         </div>
         <div class="toolbar-right">
-            <button id="markersBtn" title="Toggle markers pane">Markers</button>
+            <button id="legendBtn" title="Toggle chart info" aria-pressed="true">✓ Info</button>
+            <button id="markersBtn" title="Toggle markers pane" aria-pressed="false">Markers</button>
             <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
         </div>
     </div>
@@ -567,6 +552,9 @@
         /* Mutable per-trace visibility flags */
         const traceVisible = [true, true, true, true];
 
+        /* Legend visibility flag */
+        let legendVisible = true;
+
         /* ── Canvas theme palettes ──────────────────────────────────────────── */
         const THEMES = {
             dark: {
@@ -610,6 +598,7 @@
         const tooltip         = document.getElementById('tooltip');
         const wrapper         = document.getElementById('chartWrapper');
         const themeBtn        = document.getElementById('themeBtn');
+        const legendBtn       = document.getElementById('legendBtn');
         const markersBtn      = document.getElementById('markersBtn');
         const markersPane     = document.getElementById('markersPane');
         const markerTraceSelect = document.getElementById('markerTraceSelect');
@@ -660,7 +649,14 @@
 
             if (localStorage.getItem('tinysa-markers-pane') === 'open') {
                 markersPane.classList.remove('pane-hidden');
-                markersBtn.textContent = 'Hide Markers';
+                markersBtn.textContent = '✓ Markers';
+                markersBtn.setAttribute('aria-pressed', 'true');
+            }
+
+            if (localStorage.getItem('tinysa-legend') === 'hidden') {
+                legendVisible = false;
+                legendBtn.textContent = 'Info';
+                legendBtn.setAttribute('aria-pressed', 'false');
             }
         })();
 
@@ -718,9 +714,19 @@
 
         /* ── Markers pane toggle ────────────────────────────────────────────── */
         markersBtn.addEventListener('click', () => {
-            const hidden = markersPane.classList.toggle('pane-hidden');
-            markersBtn.textContent = hidden ? 'Markers' : 'Hide Markers';
-            localStorage.setItem('tinysa-markers-pane', hidden ? 'closed' : 'open');
+            const nowHidden = markersPane.classList.toggle('pane-hidden');
+            markersBtn.textContent = nowHidden ? 'Markers' : '✓ Markers';
+            markersBtn.setAttribute('aria-pressed', nowHidden ? 'false' : 'true');
+            localStorage.setItem('tinysa-markers-pane', nowHidden ? 'closed' : 'open');
+            if (chartData) drawChart();
+        });
+
+        /* ── Legend toggle ──────────────────────────────────────────────────── */
+        legendBtn.addEventListener('click', () => {
+            legendVisible = !legendVisible;
+            legendBtn.textContent = legendVisible ? '✓ Info' : 'Info';
+            legendBtn.setAttribute('aria-pressed', legendVisible ? 'true' : 'false');
+            localStorage.setItem('tinysa-legend', legendVisible ? 'visible' : 'hidden');
             if (chartData) drawChart();
         });
 
@@ -1413,7 +1419,7 @@
             ctx.fillText(filename, PAD_LEFT + plotW / 2, 6);
 
             /* ── Info legend (top-right corner of plot area) ── */
-            {
+            if (legendVisible) {
                 const minPower = Math.min(...traces.map(t => Math.min(...t))).toFixed(2);
                 const maxPower = Math.max(...traces.map(t => Math.max(...t))).toFixed(2);
                 const lines = [
