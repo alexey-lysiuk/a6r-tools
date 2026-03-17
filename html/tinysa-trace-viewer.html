@@ -361,6 +361,16 @@
             flex-wrap: wrap;
         }
 
+        .mc-col {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .pane-hidden {
+            display: none;
+        }
+
         .mc-btn {
             font-size: 0.78rem;
             background: var(--btn-bg);
@@ -523,18 +533,24 @@
             <div class="markers-sep"></div>
             <div class="markers-list" id="markersList"></div>
             <div class="markers-sep pane-hidden" id="markerBottomSep"></div>
-            <div class="mc-row pane-hidden" id="markerBottomControls">
-                <select id="markerChangeTraceSelect" class="mc-select" disabled>
-                    <option value="0" style="color: #ffcc00">Trace 1</option>
-                    <option value="1" style="color: #44dd44">Trace 2</option>
-                    <option value="2" style="color: #ff44cc">Trace 3</option>
-                    <option value="3" style="color: #ff4444">Trace 4</option>
-                </select>
-                <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Delete</button>
-                <button class="mc-btn" id="markerPeakLeftBtn" title="Move current marker to nearest maximum to the left" disabled>&#9664; Max</button>
-                <button class="mc-btn" id="markerPeakRightBtn" title="Move current marker to nearest maximum to the right" disabled>Max &#9654;</button>
-                <button class="mc-btn" id="markerBottomLeftBtn" title="Move current marker to nearest minimum to the left" disabled>&#9664; Min</button>
-                <button class="mc-btn" id="markerBottomRightBtn" title="Move current marker to nearest minimum to the right" disabled>Min &#9654;</button>
+            <div class="mc-col pane-hidden" id="markerBottomControls">
+                <div class="mc-row">
+                    <select id="markerChangeTraceSelect" class="mc-select" disabled>
+                        <option value="0" style="color: #ffcc00">Trace 1</option>
+                        <option value="1" style="color: #44dd44">Trace 2</option>
+                        <option value="2" style="color: #ff44cc">Trace 3</option>
+                        <option value="3" style="color: #ff4444">Trace 4</option>
+                    </select>
+                    <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Delete</button>
+                </div>
+                <div class="mc-row">
+                    <button class="mc-btn" id="markerPeakLeftBtn" title="Move current marker to nearest maximum to the left" disabled>&#9664; Max</button>
+                    <button class="mc-btn" id="markerPeakRightBtn" title="Move current marker to nearest maximum to the right" disabled>Max &#9654;</button>
+                </div>
+                <div class="mc-row">
+                    <button class="mc-btn" id="markerBottomLeftBtn" title="Move current marker to nearest minimum to the left" disabled>&#9664; Min</button>
+                    <button class="mc-btn" id="markerBottomRightBtn" title="Move current marker to nearest minimum to the right" disabled>Min &#9654;</button>
+                </div>
             </div>
         </div>
     </div>
