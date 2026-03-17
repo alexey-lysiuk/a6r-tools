@@ -337,12 +337,10 @@
 
         .mc-select {
             font-size: 0.78rem;
-            color: var(--input-text);
             background: var(--input-bg);
             border: 1px solid var(--input-border);
             border-radius: 3px;
             padding: 2px 4px;
-            width: 38px;
         }
 
         .markers-sep {
@@ -717,6 +715,11 @@
             m.freqIndex = best;
             updateMarkersPane();
             drawOverlay(hoveredIdx);
+        });
+
+        /* ── Trace selector color update ────────────────────────────────────── */
+        markerTraceSelect.addEventListener('change', () => {
+            markerTraceSelect.style.color = traceColors[parseInt(markerTraceSelect.value, 10)] || '';
         });
 
         /* ── Change current marker's trace ──────────────────────────────────── */
@@ -1377,6 +1380,7 @@
                     sel.options[i].disabled = i >= traceCount;
                     sel.options[i].style.color = traceColors[i];
                 }
+                sel.style.color = traceColors[parseInt(sel.value, 10)] || '';
             }
 
             /* Rebuild the list */
