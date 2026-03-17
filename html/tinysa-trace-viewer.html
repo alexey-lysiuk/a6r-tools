@@ -315,11 +315,6 @@
             flex-wrap: wrap;
         }
 
-        .mc-label {
-            font-size: 0.78rem;
-            color: var(--label);
-        }
-
         .mc-btn {
             font-size: 0.78rem;
             background: var(--btn-bg);
@@ -414,7 +409,6 @@
 
         <div class="toolbar-sep"></div>
         <div class="color-pickers">
-            <span>Trace colors:</span>
             <span class="cp-item" id="cpitem0">
                 <button class="vis-btn" id="vis0" title="Hide Trace 1">1</button>
                 <input type="color" id="color0" value="#ffcc00" title="Trace 1 color" aria-label="Trace 1 color picker">
@@ -467,12 +461,11 @@
         <div class="markers-pane pane-hidden" id="markersPane">
             <div class="markers-pane-title">Markers</div>
             <div class="mc-row">
-                <span class="mc-label">Trace:</span>
                 <select id="markerTraceSelect" class="mc-select">
-                    <option value="0">1</option>
-                    <option value="1">2</option>
-                    <option value="2">3</option>
-                    <option value="3">4</option>
+                    <option value="0" style="color: #ffcc00">Trace 1</option>
+                    <option value="1" style="color: #44dd44">Trace 2</option>
+                    <option value="2" style="color: #ff44cc">Trace 3</option>
+                    <option value="3" style="color: #ff4444">Trace 4</option>
                 </select>
                 <button class="mc-btn" id="addMarkerBtn" title="Add marker at center frequency">Add</button>
             </div>
@@ -484,10 +477,10 @@
                 <button class="mc-btn" id="markerMinBtn" title="Move current marker to minimum power" disabled>&#8595;</button>
                 <button class="mc-btn" id="markerMaxBtn" title="Move current marker to maximum power" disabled>&#8593;</button>
                 <select id="markerChangeTraceSelect" class="mc-select" disabled>
-                    <option value="0">1</option>
-                    <option value="1">2</option>
-                    <option value="2">3</option>
-                    <option value="3">4</option>
+                    <option value="0" style="color: #ffcc00">Trace 1</option>
+                    <option value="1" style="color: #44dd44">Trace 2</option>
+                    <option value="2" style="color: #ff44cc">Trace 3</option>
+                    <option value="3" style="color: #ff4444">Trace 4</option>
                 </select>
             </div>
         </div>
@@ -1377,11 +1370,12 @@
                 markerChangeTraceSelect.value = String(markers[currentMarkerIdx].traceIndex);
             }
 
-            /* Keep trace selectors in sync with loaded data */
+            /* Keep trace selectors in sync with loaded data and current colors */
             const traceCount = chartData ? chartData.traces.length : DEFAULT_TRACE_COLORS.length;
             for (const sel of [markerTraceSelect, markerChangeTraceSelect]) {
                 for (let i = 0; i < sel.options.length; i++) {
                     sel.options[i].disabled = i >= traceCount;
+                    sel.options[i].style.color = traceColors[i];
                 }
             }
 
