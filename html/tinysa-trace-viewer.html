@@ -78,9 +78,29 @@
             flex-shrink: 0;
         }
 
-        label[for="fileInput"] {
-            font-size: 0.9rem;
-            color: var(--label);
+        #sourceToggleBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #sourceToggleBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        .source-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .source-group.hidden {
+            display: none;
         }
 
         input[type="file"] {
@@ -107,12 +127,6 @@
         input[type="file"]::-webkit-file-upload-button:hover,
         input[type="file"]::file-selector-button:hover {
             background: var(--btn-hover);
-        }
-
-        .url-group {
-            display: flex;
-            align-items: center;
-            gap: 6px;
         }
 
         #urlInput {
@@ -285,9 +299,11 @@
     <h1>tinySA Ultra Trace Viewer</h1>
 
     <div class="toolbar">
-        <label for="fileInput">Load trace file (.csv):</label>
-        <input type="file" id="fileInput" accept=".csv">
-        <div class="url-group">
+        <button id="sourceToggleBtn" title="Switch to URL loading">Load from URL</button>
+        <div class="source-group" id="fileGroup">
+            <input type="file" id="fileInput" accept=".csv">
+        </div>
+        <div class="source-group hidden" id="urlGroup">
             <label for="urlInput">URL:</label>
             <input type="text" id="urlInput" placeholder="https://…/trace.csv">
             <button id="loadUrlBtn">Load</button>
@@ -385,10 +401,13 @@
         let currentTheme = 'dark';
 
         /* ── DOM references ─────────────────────────────────────────────────── */
-        const fileInput       = document.getElementById('fileInput');
-        const urlInput        = document.getElementById('urlInput');
-        const loadUrlBtn      = document.getElementById('loadUrlBtn');
-        const messageEl       = document.getElementById('message');
+        const fileInput        = document.getElementById('fileInput');
+        const urlInput         = document.getElementById('urlInput');
+        const loadUrlBtn       = document.getElementById('loadUrlBtn');
+        const sourceToggleBtn  = document.getElementById('sourceToggleBtn');
+        const fileGroup        = document.getElementById('fileGroup');
+        const urlGroup         = document.getElementById('urlGroup');
+        const messageEl        = document.getElementById('message');
         const canvas          = document.getElementById('chart');
         const crosshairCanvas = document.getElementById('crosshair');
         const tooltip         = document.getElementById('tooltip');
@@ -476,6 +495,30 @@
         /* ── Chart state ────────────────────────────────────────────────────── */
         let chartData   = null;   // { frequencies, traces, bandBoundaries, filename }
         let hoveredIdx  = null;   // index of the frequency closest to the mouse
+
+        /* ── Source toggle (file ↔ URL) ─────────────────────────────────────── */
+        let sourceMode = 'file';   // 'file' | 'url'
+
+        function switchSourceMode(mode) {
+            sourceMode = mode;
+            if (mode === 'url') {
+                fileGroup.classList.add('hidden');
+                urlGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'Load from File';
+                sourceToggleBtn.title = 'Switch to file loading';
+            } else {
+                urlGroup.classList.add('hidden');
+                fileGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'Load from URL';
+                sourceToggleBtn.title = 'Switch to URL loading';
+            }
+        }
+
+        sourceToggleBtn.addEventListener('click', () => {
+            switchSourceMode(sourceMode === 'file' ? 'url' : 'file');
+            if (sourceMode === 'url') urlInput.focus();
+            showMessage('');
+        });
 
         /* ── File loading ───────────────────────────────────────────────────── */
         fileInput.addEventListener('change', () => {
@@ -1085,6 +1128,7 @@
             const params   = new URLSearchParams(window.location.search);
             const urlParam = params.get('url');
             if (urlParam) {
+                switchSourceMode('url');
                 urlInput.value = urlParam;
                 loadFromURL(urlParam);
             }
