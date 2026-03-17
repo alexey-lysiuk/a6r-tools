@@ -1126,6 +1126,7 @@
         const MARKER_HIT_PAD = 3;   /* extra hit-testing tolerance around triangle (px) */
 
         function drawChart() {
+            if (!chartData) return;
             const { frequencies, traces, bandBoundaries, filename } = chartData;
             const th   = THEMES[currentTheme];
             const dpr  = window.devicePixelRatio || 1;
