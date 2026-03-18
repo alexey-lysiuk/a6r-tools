@@ -747,11 +747,12 @@
             /* Collect interior local-maximum indices sorted by power descending */
             const peaks = [];
             for (let i = 1; i < trace.length - 1; i++) {
-                if (trace[i] > trace[i - 1] && trace[i] > trace[i + 1]) peaks.push(i);
+                if (trace[i] > trace[i - 1] && trace[i] >= trace[i + 1]) peaks.push(i);
             }
             peaks.sort((a, b) => trace[b] - trace[a]);
             /* Build candidate list: global max first, then remaining peaks */
             const candidates = [globalMaxIdx, ...peaks.filter(p => p !== globalMaxIdx)];
+            /* Pick first candidate not already occupied by an existing marker */
             let freqIndex = 0;
             for (const c of candidates) {
                 if (!occupiedOnTrace.has(c)) { freqIndex = c; break; }
@@ -776,18 +777,19 @@
         /**
          * Find the nearest local maximum (peak) in `trace` searching left from
          * `fromIdx` (exclusive). Returns the index of the best peak, or -1 if none.
-         * A local maximum is an interior point where both neighbors are strictly lower.
+         * A local maximum is an interior point strictly higher than its left neighbor
+         * and greater than or equal to its right neighbor (first point of a flat top).
          */
         function findPeakLeft(trace, fromIdx) {
             for (let i = fromIdx - 1; i >= 1; i--) {
-                if (trace[i] > trace[i - 1] && trace[i] > trace[i + 1]) return i;
+                if (trace[i] > trace[i - 1] && trace[i] >= trace[i + 1]) return i;
             }
             return -1;
         }
 
         function findPeakRight(trace, fromIdx) {
             for (let i = fromIdx + 1; i < trace.length - 1; i++) {
-                if (trace[i] > trace[i - 1] && trace[i] > trace[i + 1]) return i;
+                if (trace[i] > trace[i - 1] && trace[i] >= trace[i + 1]) return i;
             }
             return -1;
         }
