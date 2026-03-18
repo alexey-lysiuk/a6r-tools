@@ -752,24 +752,10 @@
             peaks.sort((a, b) => trace[b] - trace[a]);
             /* Build candidate list: global max first, then remaining peaks */
             const candidates = [globalMaxIdx, ...peaks.filter(p => p !== globalMaxIdx)];
-            /* Deduplicate: treat peaks within PEAK_CLOSE_DB of a higher-power peak as the same.
-             * Candidates are sorted descending, so only the last kept element needs checking. */
-            const PEAK_CLOSE_DB = 0.5;
-            const dedupedCandidates = [];
-            for (const c of candidates) {
-                const count = dedupedCandidates.length;
-                if (count === 0 || Math.abs(trace[dedupedCandidates[count - 1]] - trace[c]) > PEAK_CLOSE_DB) {
-                    dedupedCandidates.push(c);
-                }
-            }
-            /* Pre-compute power levels of already-occupied positions for proximity check */
-            const occupiedPowers = [];
-            for (const oi of occupiedOnTrace) occupiedPowers.push(trace[oi]);
-            /* Pick first candidate not already covered by an occupied peak (exact or near power) */
+            /* Pick first candidate not already occupied by an existing marker */
             let freqIndex = 0;
-            for (const c of dedupedCandidates) {
-                const nearOccupied = occupiedPowers.some(p => Math.abs(p - trace[c]) <= PEAK_CLOSE_DB);
-                if (!nearOccupied) { freqIndex = c; break; }
+            for (const c of candidates) {
+                if (!occupiedOnTrace.has(c)) { freqIndex = c; break; }
             }
             markers.push({ traceIndex, freqIndex });
             currentMarkerIdx = markers.length - 1;
