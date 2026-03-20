@@ -1494,16 +1494,21 @@
                     draggingMarkerIdx = mi;
                     canvas.style.cursor = 'grabbing';
                     updateMarkersPane();
-                    drawOverlay(hoveredIdx);
+                    tooltip.style.display = 'none';
+                    drawOverlay(null);
                     e.preventDefault();
                     return;
                 }
             }
         });
 
-        canvas.addEventListener('mouseup', () => {
+        canvas.addEventListener('mouseup', (e) => {
+            if (draggingMarkerIdx === null) return;
             draggingMarkerIdx = null;
             canvas.style.cursor = 'crosshair';
+            canvas.dispatchEvent(new MouseEvent('mousemove', {
+                clientX: e.clientX, clientY: e.clientY, bubbles: true
+            }));
         });
 
         canvas.addEventListener('mousemove', (e) => {
@@ -1524,7 +1529,8 @@
                 }
                 markers[draggingMarkerIdx].freqIndex = idx;
                 updateMarkersPane();
-                drawOverlay(hoveredIdx);
+                tooltip.style.display = 'none';
+                drawOverlay(null);
                 return;
             }
 
