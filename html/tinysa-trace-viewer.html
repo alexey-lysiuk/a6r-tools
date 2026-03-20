@@ -1349,6 +1349,12 @@
             ctx.clip();
 
             const px = frequencies.map(f => xScale(f));
+            /* Shift the first point of each non-first band one pixel right of the
+               band separator so it does not overlap with the last point of the
+               previous band (both would otherwise land on the same pixel). */
+            for (let bi = 1; bi < bands.length; bi++) {
+                px[bands[bi].start] += 1;
+            }
 
             for (let ti = 0; ti < traces.length; ti++) {
                 if (!traceVisible[ti]) continue;
