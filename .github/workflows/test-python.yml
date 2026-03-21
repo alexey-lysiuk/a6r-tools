@@ -9,9 +9,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Test a6r-bmp.py
+      - name: Test bmpfile.py
         run: |
-          ./python/a6r-bmp.py data/capture.bmp
+          ./python/bmpfile.py data/capture.bmp
 
           # wget -q https://imagemagick.org/archive/binaries/magick
           # chmod +x magick
@@ -19,14 +19,14 @@ jobs:
           # ./magick compare -metric AE data/capture.bmp data/capture_converted.bmp null:
           # rm magick data/capture_converted.bmp
 
-      - name: Test a6r-prs.py
+      - name: Test tinysa4preset.py
         run: |
-          ./python/a6r-prs.py data/*.prs
-          ./python/a6r-prs.py data/*.json
+          ./python/tinysa4preset.py data/*.prs
+          ./python/tinysa4preset.py data/*.json
 
-      - name: Test a6r-rc.py
+      - name: Test remotecontrol.py
         run: |
-          ./python/a6r-rc.py --help
+          ./python/remotecontrol.py --help
 
       - name: List Directory
         if: always()

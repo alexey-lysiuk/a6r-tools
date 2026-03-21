@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "a6r-bmp.py",
+            "name": "bmpfile.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/python/a6r-bmp.py",
+            "program": "${workspaceFolder}/python/bmpfile.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/data",
             "args": [
@@ -13,10 +13,10 @@
             ]
         },
         {
-            "name": "a6r-prs.py",
+            "name": "tinysa4preset.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/python/a6r-prs.py",
+            "program": "${workspaceFolder}/python/tinysa4preset.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/data",
             "args": [
@@ -27,10 +27,10 @@
             ]
         },
         {
-            "name": "a6r-rc.py",
+            "name": "remotecontrol.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/python/a6r-rc.py",
+            "program": "${workspaceFolder}/python/remotecontrol.py",
             "console": "internalConsole",
             "cwd": "${workspaceFolder}/data",
             "args": [
