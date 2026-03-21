@@ -65,7 +65,7 @@ class BMPFile:
     def __init__(self, filename: str):
         with open(filename, 'rb') as f:
             bmpheader = f.read(BMPFile.HEADER_SIZE)
-            magic, filesize, dataoffset = struct.unpack(BMPFile.HEADER_FORMAT, bmpheader)
+            magic, _, _ = struct.unpack(BMPFile.HEADER_FORMAT, bmpheader)
             assert magic == BMPFile.MAGIC
 
             dibheader = f.read(BMPFile.BITMAPV4HEADER_SIZE)
