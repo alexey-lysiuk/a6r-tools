@@ -614,13 +614,13 @@ def main():
     command_group.add_argument('-U', '--update', action='store_true', help='update presets in binary format')
 
     parser.add_argument('-M', '--markers', metavar='count', type=int,
-                         help=f'number of markers, 0..{Preset.MARKERS_MAX}')
+                         help=f'set number of markers, 0..{Preset.MARKERS_MAX}')
     parser.add_argument('-N', '--name', type=str,
-                         help=f'preset name, up to {Preset.PRESET_NAME_LENGTH} characters')
+                         help=f'set preset name, up to {Preset.PRESET_NAME_LENGTH} characters')
     parser.add_argument('-R', '--reflevel', metavar='number', type=float,
-                         help='trace reference level')
+                         help='set trace reference level')
     parser.add_argument('-W', '--waterfall', metavar='number', type=int,
-                         help=f'waterfall height, {Enums.W_OFF}..{Enums.W_SUPER}')
+                         help=f'set waterfall height, {Enums.W_OFF}..{Enums.W_SUPER}')
 
     args = parser.parse_args()
     paths = args.paths
