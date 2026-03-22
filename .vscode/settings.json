@@ -7,8 +7,9 @@
         // # R0902: Too many instance attributes (.../7) (too-many-instance-attributes)
         // # R0903: Too few public methods (.../2) (too-few-public-methods)
         // # R0914: Too many local variables (.../15) (too-many-locals)
+        // # R0915: Too many statements (.../50) (too-many-statements)
         // # W0511: TODO ... (fixme)
-        "--disable=C0103,C0114,C0115,C0116,R0902,R0903,R0914,W0511",
+        "--disable=C0103,C0114,C0115,C0116,R0902,R0903,R0914,R0915,W0511",
         "--ignore-paths=^.*/python/serial/.*$",
         "--max-line-length=120"
     ],
