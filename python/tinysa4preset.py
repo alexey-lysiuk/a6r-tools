@@ -579,6 +579,8 @@ def update(path: str, args):
             else:
                 preset.markers[i] = Marker()
 
+        preset.active_marker = 0 if markers > 0 else -1
+
     name = args.name
 
     if name is not None:
@@ -595,7 +597,6 @@ def update(path: str, args):
         preset.waterfall = max(Enums.W_OFF, min(waterfall, Enums.W_SUPER))
 
     # Reset transient members
-    preset.active_marker = 0
     preset.actual_sweep_time_us = 0
     preset.scan_after_dirty = [0 for _ in range(Preset.TRACES_MAX)]
 
