@@ -551,6 +551,9 @@ def convert(path: str):
             f.write(binary)
 
 
+_TRACES_MASK = (1 << Preset.TRACES_MAX) - 1
+
+
 def update(path: str, args):
     with open(path, 'rb') as f:
         preset = Preset()
@@ -591,6 +594,11 @@ def update(path: str, args):
     if reflevel is not None:
         preset.reflevel = reflevel
 
+    traces = args.traces
+
+    if traces is not None:
+        preset.traces = max(0, min(traces, _TRACES_MASK))
+
     waterfall = args.waterfall
 
     if waterfall is not None:
@@ -620,6 +628,8 @@ def main():
                          help=f'set preset name, up to {Preset.PRESET_NAME_LENGTH} characters')
     parser.add_argument('-R', '--reflevel', metavar='number', type=float,
                          help='set trace reference level')
+    parser.add_argument('-T', '--traces', metavar='number', type=int,
+                         help=f'set active traces mask, 0..{_TRACES_MASK}')
     parser.add_argument('-W', '--waterfall', metavar='number', type=int,
                          help=f'set waterfall height, {Enums.W_OFF}..{Enums.W_SUPER}')
 
