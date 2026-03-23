@@ -612,7 +612,7 @@ def update(path: str, args):
     traces = args.traces
 
     if traces is not None:
-        preset.traces = max(0, min(traces, _TRACES_MASK))
+        preset.trace_refpos = preset.traces = max(0, min(traces, _TRACES_MASK))
 
     waterfall = args.waterfall
 
