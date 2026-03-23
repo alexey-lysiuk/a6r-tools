@@ -559,16 +559,31 @@ def update(path: str, args):
         preset = Preset()
         preset.from_binary(f)
 
+    start_frequency = 2 ** 63
+    stop_frequency = 0
+    has_bands = False
+
+    for i in range(Preset.BANDS_MAX):
+        band = preset.bands[i]
+
+        if band.enabled:
+            start_frequency = min(start_frequency, band.start)
+            stop_frequency = max(stop_frequency, band.end)
+            has_bands = True
+        else:
+            preset.bands[i] = Band()
+
+    if has_bands:
+        preset.frequency0 = start_frequency
+        preset.frequency1 = stop_frequency
+    else:
+        start_frequency = preset.frequency0
+        stop_frequency = preset.frequency1
+
     markers = args.markers
 
     if markers is not None:
         markers = max(0, min(markers, Preset.MARKERS_MAX))
-        start_frequency = preset.frequency0
-
-        for band in preset.bands:
-            if band.enabled:
-                start_frequency = band.start
-                break
 
         for i in range(Preset.MARKERS_MAX):
             if i < markers:
