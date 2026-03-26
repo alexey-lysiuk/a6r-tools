@@ -27,7 +27,7 @@ import serial
 from serial.tools import list_ports
 
 
-_DeviceType = enum.Enum('DeviceType', 'TINYSA4 NANOVNA_FVX')
+_DeviceType = enum.Enum('DeviceType', 'TINYSA4 NANOVNA_FVX TINYGTC')
 
 _BMP_HEADER1 = b'BMz\xb0\x04\x00\x00\x00\x00\x00z\x00\x00\x00l\x00\x00\x00'
 _BMP_HEADER2 = b'\x01'\
@@ -39,42 +39,67 @@ _BMP_HEADER2 = b'\x01'\
 
 class SMTVirtualCOMPort:
     VID = 0x0483  # 1155
-    PID = 0x5740  # 22336
+    PID_GENERIC = 0x5740  # 22336
+    PID_TINYGTC = 0x5741  # 22337
 
     S1P = 0
     S2P = 1
 
     def __init__(self, device_name: str, verbose: bool = False):
+        self._device_type = None
+        self._prompt = b'ch>'
         self.verbose = verbose
 
         if not device_name:
             ports = list_ports.comports()
+            tinygtc_port = None
 
             for port in ports:
-                if port.vid == self.VID and port.pid == self.PID:
+                if port.vid != self.VID:
+                    continue
+
+                if port.pid == self.PID_TINYGTC:
+                    # Try to find the first port
+                    self._device_type = _DeviceType.TINYGTC
+
+                    if not tinygtc_port or tinygtc_port > port:
+                        tinygtc_port = port
+                elif port.pid == self.PID_GENERIC:
                     device_name = port.device
                     break
+
+        if is_tinygtc := tinygtc_port and self.is_tinygtc():
+            device_name = tinygtc_port.device
+            self._prompt = b'>'
 
         if not device_name:
             raise OSError('No devices found')
 
         self._device = serial.Serial(device_name)
-        self.send('info')
 
-        device_info = self.receive()
+        if not is_tinygtc:
+            self.send('info')
 
-        if verbose:
-            print(device_info)
+            device_info = self.receive()
 
-        if device_info.find('tinySA ULTRA') != -1:
-            self._device_type = _DeviceType.TINYSA4
-        elif device_info.find('NanoVNA-F_V') != -1:
-            self._device_type = _DeviceType.NANOVNA_FVX
-        else:
-            raise RuntimeError('No supported devices found')
+            if verbose:
+                print(device_info)
+
+            if device_info.find('tinySA ULTRA') != -1:
+                self._device_type = _DeviceType.TINYSA4
+            elif device_info.find('NanoVNA-F_V') != -1:
+                self._device_type = _DeviceType.NANOVNA_FVX
+            else:
+                raise RuntimeError('No supported devices found')
 
     def is_tinysa_ultra(self):
         return self._device_type == _DeviceType.TINYSA4
+
+    def is_tinygtc(self):
+        return self._device_type == _DeviceType.TINYGTC
+
+    def is_tinydevice(self):
+        return self.is_tinysa_ultra() or self.is_tinygtc()
 
     def is_nanovna_fvx(self):
         return self._device_type == _DeviceType.NANOVNA_FVX
@@ -109,7 +134,7 @@ class SMTVirtualCOMPort:
                 line = bytearray()
                 continue
 
-            if line.endswith(b'ch>'):
+            if line.endswith(self._prompt):
                 # stop on prompt
                 break
 
@@ -117,9 +142,9 @@ class SMTVirtualCOMPort:
 
     def capture(self, path: str) -> bool:
         verbose = self.verbose
-        is_tinysa_ultra = self.is_tinysa_ultra()
+        is_tinydevice = self.is_tinydevice()
 
-        if is_tinysa_ultra:
+        if is_tinydevice:
             width, height = 480, 320
         elif self.is_nanovna_fvx():
             width, height = 800, 480
@@ -134,7 +159,7 @@ class SMTVirtualCOMPort:
         pixels_length = width * height * 2
         pixels = self._device.read(pixels_length)
 
-        if is_tinysa_ultra:
+        if is_tinydevice:
             # Swap bytes in pixels
             pixels = bytes(pixels[x ^ 1] for x in range(pixels_length))
 
@@ -238,13 +263,25 @@ class SMTVirtualCOMPort:
         device = self._device
         assert device
 
-        size_binary = device.read(4)
+        if self.is_tinygtc():
+            size_or_error = self.receive()
 
-        if size_binary == b'err:':
-            message = self.receive()
-            raise RuntimeError(f"Cannot read {filename} from SD card, error{message}")
+            if size_or_error.startswith('err:'):
+                raise RuntimeError(f"Cannot read {filename} from SD card, error{size_or_error}")
 
-        size = struct.unpack('<1I', size_binary)[0]
+            size = int(size_or_error)
+
+            # TODO: figure out why a whitespace appears after size
+            device.read(1)
+        else:
+            size_binary = device.read(4)
+
+            if size_binary == b'err:':
+                message = self.receive()
+                raise RuntimeError(f"Cannot read {filename} from SD card, error{message}")
+
+            size = struct.unpack('<1I', size_binary)[0]
+
         return device.read(size)
 
     def _prepare_filename(self, path: str, extension: str) -> str:
@@ -260,8 +297,10 @@ class SMTVirtualCOMPort:
             return 'sa'
         elif self.is_nanovna_fvx():
             return 'vna'
-        else:
-            raise RuntimeError('Invalid device type')
+        elif self.is_tinygtc():
+            return 'gtc'
+
+        raise RuntimeError('Invalid device type')
 
 
 def main():
