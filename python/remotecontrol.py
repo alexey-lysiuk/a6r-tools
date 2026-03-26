@@ -289,15 +289,15 @@ class SMTVirtualCOMPort:
             time = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
             prefix = self._filename_prefix()
             return f'{prefix}_{time}.{extension}'
-        else:
-            return path
+
+        return path
 
     def _filename_prefix(self):
         if self.is_tinysa_ultra():
             return 'sa'
-        elif self.is_nanovna_fvx():
+        if self.is_nanovna_fvx():
             return 'vna'
-        elif self.is_tinygtc():
+        if self.is_tinygtc():
             return 'gtc'
 
         raise RuntimeError('Invalid device type')
