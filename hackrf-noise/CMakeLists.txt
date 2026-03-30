@@ -9,5 +9,5 @@ pkg_check_modules(HACKRF REQUIRED libhackrf)
 
 add_executable(hackrf-noise main.c)
 target_include_directories(hackrf-noise PRIVATE ${HACKRF_INCLUDE_DIRS})
-target_link_libraries(hackrf-noise PRIVATE ${HACKRF_LIBRARIES})
+target_link_libraries(hackrf-noise PRIVATE ${HACKRF_LINK_LIBRARIES})
 target_compile_options(hackrf-noise PRIVATE ${HACKRF_CFLAGS_OTHER})
