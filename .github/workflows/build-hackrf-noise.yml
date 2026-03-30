@@ -1,0 +1,63 @@
+name: Build hackrf-noise
+
+on: [push, pull_request]
+
+jobs:
+  build-linux:
+    name: Build on Linux
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libhackrf-dev
+
+      - name: Configure
+        run: cmake -B hackrf-noise/build hackrf-noise
+
+      - name: Build
+        run: cmake --build hackrf-noise/build
+
+  build-macos:
+    name: Build on macOS
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: brew install hackrf
+
+      - name: Configure
+        run: cmake -B hackrf-noise/build hackrf-noise
+
+      - name: Build
+        run: cmake --build hackrf-noise/build
+
+  build-windows:
+    name: Build on Windows
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-hackrf
+            mingw-w64-x86_64-pkgconf
+
+      - name: Configure
+        shell: msys2 {0}
+        run: cmake -B hackrf-noise/build hackrf-noise -G "Unix Makefiles"
+
+      - name: Build
+        shell: msys2 {0}
+        run: cmake --build hackrf-noise/build
