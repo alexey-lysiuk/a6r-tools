@@ -22,6 +22,7 @@ import datetime
 import enum
 import struct
 import sys
+from time import sleep
 
 import serial
 from serial.tools import list_ports
@@ -104,7 +105,7 @@ class SMTVirtualCOMPort:
     def is_nanovna_fvx(self):
         return self._device_type == _DeviceType.NANOVNA_FVX
 
-    def send(self, command: str):
+    def send(self, command: str, delay: float = 0):
         device = self._device
         assert device
 
@@ -113,6 +114,9 @@ class SMTVirtualCOMPort:
 
         device.write(command.encode())
         device.readline()  # discard empty line
+
+        if delay != 0:
+            sleep(delay)
 
     def receive(self):
         device = self._device
@@ -249,6 +253,14 @@ class SMTVirtualCOMPort:
                 f.write(entry[1])
                 f.write('\n')
 
+    def selftest(self, index: int):
+        if index == 0:
+            for i in range(1, 15):
+                self._perform_selftest(i)
+                sleep(0.5)
+        elif 0 < index < 15:
+            self._perform_selftest(index)
+
     def version(self):
         self.send('version')
         print(self.receive())
@@ -284,6 +296,12 @@ class SMTVirtualCOMPort:
 
         return device.read(size)
 
+    def _perform_selftest(self, index: int):
+        self.send(f'selftest 0 {index}', delay=1)
+        self.capture(f'selftest-{index:02d}.bmp')
+        self.send('touch 0 0', delay=0.1)
+        self.send('release')
+
     def _prepare_filename(self, path: str, extension: str) -> str:
         if path == '*':
             time = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
@@ -311,6 +329,7 @@ def main():
     parser.add_argument('-D', '--delete', help='delete files from SD card', metavar='pattern')
     parser.add_argument('-X', '--copy', help='copy files from SD card', metavar='pattern')
     parser.add_argument('-L', '--list', const='*', help='list files on SD card', metavar='pattern', nargs='?')
+    parser.add_argument('-T', '--selftest', type=int, help='perform self-test(s), 0..14', metavar='test-index')
     parser.add_argument('--device', help='specify device explicitly', metavar='device-name')
     parser.add_argument('--verbose', action='store_true', help='enable verbose output')
     parser.add_argument('--version', action='store_true', help='obtain device version information')
@@ -339,6 +358,9 @@ def main():
 
     if args.s2p:
         device.save_sNp(SMTVirtualCOMPort.S2P, args.s2p)
+
+    if args.selftest is not None:
+        device.selftest(args.selftest)
 
     if args.version:
         device.version()
