@@ -42,7 +42,7 @@ static bool VerifyPreset(const char* path)
 	if (checksum == preset.checksum)
 		printf("%s: OK, checksum 0x%08X\n", path, checksum);
 	else
-		printf("%s: checksum mismatch, calculate 0x%08X vs. stored 0x%08X\n", path, checksum, preset.checksum);
+		printf("%s: checksum mismatch, calculated 0x%08X vs. stored 0x%08X\n", path, checksum, preset.checksum);
 
 	fclose(f);
 
