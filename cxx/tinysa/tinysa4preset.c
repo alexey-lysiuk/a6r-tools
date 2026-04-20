@@ -1,11 +1,12 @@
-#include "tinysa4preset.h"
+#include <stdio.h>
 
-#include <cstdio>
-#include <cstdlib>
+#define TINYSA_F303
+
+#include "tinySA/nanovna.h"
 
 static inline uint32_t ror(uint32_t op1, uint32_t op2)
 {
-  return (op1 >> op2) | (op1 << (32 - op2));
+	return (op1 >> op2) | (op1 << (32 - op2));
 }
 
 static bool VerifyPreset(const char* path)
@@ -18,7 +19,7 @@ static bool VerifyPreset(const char* path)
 		return false;
 	}
 
-	TinySA4::Preset preset;
+	setting_t preset;
 
 	const size_t bytesread = fread(&preset, 1, sizeof preset, f);
 
@@ -28,7 +29,7 @@ static bool VerifyPreset(const char* path)
 		return false;
 	}
 
-	const uint32_t* current = reinterpret_cast<const uint32_t*>(&preset);
+	const uint32_t* current = (uint32_t*)&preset;
 	const uint32_t* end = (uint32_t*)(current + sizeof preset / sizeof(uint32_t) - 2);  // without checksum and four bytes padding
 	uint32_t checksum = 0;
 
