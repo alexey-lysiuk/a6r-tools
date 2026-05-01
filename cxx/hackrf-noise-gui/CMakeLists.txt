@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
 project(hackrf-noise-gui VERSION 1.0 LANGUAGES CXX)
 
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -16,27 +20,78 @@ FetchContent_MakeAvailable(imgui)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(HACKRF REQUIRED libhackrf)
-pkg_check_modules(SDL2 REQUIRED sdl2)
 
-find_package(OpenGL REQUIRED)
-
-add_library(imgui_sdl2_opengl2 STATIC
+set(IMGUI_CORE_SOURCES
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl2.cpp
 )
-target_include_directories(imgui_sdl2_opengl2 PUBLIC
-    ${imgui_SOURCE_DIR}
-    ${imgui_SOURCE_DIR}/backends
-    ${SDL2_INCLUDE_DIRS}
-)
-target_compile_options(imgui_sdl2_opengl2 PRIVATE ${SDL2_CFLAGS_OTHER})
-target_link_libraries(imgui_sdl2_opengl2 PUBLIC ${SDL2_LIBRARIES} OpenGL::GL)
 
-add_executable(hackrf-noise-gui main.cpp)
+if(WIN32)
+
+    # ── Windows: DirectX 11 + Win32 API ────────────────────────────────────
+    add_library(imgui_backend STATIC
+        ${IMGUI_CORE_SOURCES}
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
+    )
+    target_include_directories(imgui_backend PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+    )
+    target_link_libraries(imgui_backend PUBLIC d3d11 dxgi d3dcompiler dwmapi imm32)
+
+    set(PLATFORM_MAIN main.cpp)
+
+elseif(APPLE)
+
+    # ── macOS: Metal + OSX (AppKit / MTKView) ──────────────────────────────
+    add_library(imgui_backend STATIC
+        ${IMGUI_CORE_SOURCES}
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_osx.mm
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.mm
+    )
+    target_include_directories(imgui_backend PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+    )
+    target_link_libraries(imgui_backend PUBLIC
+        "-framework Metal"
+        "-framework MetalKit"
+        "-framework Cocoa"
+        "-framework QuartzCore"
+    )
+
+    set(PLATFORM_MAIN main_macos.mm)
+
+else()
+
+    # ── Other platforms: SDL2 + OpenGL2 ────────────────────────────────────
+    pkg_check_modules(SDL2 REQUIRED sdl2)
+    find_package(OpenGL REQUIRED)
+
+    add_library(imgui_backend STATIC
+        ${IMGUI_CORE_SOURCES}
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl2.cpp
+    )
+    target_include_directories(imgui_backend PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+        ${SDL2_INCLUDE_DIRS}
+    )
+    target_compile_options(imgui_backend PRIVATE ${SDL2_CFLAGS_OTHER})
+    target_link_libraries(imgui_backend PUBLIC ${SDL2_LIBRARIES} OpenGL::GL)
+
+    set(PLATFORM_MAIN main.cpp)
+
+endif()
+
+add_executable(hackrf-noise-gui
+    hackrf_noise_gui.cpp
+    ${PLATFORM_MAIN}
+)
 target_compile_options(hackrf-noise-gui PRIVATE ${HACKRF_CFLAGS_OTHER})
 target_include_directories(hackrf-noise-gui PRIVATE ${HACKRF_INCLUDE_DIRS})
-target_link_libraries(hackrf-noise-gui PRIVATE imgui_sdl2_opengl2 ${HACKRF_LINK_LIBRARIES})
+target_link_libraries(hackrf-noise-gui PRIVATE imgui_backend ${HACKRF_LINK_LIBRARIES})
