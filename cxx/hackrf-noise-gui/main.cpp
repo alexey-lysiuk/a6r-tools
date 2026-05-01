@@ -15,140 +15,244 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <algorithm>
-#include <atomic>
-#include <cstdint>
-#include <cstdlib>
-#include <ctime>
-#include <string>
+#include "hackrf_noise_gui.h"
 
-#include <hackrf.h>
+#ifdef _WIN32
 
-#include <SDL.h>
-#include <SDL_opengl.h>
+// ════════════════════════════════════════════════════════════════════════════
+// Windows — DirectX 11 + Win32 API
+// ════════════════════════════════════════════════════════════════════════════
+
+#include <windows.h>
+#include <d3d11.h>
+
 #include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_opengl2.h"
+#include "imgui_impl_win32.h"
+#include "imgui_impl_dx11.h"
 
-static constexpr float MIN_FREQUENCY_MHZ = 1.0f;
-static constexpr float MAX_FREQUENCY_MHZ = 6000.0f;
-static constexpr float MIN_BANDWIDTH_MHZ = 2.0f;
-static constexpr float MAX_BANDWIDTH_MHZ = 20.0f;
-static constexpr int   MIN_VGA_GAIN      = 0;
-static constexpr int   MAX_VGA_GAIN      = 47;
+static ID3D11Device*           g_pd3dDevice           = nullptr;
+static ID3D11DeviceContext*    g_pd3dDeviceContext     = nullptr;
+static IDXGISwapChain*         g_pSwapChain            = nullptr;
+static bool                    g_SwapChainOccluded     = false;
+static UINT                    g_ResizeWidth           = 0;
+static UINT                    g_ResizeHeight          = 0;
+static ID3D11RenderTargetView* g_mainRenderTargetView  = nullptr;
 
-static std::atomic<bool> g_tx_running{false};
-
-static int tx_callback(hackrf_transfer* transfer)
+static void CreateRenderTarget()
 {
-    uint8_t* buf = transfer->buffer;
-    const int32_t len = transfer->valid_length;
-
-    // Thread-local XorShift32 PRNG — fast and thread-safe
-    static thread_local uint32_t state = 0;
-    if (state == 0)
-        state = (uint32_t)time(nullptr) | 1u;
-
-    for (int32_t i = 0; i < len; ++i)
-    {
-        state ^= state << 13;
-        state ^= state >> 17;
-        state ^= state << 5;
-        buf[i] = (uint8_t)state;
-    }
-
-    return g_tx_running.load(std::memory_order_relaxed) ? 0 : -1;
+    ID3D11Texture2D* pBackBuffer = nullptr;
+    g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
+    g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
+    pBackBuffer->Release();
 }
 
-static bool start_transmit(hackrf_device** device,
-                            float freq_mhz, float bw_mhz, int power_db,
-                            std::string& error)
+static void CleanupRenderTarget()
 {
-    int result = hackrf_init();
-    if (result != HACKRF_SUCCESS)
+    if (g_mainRenderTargetView)
     {
-        error = std::string("hackrf_init failed: ") + hackrf_error_name((hackrf_error)result);
-        return false;
+        g_mainRenderTargetView->Release();
+        g_mainRenderTargetView = nullptr;
     }
+}
 
-    result = hackrf_open(device);
-    if (result != HACKRF_SUCCESS)
-    {
-        error = std::string("hackrf_open failed: ") + hackrf_error_name((hackrf_error)result);
-        hackrf_exit();
+static bool CreateDeviceD3D(HWND hWnd)
+{
+    DXGI_SWAP_CHAIN_DESC sd = {};
+    sd.BufferCount                        = 2;
+    sd.BufferDesc.Width                   = 0;
+    sd.BufferDesc.Height                  = 0;
+    sd.BufferDesc.Format                  = DXGI_FORMAT_R8G8B8A8_UNORM;
+    sd.BufferDesc.RefreshRate.Numerator   = 60;
+    sd.BufferDesc.RefreshRate.Denominator = 1;
+    sd.Flags                              = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+    sd.BufferUsage                        = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sd.OutputWindow                       = hWnd;
+    sd.SampleDesc.Count                   = 1;
+    sd.SampleDesc.Quality                 = 0;
+    sd.Windowed                           = TRUE;
+    sd.SwapEffect                         = DXGI_SWAP_EFFECT_DISCARD;
+
+    const D3D_FEATURE_LEVEL featureLevelArray[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0 };
+    D3D_FEATURE_LEVEL featureLevel;
+    const UINT createDeviceFlags = 0;
+
+    HRESULT res = D3D11CreateDeviceAndSwapChain(
+        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
+        createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION,
+        &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
+    if (res == DXGI_ERROR_UNSUPPORTED)
+        res = D3D11CreateDeviceAndSwapChain(
+            nullptr, D3D_DRIVER_TYPE_WARP, nullptr,
+            createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION,
+            &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
+    if (res != S_OK)
         return false;
-    }
 
-    const uint32_t sample_rate = (uint32_t)(bw_mhz * 1e6f);
-    result = hackrf_set_sample_rate(*device, sample_rate);
-    if (result != HACKRF_SUCCESS)
-    {
-        error = std::string("hackrf_set_sample_rate failed: ") + hackrf_error_name((hackrf_error)result);
-        hackrf_close(*device);
-        hackrf_exit();
-        *device = nullptr;
-        return false;
-    }
-
-    const uint32_t filter_bw = hackrf_compute_baseband_filter_bw(sample_rate);
-    result = hackrf_set_baseband_filter_bandwidth(*device, filter_bw);
-    if (result != HACKRF_SUCCESS)
-    {
-        error = std::string("hackrf_set_baseband_filter_bandwidth failed: ") + hackrf_error_name((hackrf_error)result);
-        hackrf_close(*device);
-        hackrf_exit();
-        *device = nullptr;
-        return false;
-    }
-
-    const uint64_t freq_hz = (uint64_t)(freq_mhz * 1e6f);
-    result = hackrf_set_freq(*device, freq_hz);
-    if (result != HACKRF_SUCCESS)
-    {
-        error = std::string("hackrf_set_freq failed: ") + hackrf_error_name((hackrf_error)result);
-        hackrf_close(*device);
-        hackrf_exit();
-        *device = nullptr;
-        return false;
-    }
-
-    result = hackrf_set_txvga_gain(*device, (uint32_t)power_db);
-    if (result != HACKRF_SUCCESS)
-    {
-        error = std::string("hackrf_set_txvga_gain failed: ") + hackrf_error_name((hackrf_error)result);
-        hackrf_close(*device);
-        hackrf_exit();
-        *device = nullptr;
-        return false;
-    }
-
-    g_tx_running.store(true, std::memory_order_relaxed);
-
-    result = hackrf_start_tx(*device, tx_callback, nullptr);
-    if (result != HACKRF_SUCCESS)
-    {
-        error = std::string("hackrf_start_tx failed: ") + hackrf_error_name((hackrf_error)result);
-        g_tx_running.store(false, std::memory_order_relaxed);
-        hackrf_close(*device);
-        hackrf_exit();
-        *device = nullptr;
-        return false;
-    }
-
+    CreateRenderTarget();
     return true;
 }
 
-static void stop_transmit(hackrf_device** device)
+static void CleanupDeviceD3D()
 {
-    if (!*device)
-        return;
-
-    g_tx_running.store(false, std::memory_order_relaxed);
-    hackrf_stop_tx(*device);
-    hackrf_close(*device);
-    hackrf_exit();
-    *device = nullptr;
+    CleanupRenderTarget();
+    if (g_pSwapChain)        { g_pSwapChain->Release();        g_pSwapChain        = nullptr; }
+    if (g_pd3dDeviceContext) { g_pd3dDeviceContext->Release(); g_pd3dDeviceContext  = nullptr; }
+    if (g_pd3dDevice)        { g_pd3dDevice->Release();        g_pd3dDevice        = nullptr; }
 }
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+        return true;
+
+    switch (msg)
+    {
+    case WM_SIZE:
+        if (wParam == SIZE_MINIMIZED)
+            return 0;
+        g_ResizeWidth  = (UINT)LOWORD(lParam);
+        g_ResizeHeight = (UINT)HIWORD(lParam);
+        return 0;
+    case WM_GETMINMAXINFO:
+        reinterpret_cast<MINMAXINFO*>(lParam)->ptMinTrackSize = { 400, 200 };
+        return 0;
+    case WM_SYSCOMMAND:
+        if ((wParam & 0xfff0) == SC_KEYMENU)
+            return 0;
+        break;
+    case WM_DESTROY:
+        ::PostQuitMessage(0);
+        return 0;
+    }
+
+    return ::DefWindowProcW(hWnd, msg, wParam, lParam);
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+    (void)hInstance;
+    (void)hPrevInstance;
+    (void)lpCmdLine;
+    (void)nCmdShow;
+
+    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L,
+                       ::GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr,
+                       L"HackRF Noise GUI", nullptr };
+    ::RegisterClassExW(&wc);
+
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"HackRF Noise Generator",
+                                WS_OVERLAPPEDWINDOW,
+                                CW_USEDEFAULT, CW_USEDEFAULT, 540, 230,
+                                nullptr, nullptr, wc.hInstance, nullptr);
+    if (!hwnd)
+    {
+        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+        return 1;
+    }
+
+    if (!CreateDeviceD3D(hwnd))
+    {
+        CleanupDeviceD3D();
+        ::DestroyWindow(hwnd);
+        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+        return 1;
+    }
+
+    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+    ::UpdateWindow(hwnd);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    (void)io;
+
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplWin32_Init(hwnd);
+    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+
+    AppState state;
+    bool done = false;
+
+    while (!done)
+    {
+        MSG msg;
+        while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE))
+        {
+            ::TranslateMessage(&msg);
+            ::DispatchMessage(&msg);
+            if (msg.message == WM_QUIT)
+                done = true;
+        }
+        if (done)
+            break;
+
+        // Skip rendering when occluded
+        if (g_SwapChainOccluded &&
+            g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
+        {
+            ::Sleep(10);
+            continue;
+        }
+        g_SwapChainOccluded = false;
+
+        // Handle window resize
+        if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
+        {
+            CleanupRenderTarget();
+            g_pSwapChain->ResizeBuffers(0, g_ResizeWidth, g_ResizeHeight,
+                                        DXGI_FORMAT_UNKNOWN, 0);
+            g_ResizeWidth = g_ResizeHeight = 0;
+            CreateRenderTarget();
+        }
+
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+
+        draw_ui_content(state);
+
+        ImGui::Render();
+
+        const float clear_color[4] = { 0.12f, 0.12f, 0.12f, 1.0f };
+        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
+        g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color);
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
+        HRESULT hr = g_pSwapChain->Present(1, 0);
+        g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
+    }
+
+    stop_transmit(&state.device);
+
+    ImGui_ImplDX11_Shutdown();
+    ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
+
+    CleanupDeviceD3D();
+    ::DestroyWindow(hwnd);
+    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+
+    return 0;
+}
+
+#else // !_WIN32
+
+// ════════════════════════════════════════════════════════════════════════════
+// Other platforms — SDL2 + OpenGL2
+// ════════════════════════════════════════════════════════════════════════════
+
+#include <cstdio>
+
+#include <SDL.h>
+#include <SDL_opengl.h>
+
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_opengl2.h"
 
 int main(int argc, char* argv[])
 {
@@ -196,21 +300,7 @@ int main(int argc, char* argv[])
     ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
     ImGui_ImplOpenGL2_Init();
 
-    // Current settings
-    float freq_mhz = 100.0f;
-    float bw_mhz   = 10.0f;
-    int   power_db = 20;
-
-    // Last successfully applied settings (for on-the-fly change detection)
-    float applied_freq_mhz = freq_mhz;
-    float applied_bw_mhz   = bw_mhz;
-    int   applied_power_db = power_db;
-
-    bool transmitting = false;
-    hackrf_device* device = nullptr;
-    std::string status_msg = "Idle";
-    bool status_error = false;
-
+    AppState state;
     bool done = false;
 
     while (!done)
@@ -227,197 +317,12 @@ int main(int argc, char* argv[])
                 done = true;
         }
 
-        // Detect unexpected TX stop
-        if (transmitting && device && hackrf_is_streaming(device) != HACKRF_TRUE)
-        {
-            stop_transmit(&device);
-            transmitting = false;
-            status_msg = "Transmission stopped unexpectedly";
-            status_error = true;
-        }
-
         ImGui_ImplOpenGL2_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        // Root window fills the entire OS window
-        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-        ImGui::SetNextWindowSize(io.DisplaySize);
-        ImGui::Begin("##root", nullptr,
-            ImGuiWindowFlags_NoTitleBar   |
-            ImGuiWindowFlags_NoResize     |
-            ImGuiWindowFlags_NoMove       |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoBringToFrontOnFocus);
+        draw_ui_content(state);
 
-        ImGui::Spacing();
-        ImGui::Text("HackRF Noise Generator");
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        // Fixed column widths; slider fills the remaining space
-        const float label_col  = 160.0f;
-        const float input_col  = 110.0f;
-        const float right_pad  = ImGui::GetStyle().WindowPadding.x;
-
-        // ── Frequency ──────────────────────────────────────────────────────
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Frequency (MHz)");
-        ImGui::SameLine(label_col);
-        ImGui::SetNextItemWidth(input_col);
-        bool freq_changed = ImGui::InputFloat("##freq_in", &freq_mhz, 0.1f, 1.0f, "%.3f");
-        if (freq_changed)
-            freq_mhz = std::clamp(freq_mhz, MIN_FREQUENCY_MHZ, MAX_FREQUENCY_MHZ);
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(-right_pad);
-        freq_changed |= ImGui::SliderFloat("##freq_sl", &freq_mhz,
-                                           MIN_FREQUENCY_MHZ, MAX_FREQUENCY_MHZ, "");
-
-        // ── Bandwidth ──────────────────────────────────────────────────────
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("Bandwidth (MHz)");
-        ImGui::SameLine(label_col);
-        ImGui::SetNextItemWidth(input_col);
-        bool bw_changed = ImGui::InputFloat("##bw_in", &bw_mhz, 0.5f, 1.0f, "%.1f");
-        if (bw_changed)
-            bw_mhz = std::clamp(bw_mhz, MIN_BANDWIDTH_MHZ, MAX_BANDWIDTH_MHZ);
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(-right_pad);
-        bw_changed |= ImGui::SliderFloat("##bw_sl", &bw_mhz,
-                                         MIN_BANDWIDTH_MHZ, MAX_BANDWIDTH_MHZ, "");
-
-        // ── TX VGA Gain ────────────────────────────────────────────────────
-        ImGui::AlignTextToFramePadding();
-        ImGui::Text("TX VGA Gain (dB)");
-        ImGui::SameLine(label_col);
-        ImGui::SetNextItemWidth(input_col);
-        bool power_changed = ImGui::InputInt("##pwr_in", &power_db, 1, 5);
-        if (power_changed)
-            power_db = std::clamp(power_db, MIN_VGA_GAIN, MAX_VGA_GAIN);
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(-right_pad);
-        power_changed |= ImGui::SliderInt("##pwr_sl", &power_db,
-                                          MIN_VGA_GAIN, MAX_VGA_GAIN, "");
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        // ── On-the-fly parameter updates ───────────────────────────────────
-        if (transmitting && device)
-        {
-            if (freq_changed && freq_mhz != applied_freq_mhz)
-            {
-                const uint64_t freq_hz = (uint64_t)(freq_mhz * 1e6f);
-                const int result = hackrf_set_freq(device, freq_hz);
-                if (result == HACKRF_SUCCESS)
-                {
-                    applied_freq_mhz = freq_mhz;
-                    status_msg = "Transmitting";
-                    status_error = false;
-                }
-                else
-                {
-                    freq_mhz = applied_freq_mhz;
-                    status_msg = std::string("Failed to set frequency: ") + hackrf_error_name((hackrf_error)result);
-                    status_error = true;
-                }
-            }
-
-            if (bw_changed && bw_mhz != applied_bw_mhz)
-            {
-                const uint32_t sample_rate = (uint32_t)(bw_mhz * 1e6f);
-                int result = hackrf_set_sample_rate(device, sample_rate);
-                if (result == HACKRF_SUCCESS)
-                {
-                    const uint32_t filter_bw = hackrf_compute_baseband_filter_bw(sample_rate);
-                    result = hackrf_set_baseband_filter_bandwidth(device, filter_bw);
-                }
-                if (result == HACKRF_SUCCESS)
-                {
-                    applied_bw_mhz = bw_mhz;
-                    status_msg = "Transmitting";
-                    status_error = false;
-                }
-                else
-                {
-                    bw_mhz = applied_bw_mhz;
-                    status_msg = std::string("Failed to set bandwidth: ") + hackrf_error_name((hackrf_error)result);
-                    status_error = true;
-                }
-            }
-
-            if (power_changed && power_db != applied_power_db)
-            {
-                const int result = hackrf_set_txvga_gain(device, (uint32_t)power_db);
-                if (result == HACKRF_SUCCESS)
-                {
-                    applied_power_db = power_db;
-                    status_msg = "Transmitting";
-                    status_error = false;
-                }
-                else
-                {
-                    power_db = applied_power_db;
-                    status_msg = std::string("Failed to set gain: ") + hackrf_error_name((hackrf_error)result);
-                    status_error = true;
-                }
-            }
-        }
-
-        // ── Start / Stop button ────────────────────────────────────────────
-        const float btn_width = ImGui::GetContentRegionAvail().x;
-
-        if (!transmitting)
-        {
-            if (ImGui::Button("Start Transmitting", ImVec2(btn_width, 0)))
-            {
-                std::string error;
-                if (start_transmit(&device, freq_mhz, bw_mhz, power_db, error))
-                {
-                    transmitting      = true;
-                    applied_freq_mhz  = freq_mhz;
-                    applied_bw_mhz    = bw_mhz;
-                    applied_power_db  = power_db;
-                    status_msg        = "Transmitting";
-                    status_error      = false;
-                }
-                else
-                {
-                    status_msg   = error;
-                    status_error = true;
-                }
-            }
-        }
-        else
-        {
-            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.70f, 0.15f, 0.15f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.85f, 0.20f, 0.20f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.60f, 0.10f, 0.10f, 1.0f));
-            if (ImGui::Button("Stop Transmitting", ImVec2(btn_width, 0)))
-            {
-                stop_transmit(&device);
-                transmitting = false;
-                status_msg   = "Idle";
-                status_error = false;
-            }
-            ImGui::PopStyleColor(3);
-        }
-
-        ImGui::Spacing();
-
-        // ── Status line ────────────────────────────────────────────────────
-        if (status_error)
-            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Error: %s", status_msg.c_str());
-        else if (transmitting)
-            ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Status: %s", status_msg.c_str());
-        else
-            ImGui::TextDisabled("Status: %s", status_msg.c_str());
-
-        ImGui::End();
-
-        // ── Render ─────────────────────────────────────────────────────────
         ImGui::Render();
         glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
         glClearColor(0.12f, 0.12f, 0.12f, 1.0f);
@@ -426,8 +331,7 @@ int main(int argc, char* argv[])
         SDL_GL_SwapWindow(window);
     }
 
-    // ── Cleanup ────────────────────────────────────────────────────────────
-    stop_transmit(&device);
+    stop_transmit(&state.device);
 
     ImGui_ImplOpenGL2_Shutdown();
     ImGui_ImplSDL2_Shutdown();
@@ -439,3 +343,5 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+#endif // _WIN32
