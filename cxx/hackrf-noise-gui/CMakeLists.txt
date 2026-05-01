@@ -57,9 +57,10 @@ elseif(APPLE)
         ${imgui_SOURCE_DIR}/backends
     )
     target_link_libraries(imgui_backend PUBLIC
+        "-framework Cocoa"
+        "-framework GameController"
         "-framework Metal"
         "-framework MetalKit"
-        "-framework Cocoa"
         "-framework QuartzCore"
     )
 
@@ -88,10 +89,17 @@ else()
 
 endif()
 
-add_executable(hackrf-noise-gui
-    hackrf_noise_gui.cpp
-    ${PLATFORM_MAIN}
-)
+if(WIN32)
+    add_executable(hackrf-noise-gui WIN32
+        hackrf_noise_gui.cpp
+        ${PLATFORM_MAIN}
+    )
+else()
+    add_executable(hackrf-noise-gui
+        hackrf_noise_gui.cpp
+        ${PLATFORM_MAIN}
+    )
+endif()
 target_compile_options(hackrf-noise-gui PRIVATE ${HACKRF_CFLAGS_OTHER})
 target_include_directories(hackrf-noise-gui PRIVATE ${HACKRF_INCLUDE_DIRS})
 target_link_libraries(hackrf-noise-gui PRIVATE imgui_backend ${HACKRF_LINK_LIBRARIES})
