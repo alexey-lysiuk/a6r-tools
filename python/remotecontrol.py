@@ -223,17 +223,20 @@ class SMTVirtualCOMPort:
 
         self.send('frequencies')
         frequencies = self.receive().split('\n')
-
-        self.send(f'data {port}')
-        values = self.receive().split('\n')
-
         count = len(frequencies)
-        assert count == len(values)
-        count -= 1
 
-        # Remove empty strings at the end
+        self.send('data 0')
+        s11 = self.receive().split('\n')
+        assert count == len(s11)
+
+        if port == 1:
+            self.send('data 1')
+            s21 = self.receive().split('\n')
+            assert count == len(s21)
+
+        # Skip empty strings at the end
+        count -= 1
         del frequencies[count]
-        del values[count]
 
         path = self._prepare_filename(path, f's{port + 1}p')
 
@@ -243,16 +246,16 @@ class SMTVirtualCOMPort:
         with open(path, 'w', encoding='ascii') as f:
             f.write('!File created by NanoVNA\n# Hz S RI R 50\n')
 
-            for entry in zip(frequencies, values):
+            values = zip(frequencies, s11, s21) if port == 1 else zip(frequencies, s11)
+
+            for entry in values:
                 f.write(entry[0])
                 f.write(' ')
-
-                if port == 1:
-                    f.write('0 0 ')
-
                 f.write(entry[1])
 
                 if port == 1:
+                    f.write(' ')
+                    f.write(entry[2])
                     f.write(' 0 0 0 0')
 
                 f.write('\n')
