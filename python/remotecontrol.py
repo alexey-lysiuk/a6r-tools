@@ -246,7 +246,15 @@ class SMTVirtualCOMPort:
             for entry in zip(frequencies, values):
                 f.write(entry[0])
                 f.write(' ')
+
+                if port == 1:
+                    f.write('0 0 ')
+
                 f.write(entry[1])
+
+                if port == 1:
+                    f.write(' 0 0 0 0')
+
                 f.write('\n')
 
     def version(self):
