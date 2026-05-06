@@ -36,6 +36,17 @@
             "args": [
                 "--help"
             ]
-        }
+        },
+        {
+            "name": "test_sd_card.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/test_sd_card.py",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}/data",
+            "args": [
+                "/dev/cu.usbmodem4001"
+            ]
+        },
     ]
 }

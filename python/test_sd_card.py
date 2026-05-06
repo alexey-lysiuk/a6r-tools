@@ -7,7 +7,7 @@ Tests: sd_list, sd_write, sd_read, sd_delete
 import serial
 import time
 import sys
-import os
+import struct
 
 class SDCardTester:
     def __init__(self, port='COM11', baudrate=115200, timeout=2):
@@ -23,14 +23,15 @@ class SDCardTester:
     
     def send_command(self, cmd):
         """Send command and discard echo"""
-        self.ser.write(f"{cmd}\n".encode('ascii'))
+        self.ser.write(f"{cmd}\r\n".encode('ascii'))
         time.sleep(0.05)  # Give device time to echo
         # Read and discard the command echo
         if self.ser.in_waiting:
             echo = self.ser.readline()  # Read echoed command line
+        print(echo)
     
     def wait_for_prompt(self, timeout=5.0):
-        """Wait for the '> ' prompt signaling ready for next command"""
+        """Wait for the 'ch> ' prompt signaling ready for next command"""
         start = time.time()
         buffer = b''
         while time.time() - start < timeout:
@@ -38,14 +39,14 @@ class SDCardTester:
                 byte = self.ser.read(1)
                 buffer += byte
                 # Check for prompt at end of buffer
-                if buffer.endswith(b'> '):
+                if buffer.endswith(b'ch> '):
                     return True
             else:
                 time.sleep(0.01)
         return False
     
     def read_until_prompt(self, timeout=5.0):
-        """Read all data until '> ' prompt is received"""
+        """Read all data until 'ch> ' prompt is received"""
         start = time.time()
         data = b''
         while time.time() - start < timeout:
@@ -53,9 +54,9 @@ class SDCardTester:
                 byte = self.ser.read(1)
                 data += byte
                 # Check if we got the prompt
-                if data.endswith(b'> '):
+                if data.endswith(b'ch> '):
                     # Remove the prompt from the data
-                    return data[:-2].decode('ascii', errors='ignore')
+                    return data[:-4].decode('ascii', errors='ignore')
             else:
                 time.sleep(0.01)
         
@@ -78,7 +79,7 @@ class SDCardTester:
         
         # Remove prompt characters if present
         if skip_prompt:
-            response = response.replace('> ', '')
+            response = response.replace('ch> ', '')
         
         return response
     
@@ -112,13 +113,13 @@ class SDCardTester:
         # Wait for response: should be byte count followed by prompt
         # Format: "COUNT\n> "
         response = b''
-        while not response.endswith(b'> '):
+        while not response.endswith(b'ch> '):
             if self.ser.in_waiting:
                 response += self.ser.read(1)
             else:
                 time.sleep(0.01)
         
-        response_str = response[:-2].decode('ascii', errors='ignore').strip()
+        response_str = response[:-4].decode('ascii', errors='ignore').strip()
         print(f"Response: {response_str}")
         
         # Verify byte count matches
@@ -161,30 +162,25 @@ class SDCardTester:
         
         self.send_command(f"sd_read {filename}")
         
-        # Response format is: "SIZE\n> " followed by file data
-        # Read until we get the prompt
-        response = b''
-        while not response.endswith(b'> '):
-            if self.ser.in_waiting:
-                response += self.ser.read(1)
-            else:
-                time.sleep(0.01)
+        # # Response format is: "SIZE\n> " followed by file data
+        # # Read until we get the prompt
+        # response = b''
+        # while not response.endswith(b'ch> '):
+        #     if self.ser.in_waiting:
+        #         response += self.ser.read(1)
+        #     else:
+        #         time.sleep(0.01)
         
-        # Parse the size from response (everything before '\n> ')
-        response_str = response[:-2].decode('ascii', errors='ignore').strip()
-        print(f"Response: {response_str}")
+        # Parse the size from response (everything before '\nch> ')
+        # response_str = response[:-4].decode('ascii', errors='ignore').strip()
+        # print(f"Response: {response_str}")
         
-        if response_str.startswith('err'):
+        size_binary = self.ser.read(4)
+        if size_binary == b'err:':
             print(f"ERROR: File not found\n")
             return None
-        
-        # Parse file size
-        try:
-            size = int(response_str.split()[0])
-            print(f"File size: {size} bytes")
-        except:
-            print(f"ERROR: Could not parse file size from: {response_str}\n")
-            return None
+
+        size = struct.unpack('<1I', size_binary)[0]
         
         # Read file data (binary)
         data = b''
@@ -250,7 +246,7 @@ class SDCardTester:
             results['tests'].append(('sd_list initial', False))
             results['failed'] += 1
         
-        # Test 2: Write small text file
+        # # Test 2: Write small text file
         print("-" * 60)
         test_data_small = b"Hello, SD Card!\nThis is a test file.\n"
         try:
