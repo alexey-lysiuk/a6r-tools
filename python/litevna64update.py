@@ -20,7 +20,6 @@
 import argparse
 import pathlib
 import struct
-import time
 
 import serial
 from serial.tools import list_ports
@@ -38,10 +37,6 @@ _ADDR_FW_MINOR = 0xF4
 _EXPECTED_HW_MAJOR = 2
 _EXPECTED_HW_MINOR = 2
 _EXPECTED_FW_MAJOR = 2
-
-_USB_VID = 0x0483
-_USB_PID = 0x5740
-
 
 _SOH = 0x01
 _STX = 0x02
@@ -94,16 +89,18 @@ def _read_register_pair(device: serial.Serial, major_reg: int, minor_reg: int) -
     return response[0], response[1]
 
 
-def _find_port(device_name: str | None) -> str:
-    if device_name:
-        return device_name
+def _find_port(baudrate: int, timeout: float) -> str:
+    for port_name in sorted(port.device for port in list_ports.comports()):
+        try:
+            with _open_device(port_name, baudrate, timeout) as device:
+                hw_version, fw_version = _probe_litevna(device)
 
-    ports = [port.device for port in list_ports.comports() if port.vid == _USB_VID and port.pid == _USB_PID]
+                if _is_litevna64(hw_version, fw_version):
+                    return port_name
+        except (OSError, TimeoutError, RuntimeError, serial.SerialException):
+            continue
 
-    if not ports:
-        raise OSError('No matching LiteVNA serial device found')
-
-    return sorted(ports)[0]
+    raise OSError('No matching LiteVNA-64 serial device found')
 
 
 def _open_device(device_name: str, baudrate: int, timeout: float) -> serial.Serial:
@@ -246,19 +243,6 @@ def _send_xmodem(
             raise RuntimeError('Unable to finish transfer, EOT not acknowledged')
 
 
-def _request_reset_to_dfu(device_name: str, baudrate: int, timeout: float, wait_time: float, verbose: bool):
-    if verbose:
-        print(f'Requesting DFU reset on {device_name}...')
-
-    with _open_device(device_name, baudrate, timeout) as device:
-        device.reset_input_buffer()
-        device.reset_output_buffer()
-        device.write(b'\rreset dfu\r')
-
-    if wait_time > 0:
-        time.sleep(wait_time)
-
-
 def _format_version(version: tuple[int, int]) -> str:
     return f'{version[0]}.{version[1]}'
 
@@ -267,15 +251,13 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Update LiteVNA-64 firmware over serial using pyserial and XMODEM')
 
     parser.add_argument('firmware', type=pathlib.Path, help='path to LiteVNA firmware binary')
-    parser.add_argument('--port', help='serial port (auto-detected by VID/PID when omitted)')
+    parser.add_argument('--port', help='serial port (auto-detected by LiteVNA-64 protocol probe when omitted)')
     parser.add_argument('--baudrate', type=int, default=115200, help='serial baudrate, defaults to 115200')
     parser.add_argument('--timeout', type=float, default=1.0, help='serial timeout in seconds, defaults to 1.0')
     parser.add_argument('--receiver-timeout', type=float, default=30.0, help='timeout waiting for XMODEM receiver start, defaults to 30.0')
     parser.add_argument('--response-timeout', type=float, default=5.0, help='timeout waiting for ACK/NAK responses, defaults to 5.0')
-    parser.add_argument('--wait-dfu', type=float, default=2.0, help='seconds to wait after sending reset dfu, defaults to 2')
     parser.add_argument('--max-retries', type=int, default=10, help='maximum retries for each XMODEM block, defaults to 10')
-    parser.add_argument('--skip-reset-dfu', action='store_true', help='skip sending "reset dfu" before transfer')
-    parser.add_argument('--force', action='store_true', help='skip LiteVNA-64 version sanity checks before reset')
+    parser.add_argument('--force', action='store_true', help='skip LiteVNA-64 version sanity checks before transfer')
     parser.add_argument('--quiet', action='store_true', help='disable progress output')
 
     return parser.parse_args()
@@ -294,28 +276,25 @@ def main() -> int:
     if not firmware_data:
         raise RuntimeError('Firmware file is empty')
 
-    device_name = _find_port(args.port)
+    device_name = args.port if args.port else _find_port(args.baudrate, args.timeout)
 
-    if not args.skip_reset_dfu:
-        try:
-            with _open_device(device_name, args.baudrate, args.timeout) as device:
-                hw_version, fw_version = _probe_litevna(device)
+    try:
+        with _open_device(device_name, args.baudrate, args.timeout) as device:
+            hw_version, fw_version = _probe_litevna(device)
 
-                if not args.force and not _is_litevna64(hw_version, fw_version):
-                    raise RuntimeError(
-                        f'Unexpected LiteVNA signature, hw={_format_version(hw_version)} fw={_format_version(fw_version)}'
-                    )
-
-                if not args.quiet:
-                    print(f'Detected LiteVNA-64 on {device_name}: hw={_format_version(hw_version)} fw={_format_version(fw_version)}')
-
-            _request_reset_to_dfu(device_name, args.baudrate, args.timeout, args.wait_dfu, verbose=not args.quiet)
-        except (OSError, RuntimeError, TimeoutError, serial.SerialException):
-            if not args.force:
-                raise
+            if not args.force and not _is_litevna64(hw_version, fw_version):
+                raise RuntimeError(
+                    f'Unexpected LiteVNA signature, hw={_format_version(hw_version)} fw={_format_version(fw_version)}'
+                )
 
             if not args.quiet:
-                print('Continuing in forced mode despite probe/reset issues')
+                print(f'Detected LiteVNA-64 on {device_name}: hw={_format_version(hw_version)} fw={_format_version(fw_version)}')
+    except (OSError, RuntimeError, TimeoutError, serial.SerialException):
+        if not args.force:
+            raise
+
+        if not args.quiet:
+            print(f'Continuing in forced mode without LiteVNA-64 probe validation on {device_name}')
 
     if not args.quiet:
         print(f'Opening {device_name} for firmware upload...')
