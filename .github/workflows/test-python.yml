@@ -28,6 +28,10 @@ jobs:
         run: |
           ./python/remotecontrol.py --help
 
+      - name: Test litevna64update.py
+        run: |
+          ./python/litevna64update.py --help
+
       - name: List Directory
         if: always()
         run: |
