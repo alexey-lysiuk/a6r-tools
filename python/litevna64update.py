@@ -33,6 +33,7 @@ _ADDR_HARDWARE_REVISION = 0xF2
 _ADDR_FW_MAJOR = 0xF3
 _ADDR_FW_MINOR = 0xF4
 
+# NanoVNA Saver EXPECTED_HW_VERSION / EXPECTED_FW_VERSION are both 2.2.0
 _EXPECTED_HW_MAJOR = 2
 _EXPECTED_HW_MINOR = 2
 _EXPECTED_FW_MAJOR = 2
@@ -205,6 +206,7 @@ def _send_xmodem(device: serial.Serial, firmware_data: bytes, max_retries: int, 
                     percent = (sent_bytes * 100.0) / total_bytes if total_bytes else 100.0
                     print(f'Progress: {sent_bytes}/{total_bytes} bytes ({percent:.1f}%)')
 
+                # XMODEM block IDs are 1..255; block 0 is reserved and must be skipped.
                 block_number = (block_number + 1) & 0xFF
                 if block_number == 0:
                     block_number = 1
