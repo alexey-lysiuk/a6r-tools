@@ -263,7 +263,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument('--baudrate', type=int, default=115200, help='serial baudrate, defaults to 115200')
     parser.add_argument('--timeout', type=float, default=1.0, help='serial timeout in seconds, defaults to 1.0')
     parser.add_argument('--receiver-timeout', type=float, default=30.0, help='timeout waiting for XMODEM receiver start, defaults to 30.0')
-    parser.add_argument('--response-timeout', type=float, default=5.0, help='timeout waiting for ACK/NAK responses, defaults to 5')
+    parser.add_argument('--response-timeout', type=float, default=5.0, help='timeout waiting for ACK/NAK responses, defaults to 5.0')
     parser.add_argument('--wait-dfu', type=float, default=2.0, help='seconds to wait after sending reset dfu, defaults to 2')
     parser.add_argument('--max-retries', type=int, default=10, help='maximum retries for each XMODEM block, defaults to 10')
     parser.add_argument('--skip-reset-dfu', action='store_true', help='skip sending "reset dfu" before transfer')
