@@ -47,6 +47,8 @@ _CAN = 0x18
 _C = ord('C')
 _SUB = 0x1A
 
+_MAX_PROBE_TIMEOUT_SECONDS = 0.5
+
 
 def _read_exact(device: serial.Serial, size: int) -> bytes:
     result = bytearray()
@@ -92,7 +94,7 @@ def _read_register_pair(device: serial.Serial, major_reg: int, minor_reg: int) -
 def _find_port(baudrate: int, timeout: float, verbose: bool = False) -> str:
     # Keep autodetection responsive on systems with many serial ports.
     # A short probe timeout is enough for supported devices to answer register reads.
-    probe_timeout = min(timeout, 0.5)
+    probe_timeout = min(timeout, _MAX_PROBE_TIMEOUT_SECONDS)
 
     for port_name in sorted(port.device for port in list_ports.comports()):
         if verbose:
