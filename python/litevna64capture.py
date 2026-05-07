@@ -19,22 +19,40 @@
 
 import argparse
 import datetime
+import platform
 import struct
 import sys
+import time
 
 import serial
 from serial.tools import list_ports
 
+if platform.system() != 'Windows':
+    import tty
 
-_VID = 0x0483  # STMicroelectronics
-_PID = 0x5740  # Virtual COM Port
 
-_WIDTH = 320
-_HEIGHT = 240
+_VID = 0x04B4  # Cypress Semiconductor
+_PID = 0x0008  # NanoVNA V2 / LiteVNA 64
+
+_WIDTH = 480
+_HEIGHT = 320
 _PIXELS_SIZE = _WIDTH * _HEIGHT * 2  # RGB565: 2 bytes per pixel
 
 _DATA_OFFSET = 122  # 14-byte BMP file header + 108-byte BITMAPV4HEADER
 _FILE_SIZE = _DATA_OFFSET + _PIXELS_SIZE
+
+# Binary protocol commands and register addresses
+_CMD_READ = 0x10
+_CMD_WRITE = 0x20
+_ADDR_DEVICE_VARIANT = 0xF0
+_ADDR_HARDWARE_REVISION = 0xF2
+_ADDR_FW_MAJOR = 0xF3
+_ADDR_FW_MINOR = 0xF4
+_ADDR_SCREENSHOT = 0xEE
+
+_WRITE_SLEEP = 0.05   # 50 ms delay after binary writes
+_CAPTURE_HEADER_SIZE = 5  # width(2) + height(2) + bpp(1)
+_CAPTURE_TIMEOUT = 8  # seconds
 
 # BMP file header (14 bytes) + BITMAPV4HEADER size field (4 bytes)
 # Layout: magic(2) + filesize(4) + reserved(4) + dataoffset(4) + headersize(4)
@@ -78,28 +96,48 @@ class LiteVNA64:
         if verbose:
             print(f'Connecting to {device_name}...')
 
-        self._device = serial.Serial(device_name, timeout=10)
+        self._device = serial.Serial(device_name, timeout=_CAPTURE_TIMEOUT)
+
+        if platform.system() != 'Windows':
+            tty.setraw(self._device.fd)
+
+        # Reset binary protocol to a known state
+        self._device.write(struct.pack('<Q', 0))
+        time.sleep(_WRITE_SLEEP)
         self._device.reset_input_buffer()
 
     def capture(self, path: str) -> bool:
         if self.verbose:
             print(f'Capturing {_WIDTH}x{_HEIGHT} bitmap...')
 
-        self._send('capture')
+        # Trigger screenshot via binary write to the screenshot register
+        self._device.write(struct.pack('<BBB', _CMD_WRITE, _ADDR_SCREENSHOT, 0))
+        time.sleep(_WRITE_SLEEP)
 
-        pixels = self._device.read(_PIXELS_SIZE)
+        # Read 5-byte binary header: width(uint16LE) + height(uint16LE) + bpp(uint8)
+        header = self._device.read(_CAPTURE_HEADER_SIZE)
 
-        if len(pixels) != _PIXELS_SIZE:
-            print(f'Error: expected {_PIXELS_SIZE} bytes, received {len(pixels)}',
+        if len(header) != _CAPTURE_HEADER_SIZE:
+            print(f'Error: expected {_CAPTURE_HEADER_SIZE}-byte header, '
+                  f'received {len(header)}', file=sys.stderr)
+            return False
+
+        width, height, bpp = struct.unpack('<HHB', header)
+        pixels_size = width * height * (bpp // 8)
+
+        pixels = self._device.read(pixels_size)
+
+        if len(pixels) != pixels_size:
+            print(f'Error: expected {pixels_size} bytes, received {len(pixels)}',
                   file=sys.stderr)
             return False
 
         # Device sends big-endian RGB565; swap to little-endian for BMP
-        pixels = bytes(pixels[x ^ 1] for x in range(_PIXELS_SIZE))
+        pixels = bytes(pixels[x ^ 1] for x in range(pixels_size))
 
         if path == '*':
-            time = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
-            path = f'litevna64_{time}.bmp'
+            timestamp = datetime.datetime.now().strftime('%y%m%d_%H%M%S')
+            path = f'litevna64_{timestamp}.bmp'
 
         if self.verbose:
             print(f'Saving capture to {path}...')
@@ -114,41 +152,25 @@ class LiteVNA64:
 
         return True
 
-    def info(self):
-        self._send('info')
-        print(self._receive_text())
-
     def version(self):
-        self._send('version')
-        print(self._receive_text())
+        # Read firmware version (major, minor) from registers 0xF3 and 0xF4
+        cmd = struct.pack('<BBBB', _CMD_READ, _ADDR_FW_MAJOR,
+                                   _CMD_READ, _ADDR_FW_MINOR)
+        self._device.write(cmd)
+        time.sleep(_WRITE_SLEEP)
+        fw = self._device.read(2)
 
-    def _send(self, command: str):
-        if not command.endswith('\r'):
-            command += '\r'
-        self._device.write(command.encode())
-        self._device.readline()  # discard echo
+        # Read hardware version (device variant, hardware revision) from 0xF0 and 0xF2
+        cmd = struct.pack('<BBBB', _CMD_READ, _ADDR_DEVICE_VARIANT,
+                                   _CMD_READ, _ADDR_HARDWARE_REVISION)
+        self._device.write(cmd)
+        time.sleep(_WRITE_SLEEP)
+        hw = self._device.read(2)
 
-    def _receive_text(self) -> str:
-        result = bytearray()
-        line = bytearray()
-
-        while True:
-            c = self._device.read()
-
-            if c == b'\r':
-                continue  # ignore CR
-
-            line += c
-
-            if c == b'\n':
-                result += line
-                line = bytearray()
-                continue
-
-            if line.endswith(b'ch>'):
-                break
-
-        return result.decode()
+        if len(fw) == 2:
+            print(f'Firmware: {fw[0]}.{fw[1]}')
+        if len(hw) == 2:
+            print(f'Hardware: {hw[0]}.{hw[1]}')
 
 
 def main():
@@ -157,12 +179,10 @@ def main():
                         help='capture screen to BMP file (auto-named when path is omitted)')
     parser.add_argument('--device', metavar='device-name',
                         help='specify serial port device (auto-detected when omitted)')
-    parser.add_argument('--info', action='store_true',
-                        help='print device info')
     parser.add_argument('--verbose', action='store_true',
                         help='enable verbose output')
     parser.add_argument('--version', action='store_true',
-                        help='print device version')
+                        help='print device firmware and hardware version')
     args = parser.parse_args()
 
     if len(sys.argv) == 1:
@@ -173,9 +193,6 @@ def main():
 
     if args.capture:
         device.capture(args.capture)
-
-    if args.info:
-        device.info()
 
     if args.version:
         device.version()
