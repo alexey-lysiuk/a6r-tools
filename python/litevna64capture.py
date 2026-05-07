@@ -101,7 +101,8 @@ class LiteVNA64:
         if platform.system() != 'Windows':
             tty.setraw(self._device.fd)
 
-        # Reset binary protocol to a known state
+        # Reset binary protocol to a known state; sending 8 null bytes
+        # clears any partially-received command in the device's input buffer.
         self._device.write(struct.pack('<Q', 0))
         time.sleep(_WRITE_SLEEP)
         self._device.reset_input_buffer()
@@ -123,6 +124,12 @@ class LiteVNA64:
             return False
 
         width, height, bpp = struct.unpack('<HHB', header)
+
+        if width != _WIDTH or height != _HEIGHT or bpp != 16:
+            print(f'Error: unexpected capture format {width}x{height} {bpp}bpp '
+                  f'(expected {_WIDTH}x{_HEIGHT} 16bpp)', file=sys.stderr)
+            return False
+
         pixels_size = width * height * (bpp // 8)
 
         pixels = self._device.read(pixels_size)
@@ -169,8 +176,13 @@ class LiteVNA64:
 
         if len(fw) == 2:
             print(f'Firmware: {fw[0]}.{fw[1]}')
+        else:
+            print('Error: failed to read firmware version', file=sys.stderr)
+
         if len(hw) == 2:
             print(f'Hardware: {hw[0]}.{hw[1]}')
+        else:
+            print('Error: failed to read hardware version', file=sys.stderr)
 
 
 def main():
