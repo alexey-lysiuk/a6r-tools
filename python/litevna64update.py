@@ -181,8 +181,15 @@ def _send_xmodem_block(device: serial.Serial, block_number: int, payload: bytes,
     device.write(packet)
 
 
-def _send_xmodem(device: serial.Serial, firmware_data: bytes, max_retries: int, response_timeout: float, progress: bool):
-    use_crc = _wait_for_xmodem_receiver(device, response_timeout)
+def _send_xmodem(
+    device: serial.Serial,
+    firmware_data: bytes,
+    max_retries: int,
+    receiver_timeout: float,
+    response_timeout: float,
+    progress: bool,
+):
+    use_crc = _wait_for_xmodem_receiver(device, receiver_timeout)
 
     block_size = 1024
     block_number = 1
@@ -302,7 +309,7 @@ def main() -> int:
                     print(f'Detected LiteVNA-64 on {device_name}: hw={_format_version(hw_version)} fw={_format_version(fw_version)}')
 
             _request_reset_to_dfu(device_name, args.baudrate, args.timeout, args.wait_dfu, verbose=not args.quiet)
-        except Exception:
+        except (OSError, RuntimeError, TimeoutError, serial.SerialException):
             if not args.force:
                 raise
 
@@ -317,6 +324,7 @@ def main() -> int:
             device=device,
             firmware_data=firmware_data,
             max_retries=args.max_retries,
+            receiver_timeout=args.receiver_timeout,
             response_timeout=args.response_timeout,
             progress=not args.quiet,
         )
