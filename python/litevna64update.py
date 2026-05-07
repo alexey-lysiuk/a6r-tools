@@ -89,15 +89,21 @@ def _read_register_pair(device: serial.Serial, major_reg: int, minor_reg: int) -
     return response[0], response[1]
 
 
-def _find_port(baudrate: int, timeout: float) -> str:
+def _find_port(baudrate: int, timeout: float, verbose: bool = False) -> str:
+    probe_timeout = min(timeout, 0.2)
+
     for port_name in sorted(port.device for port in list_ports.comports()):
         try:
-            with _open_device(port_name, baudrate, timeout) as device:
+            with _open_device(port_name, baudrate, probe_timeout) as device:
                 hw_version, fw_version = _probe_litevna(device)
 
                 if _is_litevna64(hw_version, fw_version):
+                    if verbose:
+                        print(f'Auto-detected LiteVNA-64 on {port_name}')
                     return port_name
-        except (OSError, TimeoutError, RuntimeError, serial.SerialException):
+        except (OSError, TimeoutError, RuntimeError, serial.SerialException) as error:
+            if verbose:
+                print(f'Skipping {port_name}: {error}')
             continue
 
     raise OSError('No matching LiteVNA-64 serial device found')
@@ -276,7 +282,7 @@ def main() -> int:
     if not firmware_data:
         raise RuntimeError('Firmware file is empty')
 
-    device_name = args.port if args.port else _find_port(args.baudrate, args.timeout)
+    device_name = args.port if args.port else _find_port(args.baudrate, args.timeout, verbose=not args.quiet)
 
     try:
         with _open_device(device_name, args.baudrate, args.timeout) as device:
