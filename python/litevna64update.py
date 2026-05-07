@@ -90,9 +90,14 @@ def _read_register_pair(device: serial.Serial, major_reg: int, minor_reg: int) -
 
 
 def _find_port(baudrate: int, timeout: float, verbose: bool = False) -> str:
+    # Keep autodetection responsive on systems with many serial ports.
+    # A short probe timeout is enough for supported devices to answer register reads.
     probe_timeout = min(timeout, 0.2)
 
     for port_name in sorted(port.device for port in list_ports.comports()):
+        if verbose:
+            print(f'Probing {port_name}...')
+
         try:
             with _open_device(port_name, baudrate, probe_timeout) as device:
                 hw_version, fw_version = _probe_litevna(device)
