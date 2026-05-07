@@ -308,7 +308,7 @@ def main() -> int:
             raise
 
         if not args.quiet:
-            print(f'Continuing in forced mode without LiteVNA-64 probe validation on {device_name}')
+            print(f'LiteVNA-64 probe failed on {device_name}, continuing in forced mode')
 
     if not args.quiet:
         print(f'Opening {device_name} for firmware upload...')
