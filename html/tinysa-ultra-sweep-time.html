@@ -329,6 +329,15 @@
         <div class="section-title">Sweep Settings</div>
 
         <div class="freq-mode-row">
+            <label for="model">Model:</label>
+            <select id="model">
+                <option value="normal">tinySA</option>
+                <option value="ultra" selected>tinySA Ultra</option>
+                <option value="ultraplus">tinySA Ultra+</option>
+            </select>
+        </div>
+
+        <div class="freq-mode-row">
             <label for="freqMode">Frequency entry:</label>
             <select id="freqMode">
                 <option value="startstop">Start / Stop</option>
@@ -390,9 +399,11 @@
             <div class="field">
                 <label for="spurRemoval">Spur removal</label>
                 <select id="spurRemoval">
+                    <option value="auto">Auto</option>
                     <option value="0">Off</option>
                     <option value="1">On (2× sweep time)</option>
                 </select>
+                <div class="hint" id="spurHint"></div>
             </div>
 
             <div class="field">
@@ -634,6 +645,7 @@
         }
 
         /* ── DOM elements ────────────────────────────────────────────────────── */
+        const modelEl        = document.getElementById('model');
         const freqModeEl     = document.getElementById('freqMode');
         const startFreqEl    = document.getElementById('startFreq');
         const stopFreqEl     = document.getElementById('stopFreq');
@@ -643,6 +655,7 @@
         const rbwSelectEl    = document.getElementById('rbwSelect');
         const stepDelayModeEl= document.getElementById('stepDelayMode');
         const spurRemovalEl  = document.getElementById('spurRemoval');
+        const spurHintEl     = document.getElementById('spurHint');
         const repeatCountEl  = document.getElementById('repeatCount');
         const fasterSpeedupEl= document.getElementById('fasterSpeedup');
         const resultValueEl  = document.getElementById('resultValue');
@@ -727,7 +740,7 @@
 
         /* ── Persist / restore input values ─────────────────────────────────── */
         const PERSIST_INPUTS = [
-            'freqMode', 'startFreq', 'stopFreq', 'sweepPoints',
+            'model', 'freqMode', 'startFreq', 'stopFreq', 'sweepPoints',
             'rbwSelect', 'stepDelayMode', 'spurRemoval',
             'repeatCount', 'fasterSpeedup'
         ];
@@ -795,14 +808,29 @@
             saveInputs();
 
             const mode      = freqModeEl.value;
+            const modelVal  = modelEl.value;
             const aVal      = parseFloat(startFreqEl.value);
             const bVal      = parseFloat(stopFreqEl.value);
             const points    = parseInt(sweepPointsEl.value, 10);
             const rbwX10    = parseInt(rbwSelectEl.value, 10);
             const sdMode    = parseInt(stepDelayModeEl.value, 10);
-            const spur      = parseInt(spurRemovalEl.value, 10) !== 0;
+            const spurRaw   = spurRemovalEl.value;
+            /* Resolve auto spur removal: On for Ultra/Ultra+, Off for tinySA */
+            const spurAuto  = spurRaw === 'auto';
+            const spur      = spurAuto
+                ? (modelVal === 'ultra' || modelVal === 'ultraplus')
+                : spurRaw === '1';
             const repeat    = Math.max(1, parseInt(repeatCountEl.value, 10) || 1);
             const faster    = Math.max(0, parseInt(fasterSpeedupEl.value, 10) || 0);
+
+            /* Update spur removal hint */
+            if (spurAuto) {
+                spurHintEl.textContent = spur
+                    ? 'Auto → On for tinySA Ultra / Ultra+'
+                    : 'Auto → Off for tinySA';
+            } else {
+                spurHintEl.textContent = '';
+            }
 
             /* Points and faster speedup are needed for the RBW table too.
                Use clamped fallbacks so the table always renders sensibly. */
@@ -887,7 +915,9 @@
                 if (!r.isCW) {
                     rows.push(['Sub-steps (vbwSteps)', r.vbwSteps.toString()]);
                 }
-                if (spur) {
+                if (spurAuto) {
+                    rows.push(['Spur removal (Auto)', spur ? 'On (× 2)' : 'Off']);
+                } else if (spur) {
                     rows.push(['Spur removal factor', '× 2']);
                 }
 
