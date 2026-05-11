@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinySA Ultra Sweep Time Calculator</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMyIgZmlsbD0iIzFlMWUxZSIvPgogIDxwb2x5bGluZSBmaWxsPSJub25lIiBzdHJva2U9IiNmZmQ3MDAiIHN0cm9rZS13aWR0aD0iMS41IgogICAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgcG9pbnRzPSIxLDI3IDMsMjYgNSwyNCA3LDkgOSwyMyAxMSwyNSAxMywyMCAxNSwxOCAxNywyMiAxOSwyNSAyMSwyNCAyMywxOSAyNSwyMyAyNywyNSAyOSwyNCAzMSwyNiIvPgo8L3N2Zz4=">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* ── Theme variables ────────────────────────────────────────────────── */
+        :root {
+            --body-bg:        #1e1e1e;
+            --text:           #e0e0e0;
+            --heading:        #c0c0c0;
+            --label:          #a0a0a0;
+            --input-bg:       #252525;
+            --input-border:   #404040;
+            --input-text:     #e0e0e0;
+            --btn-bg:         #383838;
+            --btn-text:       #d0d0d0;
+            --btn-hover:      #484848;
+            --error:          #f08080;
+            --result-bg:      #252525;
+            --result-border:  #505050;
+            --result-accent:  #ffd700;
+            --detail-bg:      #1e1e1e;
+            --detail-border:  #383838;
+            --note:           #707070;
+        }
+
+        body.light {
+            --body-bg:        #f0f2f5;
+            --text:           #303848;
+            --heading:        #1a3a6e;
+            --label:          #404860;
+            --input-bg:       #ffffff;
+            --input-border:   #b0bcc8;
+            --input-text:     #303848;
+            --btn-bg:         #3060a0;
+            --btn-text:       #ffffff;
+            --btn-hover:      #204080;
+            --error:          #c02020;
+            --result-bg:      #ffffff;
+            --result-border:  #8090a8;
+            --result-accent:  #1a3a6e;
+            --detail-bg:      #f0f2f5;
+            --detail-border:  #c0ccd8;
+            --note:           #8090a8;
+        }
+
+        body {
+            font-family: sans-serif;
+            background: var(--body-bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+            max-width: 780px;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            margin: 0 0 16px;
+            color: var(--heading);
+        }
+
+        /* ── Toolbar ────────────────────────────────────────────────────────── */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .toolbar-right {
+            margin-left: auto;
+        }
+
+        #themeBtn {
+            font-size: 0.82rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #themeBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        /* ── Settings grid ──────────────────────────────────────────────────── */
+        .settings-panel {
+            background: var(--result-bg);
+            border: 1px solid var(--result-border);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 24px;
+        }
+
+        @media (max-width: 500px) {
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .field label {
+            font-size: 0.82rem;
+            color: var(--label);
+        }
+
+        .field-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .field input[type="number"],
+        .field select {
+            font-size: 0.88rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 5px 8px;
+            width: 100%;
+        }
+
+        .field .unit {
+            font-size: 0.82rem;
+            color: var(--label);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .field input[type="number"]:focus,
+        .field select:focus {
+            outline: none;
+            border-color: var(--result-accent);
+        }
+
+        .field .hint {
+            font-size: 0.75rem;
+            color: var(--note);
+            margin-top: 1px;
+        }
+
+        .section-title {
+            font-size: 0.78rem;
+            font-weight: bold;
+            color: var(--heading);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 12px;
+        }
+
+        /* ── Results panel ──────────────────────────────────────────────────── */
+        .result-panel {
+            background: var(--result-bg);
+            border: 1px solid var(--result-border);
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .result-main {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .result-label {
+            font-size: 0.88rem;
+            color: var(--label);
+        }
+
+        .result-value {
+            font-size: 1.9rem;
+            font-weight: bold;
+            color: var(--result-accent);
+            letter-spacing: 0.02em;
+        }
+
+        .result-unit {
+            font-size: 1.1rem;
+            color: var(--heading);
+        }
+
+        .result-note {
+            font-size: 0.8rem;
+            color: var(--note);
+            margin-bottom: 14px;
+        }
+
+        /* ── Breakdown table ────────────────────────────────────────────────── */
+        .breakdown {
+            background: var(--detail-bg);
+            border: 1px solid var(--detail-border);
+            border-radius: 4px;
+            padding: 10px 12px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 3px 12px;
+            font-size: 0.82rem;
+        }
+
+        .bd-key {
+            color: var(--label);
+            white-space: nowrap;
+        }
+
+        .bd-dots {
+            border-bottom: 1px dotted var(--detail-border);
+            margin-bottom: 4px;
+        }
+
+        .bd-val {
+            color: var(--text);
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .bd-row-highlight .bd-key,
+        .bd-row-highlight .bd-val {
+            color: var(--result-accent);
+            font-weight: bold;
+        }
+
+        .error-msg {
+            font-size: 0.88rem;
+            color: var(--error);
+        }
+    </style>
+</head>
+<body>
+    <h1>tinySA Ultra Sweep Time Calculator</h1>
+
+    <div class="toolbar">
+        <div class="toolbar-right">
+            <button id="themeBtn">☀ Light</button>
+        </div>
+    </div>
+
+    <div class="settings-panel">
+        <div class="section-title">Sweep Settings</div>
+        <div class="settings-grid">
+
+            <div class="field">
+                <label for="startFreq">Start frequency</label>
+                <div class="field-row">
+                    <input type="number" id="startFreq" min="0" max="6000" step="any" value="0">
+                    <span class="unit">MHz</span>
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="stopFreq">Stop frequency</label>
+                <div class="field-row">
+                    <input type="number" id="stopFreq" min="0" max="6000" step="any" value="800">
+                    <span class="unit">MHz</span>
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="sweepPoints">Sweep points</label>
+                <div class="field-row">
+                    <input type="number" id="sweepPoints" min="1" max="450" step="1" value="450">
+                </div>
+                <div class="hint">1 – 450 (default 450)</div>
+            </div>
+
+            <div class="field">
+                <label for="rbwSelect">Resolution bandwidth (RBW)</label>
+                <select id="rbwSelect">
+                    <option value="0">Auto</option>
+                    <option value="2">200 Hz</option>
+                    <option value="10">1 kHz</option>
+                    <option value="30">3 kHz</option>
+                    <option value="100">10 kHz</option>
+                    <option value="300">30 kHz</option>
+                    <option value="1000">100 kHz</option>
+                    <option value="3000">300 kHz</option>
+                    <option value="6000">600 kHz</option>
+                    <option value="8500">850 kHz</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="stepDelayMode">Step delay mode</label>
+                <select id="stepDelayMode">
+                    <option value="0">Normal</option>
+                    <option value="1">Precise (2× step delay)</option>
+                    <option value="2">Fast</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="spurRemoval">Spur removal</label>
+                <select id="spurRemoval">
+                    <option value="0">Off</option>
+                    <option value="1">On (2× sweep time)</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="repeatCount">Repeat count (VBW averaging)</label>
+                <div class="field-row">
+                    <input type="number" id="repeatCount" min="1" max="100" step="1" value="1">
+                </div>
+                <div class="hint">1 = off, &gt;1 adds averaging passes</div>
+            </div>
+
+            <div class="field">
+                <label for="fasterSpeedup">Faster speedup divisor</label>
+                <div class="field-row">
+                    <input type="number" id="fasterSpeedup" min="0" max="20" step="1" value="0">
+                </div>
+                <div class="hint">0 or 1 = off, ≥2 divides step delay</div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="result-panel" id="resultPanel">
+        <div id="errorMsg" class="error-msg" style="display:none;"></div>
+        <div id="resultContent">
+            <div class="result-main">
+                <span class="result-label">Minimum sweep time:</span>
+                <span class="result-value" id="resultValue">—</span>
+                <span class="result-unit" id="resultUnit"></span>
+            </div>
+            <div class="result-note" id="resultNote"></div>
+            <div class="breakdown" id="breakdown"></div>
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+
+        /* ── Constants from tinySA4 firmware (nanovna.h, sa_core.c) ─────────── */
+        const MEASURE_TIME        = 127;     // µs: per-point measurement time (no step delay)
+        const MINIMUM_SWEEP_TIME  = 1800;    // µs: minimum CW sweep (tinySA4 with __FAST_SWEEP__)
+        const MINIMUM_SWEEP_TIME_SLOW = 15000; // µs: minimum CW sweep when fast mode not possible
+        const REPEAT_TIME         = 111;     // µs: extra time per point per additional repeat
+
+        /* Step delay modes (SD_* from nanovna.h) */
+        const SD_NORMAL       = 0;
+        const SD_PRECISE      = 1;
+        const SD_FAST         = 2;
+        const SD_NOISE_SOURCE = 3;
+
+        /* ── Available RBW values for SI4463 (tinySA Ultra) ─────────────────── */
+        /* Source: si4468.c RBW_choices[], active #else block.
+           Values are RBWx10 = RBW_kHz * 10 = RBW_Hz / 100. */
+        const RBW_CHOICES = [2, 10, 30, 100, 300, 1000, 3000, 6000, 8500];
+
+        /* Human-readable labels matching the above choices */
+        const RBW_LABELS = [
+            '200 Hz', '1 kHz', '3 kHz', '10 kHz', '30 kHz',
+            '100 kHz', '300 kHz', '600 kHz', '850 kHz'
+        ];
+
+        /* ── Step delay table for SI4463 (sa_core.c, #ifdef __SI4463__) ──────── */
+        /* Format: [rbw_x10_threshold, step_delay_us] sorted largest to smallest.
+           Search: find first entry where actual_rbw_x10 >= threshold; use last
+           entry as fallback (loop runs for i in 0..count-2, then i=count-1). */
+        const STEP_DELAY_TABLE = [
+            [8500, 150],
+            [6000, 150],
+            [3000, 150],
+            [1000, 300],
+            [ 300, 400],
+            [ 100, 900],
+            [  30, 1600],
+            [  10, 4000],
+            [   3, 18700]   // fallback for lowest RBW (200 Hz, rbw_x10=2)
+        ];
+
+        /* ── set_rbw: snap requested RBW to the smallest supported value >= wish ── */
+        /* Mirrors si4468.c set_rbw(). RBW_CHOICES sorted smallest → largest. */
+        function setRbw(wish) {
+            for (let i = 0; i < RBW_CHOICES.length - 1; i++) {
+                if (wish <= RBW_CHOICES[i]) return RBW_CHOICES[i];
+            }
+            return RBW_CHOICES[RBW_CHOICES.length - 1];
+        }
+
+        /* ── getStepDelay: look up per-step delay (µs) for a given actual_rbw_x10 ── */
+        /* Mirrors calculate_step_delay() in sa_core.c. */
+        function getStepDelay(actualRbwX10) {
+            for (let i = 0; i < STEP_DELAY_TABLE.length - 1; i++) {
+                if (actualRbwX10 >= STEP_DELAY_TABLE[i][0]) {
+                    return STEP_DELAY_TABLE[i][1];
+                }
+            }
+            // Fallback: last entry (used for 200 Hz RBW where rbw_x10=2 < 3)
+            return STEP_DELAY_TABLE[STEP_DELAY_TABLE.length - 1][1];
+        }
+
+        /* ── rbwX10ToHz: convert rbw_x10 internal unit to Hz ─────────────────── */
+        function rbwX10ToHz(rbwX10) {
+            return rbwX10 * 100;
+        }
+
+        /* ── Format frequency (Hz) for display ───────────────────────────────── */
+        function fmtFreq(hz) {
+            if (hz === 0) return '0 Hz';
+            if (hz < 1000) return hz.toFixed(0) + ' Hz';
+            if (hz < 1e6)  return (hz / 1e3).toPrecision(4).replace(/\.?0+$/, '') + ' kHz';
+            if (hz < 1e9)  return (hz / 1e6).toPrecision(4).replace(/\.?0+$/, '') + ' MHz';
+            return (hz / 1e9).toPrecision(4).replace(/\.?0+$/, '') + ' GHz';
+        }
+
+        /* ── Format time (µs) for display ─────────────────────────────────────── */
+        function fmtTimeUs(us) {
+            if (us < 1000)      return { value: us.toFixed(0),           unit: 'µs' };
+            if (us < 1e6)       return { value: (us / 1000).toFixed(2),  unit: 'ms' };
+            if (us < 60e6)      return { value: (us / 1e6).toFixed(3),   unit: 's'  };
+            const mins = us / 60e6;
+            if (mins < 60)      return { value: mins.toFixed(2),          unit: 'min' };
+            return               { value: (mins / 60).toFixed(2),         unit: 'h'  };
+        }
+
+        /* ── Main calculation: mirrors calc_min_sweep_time_us() in sa_core.c ─── */
+        function calcMinSweepTime(freq0Hz, freq1Hz, sweepPoints, rbwX10Setting,
+                                  stepDelayMode, spurRemoval, repeat, fasterSpeedup) {
+            const isCW = (freq0Hz === freq1Hz) || (sweepPoints <= 1);
+
+            /* Frequency step in Hz (0 for CW/zero-span) */
+            let frequencyStepHz = 0;
+            if (!isCW && sweepPoints > 1) {
+                frequencyStepHz = (freq1Hz - freq0Hz) / (sweepPoints - 1);
+            }
+
+            /* frequency_step_x10: internal unit = Hz / 100.
+               For zero span the firmware defaults this to 3000 (= 300 kHz) so
+               update_rbw() still picks a sensible RBW even in CW mode. */
+            const frequencyStepX10 = isCW ? 3000 : (frequencyStepHz / 100);
+
+            /* Determine requested actual_rbw_x10 */
+            let tempActualRbwX10;
+            if (rbwX10Setting === 0) {
+                /* Auto RBW: normal/precise → 2× step; fast → 1× step */
+                tempActualRbwX10 = (stepDelayMode === SD_FAST)
+                    ? frequencyStepX10
+                    : 2 * frequencyStepX10;
+            } else {
+                tempActualRbwX10 = rbwX10Setting;
+            }
+
+            /* Clamp to SI4463 hardware limits */
+            tempActualRbwX10 = Math.max(1, Math.min(8500, tempActualRbwX10));
+
+            /* Snap to nearest supported (≥ requested) RBW */
+            const actualRbwX10 = setRbw(tempActualRbwX10);
+
+            /* Look up raw step delay from table */
+            let stepDelay = getStepDelay(actualRbwX10);
+
+            /* Precise mode doubles the step delay */
+            if (stepDelayMode === SD_PRECISE) {
+                stepDelay *= 2;
+            }
+
+            /* Faster speedup divides the step delay */
+            if (fasterSpeedup > 1) {
+                stepDelay = Math.floor(stepDelay / fasterSpeedup);
+            }
+
+            /* ── vbwSteps: number of sub-steps per display point ─────────────── */
+            /* Needed when RBW is narrower than the frequency step, so the firmware
+               has to make multiple measurements to avoid missing signals. */
+            let vbwSteps = 1;
+            if (!isCW && stepDelayMode !== SD_NOISE_SOURCE) {
+                /* Target step width relative to RBW depends on mode */
+                let targetFreqStepX10;
+                if (stepDelayMode === SD_FAST) {
+                    targetFreqStepX10 = frequencyStepX10;
+                } else if (stepDelayMode === SD_PRECISE) {
+                    targetFreqStepX10 = 4 * frequencyStepX10;
+                } else {
+                    targetFreqStepX10 = 2 * frequencyStepX10;
+                }
+
+                if (targetFreqStepX10 > actualRbwX10) {
+                    vbwSteps = Math.max(1, Math.ceil(targetFreqStepX10 / actualRbwX10));
+                }
+            }
+
+            /* ── Bare sweep time ─────────────────────────────────────────────── */
+            let bareSweepTimeUs;
+            if (isCW) {
+                /* CW (zero-span): fixed overhead; fast only when repeat=1 and no spur */
+                bareSweepTimeUs = (repeat !== 1 || spurRemoval)
+                    ? MINIMUM_SWEEP_TIME_SLOW
+                    : MINIMUM_SWEEP_TIME;
+            } else {
+                bareSweepTimeUs = (stepDelay + MEASURE_TIME) * sweepPoints;
+            }
+
+            /* ── Total minimum sweep time ────────────────────────────────────── */
+            let totalUs = vbwSteps * (spurRemoval ? 2 : 1) * bareSweepTimeUs;
+            totalUs += (repeat - 1) * REPEAT_TIME * sweepPoints;
+
+            return {
+                totalUs,
+                actualRbwX10,
+                actualRbwHz:    rbwX10ToHz(actualRbwX10),
+                stepDelay,
+                vbwSteps,
+                bareSweepTimeUs,
+                frequencyStepHz,
+                isCW
+            };
+        }
+
+        /* ── DOM elements ────────────────────────────────────────────────────── */
+        const startFreqEl    = document.getElementById('startFreq');
+        const stopFreqEl     = document.getElementById('stopFreq');
+        const sweepPointsEl  = document.getElementById('sweepPoints');
+        const rbwSelectEl    = document.getElementById('rbwSelect');
+        const stepDelayModeEl= document.getElementById('stepDelayMode');
+        const spurRemovalEl  = document.getElementById('spurRemoval');
+        const repeatCountEl  = document.getElementById('repeatCount');
+        const fasterSpeedupEl= document.getElementById('fasterSpeedup');
+        const resultValueEl  = document.getElementById('resultValue');
+        const resultUnitEl   = document.getElementById('resultUnit');
+        const resultNoteEl   = document.getElementById('resultNote');
+        const breakdownEl    = document.getElementById('breakdown');
+        const errorMsgEl     = document.getElementById('errorMsg');
+        const resultContentEl= document.getElementById('resultContent');
+        const themeBtnEl     = document.getElementById('themeBtn');
+
+        /* ── Theme handling ──────────────────────────────────────────────────── */
+        let currentTheme = 'dark';
+
+        (function restoreTheme() {
+            const saved = localStorage.getItem('tinysa-sweep-theme');
+            const sysLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+            if (saved === 'light' || (saved === null && sysLight)) {
+                currentTheme = 'light';
+                document.body.classList.add('light');
+                themeBtnEl.textContent = '🌙 Dark';
+            }
+        })();
+
+        themeBtnEl.addEventListener('click', () => {
+            if (currentTheme === 'dark') {
+                currentTheme = 'light';
+                document.body.classList.add('light');
+                themeBtnEl.textContent = '🌙 Dark';
+            } else {
+                currentTheme = 'dark';
+                document.body.classList.remove('light');
+                themeBtnEl.textContent = '☀ Light';
+            }
+            localStorage.setItem('tinysa-sweep-theme', currentTheme);
+        });
+
+        /* ── Persist / restore input values ─────────────────────────────────── */
+        const PERSIST_INPUTS = [
+            'startFreq', 'stopFreq', 'sweepPoints',
+            'rbwSelect', 'stepDelayMode', 'spurRemoval',
+            'repeatCount', 'fasterSpeedup'
+        ];
+
+        (function restoreInputs() {
+            const saved = (() => {
+                try { return JSON.parse(localStorage.getItem('tinysa-sweep-inputs')) || {}; }
+                catch (_) { return {}; }
+            })();
+            for (const id of PERSIST_INPUTS) {
+                if (saved[id] !== undefined) {
+                    document.getElementById(id).value = saved[id];
+                }
+            }
+        })();
+
+        function saveInputs() {
+            const state = {};
+            for (const id of PERSIST_INPUTS) {
+                state[id] = document.getElementById(id).value;
+            }
+            localStorage.setItem('tinysa-sweep-inputs', JSON.stringify(state));
+        }
+
+        /* ── Update calculation and display ─────────────────────────────────── */
+        function update() {
+            saveInputs();
+
+            const startMHz  = parseFloat(startFreqEl.value);
+            const stopMHz   = parseFloat(stopFreqEl.value);
+            const points    = parseInt(sweepPointsEl.value, 10);
+            const rbwX10    = parseInt(rbwSelectEl.value, 10);
+            const sdMode    = parseInt(stepDelayModeEl.value, 10);
+            const spur      = parseInt(spurRemovalEl.value, 10) !== 0;
+            const repeat    = Math.max(1, parseInt(repeatCountEl.value, 10) || 1);
+            const faster    = Math.max(0, parseInt(fasterSpeedupEl.value, 10) || 0);
+
+            /* ── Validation ─────────────────────────────────────────────────── */
+            const showError = (msg) => {
+                errorMsgEl.textContent = msg;
+                errorMsgEl.style.display = '';
+                resultContentEl.style.display = 'none';
+            };
+
+            if (!isFinite(startMHz) || !isFinite(stopMHz)) {
+                showError('Enter valid start and stop frequencies.'); return;
+            }
+            if (startMHz < 0 || stopMHz < 0) {
+                showError('Frequencies must be ≥ 0 MHz.'); return;
+            }
+            if (stopMHz < startMHz) {
+                showError('Stop frequency must be ≥ start frequency.'); return;
+            }
+            if (!isFinite(points) || points < 1 || points > 450) {
+                showError('Sweep points must be between 1 and 450.'); return;
+            }
+            if (faster < 0 || !isFinite(faster)) {
+                showError('Faster speedup divisor must be 0 (off) or ≥ 2.'); return;
+            }
+
+            errorMsgEl.style.display = 'none';
+            resultContentEl.style.display = '';
+
+            const freq0Hz = startMHz * 1e6;
+            const freq1Hz = stopMHz  * 1e6;
+
+            const r = calcMinSweepTime(freq0Hz, freq1Hz, points, rbwX10,
+                                       sdMode, spur, repeat, faster);
+
+            /* ── Format main result ──────────────────────────────────────────── */
+            const ft = fmtTimeUs(r.totalUs);
+            resultValueEl.textContent = ft.value;
+            resultUnitEl.textContent  = ft.unit;
+
+            /* Note for CW mode */
+            if (r.isCW) {
+                resultNoteEl.textContent = 'Zero-span (CW) mode — sweep time is a fixed overhead.';
+            } else {
+                resultNoteEl.textContent = '';
+            }
+
+            /* ── Build breakdown table ───────────────────────────────────────── */
+            const rows = [];
+
+            /* Frequency info */
+            if (!r.isCW) {
+                rows.push(['Frequency span',      fmtFreq(freq1Hz - freq0Hz)]);
+                rows.push(['Frequency step',      fmtFreq(r.frequencyStepHz)]);
+            } else {
+                rows.push(['Mode', 'Zero-span (CW)']);
+            }
+
+            /* RBW info */
+            const rbwLabel = r.actualRbwHz < 1000
+                ? r.actualRbwHz.toFixed(0) + ' Hz'
+                : (r.actualRbwHz >= 1e6
+                    ? (r.actualRbwHz / 1e6).toFixed(3).replace(/\.?0+$/, '') + ' MHz'
+                    : (r.actualRbwHz / 1e3).toFixed(1).replace(/\.?0+$/, '') + ' kHz');
+            const rbwMode = rbwX10 === 0 ? `Auto → ${rbwLabel}` : rbwLabel;
+            rows.push(['Actual RBW', rbwMode]);
+
+            /* Step delay */
+            rows.push(['Step delay', r.stepDelay.toFixed(0) + ' µs']);
+
+            /* Measurement overhead per point */
+            rows.push(['Measurement overhead', MEASURE_TIME + ' µs/pt']);
+
+            /* vbwSteps */
+            if (!r.isCW) {
+                rows.push(['Sub-steps (vbwSteps)', r.vbwSteps.toString()]);
+            }
+
+            /* Spur removal factor */
+            if (spur) {
+                rows.push(['Spur removal factor', '× 2']);
+            }
+
+            /* Bare sweep time */
+            {
+                const bft = fmtTimeUs(r.bareSweepTimeUs);
+                rows.push(['Bare sweep time', bft.value + ' ' + bft.unit]);
+            }
+
+            /* Repeat overhead */
+            if (repeat > 1) {
+                const repeatOverheadUs = (repeat - 1) * REPEAT_TIME * points;
+                const rft = fmtTimeUs(repeatOverheadUs);
+                rows.push(['Repeat overhead (' + repeat + '×)', rft.value + ' ' + rft.unit]);
+            }
+
+            /* Total (highlighted) */
+            const totalFt = fmtTimeUs(r.totalUs);
+            rows.push(['__TOTAL__', totalFt.value + ' ' + totalFt.unit]);
+
+            /* Render rows */
+            breakdownEl.innerHTML = '';
+            for (const [key, val] of rows) {
+                const isTotal = key === '__TOTAL__';
+                const keySpan  = document.createElement('span');
+                const dotsSpan = document.createElement('span');
+                const valSpan  = document.createElement('span');
+
+                keySpan.className  = 'bd-key';
+                dotsSpan.className = 'bd-dots';
+                valSpan.className  = 'bd-val';
+
+                keySpan.textContent = isTotal ? 'Minimum sweep time' : key;
+                valSpan.textContent = val;
+
+                if (isTotal) {
+                    keySpan.style.fontWeight = 'bold';
+                    keySpan.style.color = 'var(--result-accent)';
+                    valSpan.style.fontWeight = 'bold';
+                    valSpan.style.color = 'var(--result-accent)';
+                }
+
+                breakdownEl.appendChild(keySpan);
+                breakdownEl.appendChild(dotsSpan);
+                breakdownEl.appendChild(valSpan);
+            }
+        }
+
+        /* ── Wire up all inputs ──────────────────────────────────────────────── */
+        for (const id of PERSIST_INPUTS) {
+            document.getElementById(id).addEventListener('input', update);
+            document.getElementById(id).addEventListener('change', update);
+        }
+
+        /* ── Initial calculation ─────────────────────────────────────────────── */
+        update();
+    </script>
+</body>
+</html>
