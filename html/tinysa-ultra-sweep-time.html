@@ -274,6 +274,42 @@
             font-size: 0.88rem;
             color: var(--error);
         }
+
+        /* ── RBW reference table ────────────────────────────────────────────── */
+        .rbw-table-note {
+            font-size: 0.75rem;
+            color: var(--note);
+            margin-bottom: 8px;
+        }
+
+        .rbw-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+
+        .rbw-table th {
+            text-align: left;
+            color: var(--label);
+            padding: 4px 8px;
+            border-bottom: 1px solid var(--detail-border);
+            font-weight: normal;
+        }
+
+        .rbw-table th:not(:first-child),
+        .rbw-table td:not(:first-child) {
+            text-align: right;
+        }
+
+        .rbw-table td {
+            padding: 3px 8px;
+            color: var(--text);
+        }
+
+        .rbw-table tr.rbw-selected td {
+            color: var(--result-accent);
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -385,6 +421,21 @@
             <div class="result-note" id="resultNote"></div>
             <div class="breakdown" id="breakdown"></div>
         </div>
+    </div>
+
+    <div class="settings-panel" style="margin-top: 16px;">
+        <div class="section-title">Sweep Time by RBW</div>
+        <div class="rbw-table-note">Minimum sweep time for each RBW at one measurement per display point (vbwSteps = 1), independent of frequency range</div>
+        <table class="rbw-table">
+            <thead>
+                <tr>
+                    <th>RBW</th>
+                    <th>Step delay</th>
+                    <th>Sweep time</th>
+                </tr>
+            </thead>
+            <tbody id="rbwTableBody"></tbody>
+        </table>
     </div>
 
     <script>
@@ -593,6 +644,7 @@
         const errorMsgEl     = document.getElementById('errorMsg');
         const resultContentEl= document.getElementById('resultContent');
         const themeBtnEl     = document.getElementById('themeBtn');
+        const rbwTableBodyEl = document.getElementById('rbwTableBody');
 
         /* ── Theme handling ──────────────────────────────────────────────────── */
         let currentTheme = 'dark';
@@ -693,6 +745,43 @@
             localStorage.setItem('tinysa-sweep-inputs', JSON.stringify(state));
         }
 
+        /* ── renderRbwTable: sweep time for each hardware RBW (vbwSteps=1) ────── */
+        /* Shows the minimum possible sweep time per RBW, independent of frequency
+           range (i.e. assumes the frequency step is large enough that vbwSteps=1).
+           activeRbwX10: the currently resolved RBW to highlight, or null. */
+        function renderRbwTable(points, sdMode, spur, repeat, faster, activeRbwX10) {
+            rbwTableBodyEl.innerHTML = '';
+            for (let i = 0; i < RBW_CHOICES.length; i++) {
+                const rbwX10 = RBW_CHOICES[i];
+
+                let stepDelay = getStepDelay(rbwX10);
+                if (sdMode === SD_PRECISE) stepDelay *= 2;
+                if (faster > 1) stepDelay = Math.floor(stepDelay / faster);
+
+                const bare  = (stepDelay + MEASURE_TIME) * points;
+                const total = (spur ? 2 : 1) * bare + (repeat - 1) * REPEAT_TIME * points;
+                const ft    = fmtTimeUs(total);
+
+                const tr = document.createElement('tr');
+                if (activeRbwX10 !== null && rbwX10 === activeRbwX10) {
+                    tr.className = 'rbw-selected';
+                }
+
+                const rbwCell   = document.createElement('td');
+                const delayCell = document.createElement('td');
+                const timeCell  = document.createElement('td');
+
+                rbwCell.textContent   = RBW_LABELS[i];
+                delayCell.textContent = stepDelay + ' µs';
+                timeCell.textContent  = ft.value + '\u00a0' + ft.unit;
+
+                tr.appendChild(rbwCell);
+                tr.appendChild(delayCell);
+                tr.appendChild(timeCell);
+                rbwTableBodyEl.appendChild(tr);
+            }
+        }
+
         /* ── Update calculation and display ─────────────────────────────────── */
         function update() {
             saveInputs();
@@ -707,143 +796,137 @@
             const repeat    = Math.max(1, parseInt(repeatCountEl.value, 10) || 1);
             const faster    = Math.max(0, parseInt(fasterSpeedupEl.value, 10) || 0);
 
-            /* ── Validation ─────────────────────────────────────────────────── */
-            const showError = (msg) => {
-                errorMsgEl.textContent = msg;
-                errorMsgEl.style.display = '';
-                resultContentEl.style.display = 'none';
-            };
+            /* Points and faster speedup are needed for the RBW table too.
+               Use clamped fallbacks so the table always renders sensibly. */
+            const tablePoints = (isFinite(points) && points >= 20 && points <= 450) ? points : 450;
+
+            /* ── Validate settings for the main result ──────────────────────── */
+            let mainError = null;
 
             if (!isFinite(aVal) || !isFinite(bVal)) {
-                showError('Enter valid frequency values.'); return;
-            }
-            if (mode === 'startstop') {
+                mainError = 'Enter valid frequency values.';
+            } else if (mode === 'startstop') {
                 if (aVal < 0 || bVal < 0) {
-                    showError('Frequencies must be ≥ 0 MHz.'); return;
-                }
-                if (bVal < aVal) {
-                    showError('Stop frequency must be ≥ start frequency.'); return;
+                    mainError = 'Frequencies must be ≥ 0 MHz.';
+                } else if (bVal < aVal) {
+                    mainError = 'Stop frequency must be ≥ start frequency.';
                 }
             } else {
                 if (bVal < 0) {
-                    showError('Span must be ≥ 0 MHz.'); return;
-                }
-                const startHz = aVal * 1e6 - bVal * 1e6 / 2;
-                if (startHz < 0) {
-                    showError('Center − Span/2 must be ≥ 0 MHz.'); return;
-                }
-            }
-            if (!isFinite(points) || points < 20 || points > 450) {
-                showError('Sweep points must be between 20 and 450.'); return;
-            }
-            if (faster < 0 || !isFinite(faster)) {
-                showError('Faster speedup divisor must be a non-negative integer (0 = off, ≥2 divides step delay).'); return;
-            }
-
-            errorMsgEl.style.display = 'none';
-            resultContentEl.style.display = '';
-
-            const { freq0Hz, freq1Hz } = toStartStop(aVal, bVal, mode);
-
-            const r = calcMinSweepTime(freq0Hz, freq1Hz, points, rbwX10,
-                                       sdMode, spur, repeat, faster);
-
-            /* ── Format main result ──────────────────────────────────────────── */
-            const ft = fmtTimeUs(r.totalUs);
-            resultValueEl.textContent = ft.value;
-            resultUnitEl.textContent  = ft.unit;
-
-            /* Note for CW mode */
-            if (r.isCW) {
-                resultNoteEl.textContent = 'Zero-span (CW) mode — sweep time is a fixed overhead.';
-            } else {
-                resultNoteEl.textContent = '';
-            }
-
-            /* ── Build breakdown table ───────────────────────────────────────── */
-            const rows = [];
-
-            /* Frequency info */
-            if (!r.isCW) {
-                if (mode === 'centerspan') {
-                    rows.push(['Center frequency', fmtFreq((freq0Hz + freq1Hz) / 2)]);
-                    rows.push(['Span',             fmtFreq(freq1Hz - freq0Hz)]);
+                    mainError = 'Span must be ≥ 0 MHz.';
                 } else {
-                    rows.push(['Frequency span', fmtFreq(freq1Hz - freq0Hz)]);
+                    const startHz = aVal * 1e6 - bVal * 1e6 / 2;
+                    if (startHz < 0) mainError = 'Center − Span/2 must be ≥ 0 MHz.';
                 }
-                rows.push(['Frequency step', fmtFreq(r.frequencyStepHz)]);
+            }
+
+            if (!mainError && (!isFinite(points) || points < 20 || points > 450)) {
+                mainError = 'Sweep points must be between 20 and 450.';
+            }
+            if (!mainError && (faster < 0 || !isFinite(faster))) {
+                mainError = 'Faster speedup divisor must be a non-negative integer (0 = off, ≥2 divides step delay).';
+            }
+
+            /* ── Show / hide main result ─────────────────────────────────────── */
+            let activeRbwX10 = null;
+
+            if (mainError) {
+                errorMsgEl.textContent = mainError;
+                errorMsgEl.style.display = '';
+                resultContentEl.style.display = 'none';
             } else {
-                rows.push(['Mode', 'Zero-span (CW)']);
-            }
+                errorMsgEl.style.display = 'none';
+                resultContentEl.style.display = '';
 
-            /* RBW info */
-            const rbwLabel = r.actualRbwHz < 1000
-                ? r.actualRbwHz.toFixed(0) + ' Hz'
-                : (r.actualRbwHz >= 1e6
-                    ? (r.actualRbwHz / 1e6).toFixed(3).replace(/\.?0+$/, '') + ' MHz'
-                    : (r.actualRbwHz / 1e3).toFixed(1).replace(/\.?0+$/, '') + ' kHz');
-            const rbwMode = rbwX10 === 0 ? `Auto → ${rbwLabel}` : rbwLabel;
-            rows.push(['Actual RBW', rbwMode]);
+                const { freq0Hz, freq1Hz } = toStartStop(aVal, bVal, mode);
+                const r = calcMinSweepTime(freq0Hz, freq1Hz, points, rbwX10,
+                                           sdMode, spur, repeat, faster);
+                activeRbwX10 = r.actualRbwX10;
 
-            /* Step delay */
-            rows.push(['Step delay', r.stepDelay.toFixed(0) + ' µs']);
+                /* ── Format main result ──────────────────────────────────────── */
+                const ft = fmtTimeUs(r.totalUs);
+                resultValueEl.textContent = ft.value;
+                resultUnitEl.textContent  = ft.unit;
 
-            /* Measurement overhead per point */
-            rows.push(['Measurement overhead', MEASURE_TIME + ' µs/pt']);
+                resultNoteEl.textContent = r.isCW
+                    ? 'Zero-span (CW) mode — sweep time is a fixed overhead.'
+                    : '';
 
-            /* vbwSteps */
-            if (!r.isCW) {
-                rows.push(['Sub-steps (vbwSteps)', r.vbwSteps.toString()]);
-            }
+                /* ── Build breakdown table ───────────────────────────────────── */
+                const rows = [];
 
-            /* Spur removal factor */
-            if (spur) {
-                rows.push(['Spur removal factor', '× 2']);
-            }
-
-            /* Bare sweep time */
-            {
-                const bft = fmtTimeUs(r.bareSweepTimeUs);
-                rows.push(['Bare sweep time', bft.value + ' ' + bft.unit]);
-            }
-
-            /* Repeat overhead */
-            if (repeat > 1) {
-                const repeatOverheadUs = (repeat - 1) * REPEAT_TIME * points;
-                const rft = fmtTimeUs(repeatOverheadUs);
-                rows.push(['Repeat overhead (' + repeat + '×)', rft.value + ' ' + rft.unit]);
-            }
-
-            /* Total (highlighted) */
-            const totalFt = fmtTimeUs(r.totalUs);
-            rows.push(['__TOTAL__', totalFt.value + ' ' + totalFt.unit]);
-
-            /* Render rows */
-            breakdownEl.innerHTML = '';
-            for (const [key, val] of rows) {
-                const isTotal = key === '__TOTAL__';
-                const keySpan  = document.createElement('span');
-                const dotsSpan = document.createElement('span');
-                const valSpan  = document.createElement('span');
-
-                keySpan.className  = 'bd-key';
-                dotsSpan.className = 'bd-dots';
-                valSpan.className  = 'bd-val';
-
-                keySpan.textContent = isTotal ? 'Minimum sweep time' : key;
-                valSpan.textContent = val;
-
-                if (isTotal) {
-                    keySpan.style.fontWeight = 'bold';
-                    keySpan.style.color = 'var(--result-accent)';
-                    valSpan.style.fontWeight = 'bold';
-                    valSpan.style.color = 'var(--result-accent)';
+                if (!r.isCW) {
+                    if (mode === 'centerspan') {
+                        rows.push(['Center frequency', fmtFreq((freq0Hz + freq1Hz) / 2)]);
+                        rows.push(['Span',             fmtFreq(freq1Hz - freq0Hz)]);
+                    } else {
+                        rows.push(['Frequency span', fmtFreq(freq1Hz - freq0Hz)]);
+                    }
+                    rows.push(['Frequency step', fmtFreq(r.frequencyStepHz)]);
+                } else {
+                    rows.push(['Mode', 'Zero-span (CW)']);
                 }
 
-                breakdownEl.appendChild(keySpan);
-                breakdownEl.appendChild(dotsSpan);
-                breakdownEl.appendChild(valSpan);
+                const rbwLabel = r.actualRbwHz < 1000
+                    ? r.actualRbwHz.toFixed(0) + ' Hz'
+                    : (r.actualRbwHz >= 1e6
+                        ? (r.actualRbwHz / 1e6).toFixed(3).replace(/\.?0+$/, '') + ' MHz'
+                        : (r.actualRbwHz / 1e3).toFixed(1).replace(/\.?0+$/, '') + ' kHz');
+                rows.push(['Actual RBW', rbwX10 === 0 ? `Auto → ${rbwLabel}` : rbwLabel]);
+                rows.push(['Step delay', r.stepDelay.toFixed(0) + ' µs']);
+                rows.push(['Measurement overhead', MEASURE_TIME + ' µs/pt']);
+
+                if (!r.isCW) {
+                    rows.push(['Sub-steps (vbwSteps)', r.vbwSteps.toString()]);
+                }
+                if (spur) {
+                    rows.push(['Spur removal factor', '× 2']);
+                }
+
+                {
+                    const bft = fmtTimeUs(r.bareSweepTimeUs);
+                    rows.push(['Bare sweep time', bft.value + ' ' + bft.unit]);
+                }
+
+                if (repeat > 1) {
+                    const repeatOverheadUs = (repeat - 1) * REPEAT_TIME * points;
+                    const rft = fmtTimeUs(repeatOverheadUs);
+                    rows.push(['Repeat overhead (' + repeat + '×)', rft.value + ' ' + rft.unit]);
+                }
+
+                const totalFt = fmtTimeUs(r.totalUs);
+                rows.push(['__TOTAL__', totalFt.value + ' ' + totalFt.unit]);
+
+                /* Render rows */
+                breakdownEl.innerHTML = '';
+                for (const [key, val] of rows) {
+                    const isTotal = key === '__TOTAL__';
+                    const keySpan  = document.createElement('span');
+                    const dotsSpan = document.createElement('span');
+                    const valSpan  = document.createElement('span');
+
+                    keySpan.className  = 'bd-key';
+                    dotsSpan.className = 'bd-dots';
+                    valSpan.className  = 'bd-val';
+
+                    keySpan.textContent = isTotal ? 'Minimum sweep time' : key;
+                    valSpan.textContent = val;
+
+                    if (isTotal) {
+                        keySpan.style.fontWeight = 'bold';
+                        keySpan.style.color = 'var(--result-accent)';
+                        valSpan.style.fontWeight = 'bold';
+                        valSpan.style.color = 'var(--result-accent)';
+                    }
+
+                    breakdownEl.appendChild(keySpan);
+                    breakdownEl.appendChild(dotsSpan);
+                    breakdownEl.appendChild(valSpan);
+                }
             }
+
+            /* ── Always render the RBW reference table ───────────────────────── */
+            renderRbwTable(tablePoints, sdMode, spur, repeat, faster, activeRbwX10);
         }
 
         /* ── Wire up all inputs ──────────────────────────────────────────────── */
