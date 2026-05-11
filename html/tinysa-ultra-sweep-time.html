@@ -170,6 +170,33 @@
             margin-bottom: 12px;
         }
 
+        /* ── Frequency mode toggle ──────────────────────────────────────────── */
+        .freq-mode-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .freq-mode-row label {
+            font-size: 0.82rem;
+            color: var(--label);
+        }
+
+        .freq-mode-row select {
+            font-size: 0.82rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+        }
+
+        .freq-mode-row select:focus {
+            outline: none;
+            border-color: var(--result-accent);
+        }
+
         /* ── Results panel ──────────────────────────────────────────────────── */
         .result-panel {
             background: var(--result-bg);
@@ -260,18 +287,27 @@
 
     <div class="settings-panel">
         <div class="section-title">Sweep Settings</div>
+
+        <div class="freq-mode-row">
+            <label for="freqMode">Frequency entry:</label>
+            <select id="freqMode">
+                <option value="startstop">Start / Stop</option>
+                <option value="centerspan">Center / Span</option>
+            </select>
+        </div>
+
         <div class="settings-grid">
 
-            <div class="field">
-                <label for="startFreq">Start frequency</label>
+            <div class="field" id="startField">
+                <label for="startFreq" id="startLabel">Start frequency</label>
                 <div class="field-row">
                     <input type="number" id="startFreq" min="0" max="6000" step="any" value="0">
                     <span class="unit">MHz</span>
                 </div>
             </div>
 
-            <div class="field">
-                <label for="stopFreq">Stop frequency</label>
+            <div class="field" id="stopField">
+                <label for="stopFreq" id="stopLabel">Stop frequency</label>
                 <div class="field-row">
                     <input type="number" id="stopFreq" min="0" max="6000" step="any" value="800">
                     <span class="unit">MHz</span>
@@ -281,9 +317,9 @@
             <div class="field">
                 <label for="sweepPoints">Sweep points</label>
                 <div class="field-row">
-                    <input type="number" id="sweepPoints" min="1" max="450" step="1" value="450">
+                    <input type="number" id="sweepPoints" min="20" max="450" step="1" value="450">
                 </div>
-                <div class="hint">1 – 450 (default 450)</div>
+                <div class="hint">20 – 450 (default 450)</div>
             </div>
 
             <div class="field">
@@ -443,16 +479,17 @@
                                   stepDelayMode, spurRemoval, repeat, fasterSpeedup) {
             const isCW = (freq0Hz === freq1Hz) || (sweepPoints <= 1);
 
-            /* Frequency step in Hz (0 for CW/zero-span) */
+            /* Frequency step in Hz — uses INTEGER division like the firmware:
+               setting.frequency_step = span / (sweep_points - 1)  (truncation)
+               This is critical for correct vbwSteps boundary computation. */
             let frequencyStepHz = 0;
             if (!isCW && sweepPoints > 1) {
-                frequencyStepHz = (freq1Hz - freq0Hz) / (sweepPoints - 1);
+                frequencyStepHz = Math.floor((freq1Hz - freq0Hz) / (sweepPoints - 1));
             }
 
-            /* frequency_step_x10: internal unit = Hz / 100.
-               For zero span the firmware defaults this to 3000 (= 300 kHz) so
-               update_rbw() still picks a sensible RBW even in CW mode. */
-            const frequencyStepX10 = isCW ? 3000 : (frequencyStepHz / 100);
+            /* frequency_step_x10: Hz / 100 with integer truncation (firmware: freq_t / 100).
+               For zero span the firmware defaults this to 3000 (= 300 kHz). */
+            const frequencyStepX10 = isCW ? 3000 : Math.floor(frequencyStepHz / 100);
 
             /* Determine requested actual_rbw_x10 */
             let tempActualRbwX10;
@@ -486,7 +523,8 @@
 
             /* ── vbwSteps: number of sub-steps per display point ─────────────── */
             /* Needed when RBW is narrower than the frequency step, so the firmware
-               has to make multiple measurements to avoid missing signals. */
+               has to make multiple measurements to avoid missing signals.
+               Uses integer ceiling: (target + actual - 1) / actual (firmware C idiom). */
             let vbwSteps = 1;
             if (!isCW && stepDelayMode !== SD_NOISE_SOURCE) {
                 /* Target step width relative to RBW depends on mode */
@@ -500,7 +538,8 @@
                 }
 
                 if (targetFreqStepX10 > actualRbwX10) {
-                    vbwSteps = Math.max(1, Math.ceil(targetFreqStepX10 / actualRbwX10));
+                    /* Integer ceiling division, mirroring the firmware */
+                    vbwSteps = Math.max(1, Math.floor((targetFreqStepX10 + actualRbwX10 - 1) / actualRbwX10));
                 }
             }
 
@@ -532,8 +571,11 @@
         }
 
         /* ── DOM elements ────────────────────────────────────────────────────── */
+        const freqModeEl     = document.getElementById('freqMode');
         const startFreqEl    = document.getElementById('startFreq');
         const stopFreqEl     = document.getElementById('stopFreq');
+        const startLabelEl   = document.getElementById('startLabel');
+        const stopLabelEl    = document.getElementById('stopLabel');
         const sweepPointsEl  = document.getElementById('sweepPoints');
         const rbwSelectEl    = document.getElementById('rbwSelect');
         const stepDelayModeEl= document.getElementById('stepDelayMode');
@@ -574,9 +616,54 @@
             localStorage.setItem('tinysa-sweep-theme', currentTheme);
         });
 
+        /* ── Frequency mode (start/stop ↔ center/span) ──────────────────────── */
+        function applyFreqMode(mode) {
+            if (mode === 'centerspan') {
+                startLabelEl.textContent = 'Center frequency';
+                stopLabelEl.textContent  = 'Span';
+            } else {
+                startLabelEl.textContent = 'Start frequency';
+                stopLabelEl.textContent  = 'Stop frequency';
+            }
+        }
+
+        /* Convert center/span → start/stop Hz */
+        function toStartStop(a, b, mode) {
+            if (mode === 'centerspan') {
+                const centerHz = a * 1e6;
+                const spanHz   = b * 1e6;
+                return { freq0Hz: centerHz - spanHz / 2, freq1Hz: centerHz + spanHz / 2 };
+            }
+            return { freq0Hz: a * 1e6, freq1Hz: b * 1e6 };
+        }
+
+        freqModeEl.addEventListener('change', () => {
+            const mode = freqModeEl.value;
+            /* Re-interpret current values as the other mode */
+            const aVal = parseFloat(startFreqEl.value);
+            const bVal = parseFloat(stopFreqEl.value);
+            if (isFinite(aVal) && isFinite(bVal)) {
+                if (mode === 'centerspan') {
+                    /* Was start/stop → convert to center/span */
+                    const startHz = aVal * 1e6;
+                    const stopHz  = bVal * 1e6;
+                    startFreqEl.value = ((startHz + stopHz) / 2 / 1e6).toPrecision(9).replace(/\.?0+$/, '');
+                    stopFreqEl.value  = ((stopHz - startHz) / 1e6).toPrecision(9).replace(/\.?0+$/, '');
+                } else {
+                    /* Was center/span → convert to start/stop */
+                    const centerHz = aVal * 1e6;
+                    const spanHz   = bVal * 1e6;
+                    startFreqEl.value = ((centerHz - spanHz / 2) / 1e6).toPrecision(9).replace(/\.?0+$/, '');
+                    stopFreqEl.value  = ((centerHz + spanHz / 2) / 1e6).toPrecision(9).replace(/\.?0+$/, '');
+                }
+            }
+            applyFreqMode(mode);
+            update();
+        });
+
         /* ── Persist / restore input values ─────────────────────────────────── */
         const PERSIST_INPUTS = [
-            'startFreq', 'stopFreq', 'sweepPoints',
+            'freqMode', 'startFreq', 'stopFreq', 'sweepPoints',
             'rbwSelect', 'stepDelayMode', 'spurRemoval',
             'repeatCount', 'fasterSpeedup'
         ];
@@ -591,6 +678,7 @@
                     document.getElementById(id).value = saved[id];
                 }
             }
+            applyFreqMode(freqModeEl.value);
         })();
 
         function saveInputs() {
@@ -605,8 +693,9 @@
         function update() {
             saveInputs();
 
-            const startMHz  = parseFloat(startFreqEl.value);
-            const stopMHz   = parseFloat(stopFreqEl.value);
+            const mode      = freqModeEl.value;
+            const aVal      = parseFloat(startFreqEl.value);
+            const bVal      = parseFloat(stopFreqEl.value);
             const points    = parseInt(sweepPointsEl.value, 10);
             const rbwX10    = parseInt(rbwSelectEl.value, 10);
             const sdMode    = parseInt(stepDelayModeEl.value, 10);
@@ -621,17 +710,27 @@
                 resultContentEl.style.display = 'none';
             };
 
-            if (!isFinite(startMHz) || !isFinite(stopMHz)) {
-                showError('Enter valid start and stop frequencies.'); return;
+            if (!isFinite(aVal) || !isFinite(bVal)) {
+                showError('Enter valid frequency values.'); return;
             }
-            if (startMHz < 0 || stopMHz < 0) {
-                showError('Frequencies must be ≥ 0 MHz.'); return;
+            if (mode === 'startstop') {
+                if (aVal < 0 || bVal < 0) {
+                    showError('Frequencies must be ≥ 0 MHz.'); return;
+                }
+                if (bVal < aVal) {
+                    showError('Stop frequency must be ≥ start frequency.'); return;
+                }
+            } else {
+                if (bVal < 0) {
+                    showError('Span must be ≥ 0 MHz.'); return;
+                }
+                const startHz = aVal * 1e6 - bVal * 1e6 / 2;
+                if (startHz < 0) {
+                    showError('Center − Span/2 must be ≥ 0 MHz.'); return;
+                }
             }
-            if (stopMHz < startMHz) {
-                showError('Stop frequency must be ≥ start frequency.'); return;
-            }
-            if (!isFinite(points) || points < 1 || points > 450) {
-                showError('Sweep points must be between 1 and 450.'); return;
+            if (!isFinite(points) || points < 20 || points > 450) {
+                showError('Sweep points must be between 20 and 450.'); return;
             }
             if (faster < 0 || !isFinite(faster)) {
                 showError('Faster speedup divisor must be a non-negative integer (0 = off, ≥2 divides step delay).'); return;
@@ -640,8 +739,7 @@
             errorMsgEl.style.display = 'none';
             resultContentEl.style.display = '';
 
-            const freq0Hz = startMHz * 1e6;
-            const freq1Hz = stopMHz  * 1e6;
+            const { freq0Hz, freq1Hz } = toStartStop(aVal, bVal, mode);
 
             const r = calcMinSweepTime(freq0Hz, freq1Hz, points, rbwX10,
                                        sdMode, spur, repeat, faster);
@@ -663,8 +761,13 @@
 
             /* Frequency info */
             if (!r.isCW) {
-                rows.push(['Frequency span',      fmtFreq(freq1Hz - freq0Hz)]);
-                rows.push(['Frequency step',      fmtFreq(r.frequencyStepHz)]);
+                if (mode === 'centerspan') {
+                    rows.push(['Center frequency', fmtFreq((freq0Hz + freq1Hz) / 2)]);
+                    rows.push(['Span',             fmtFreq(freq1Hz - freq0Hz)]);
+                } else {
+                    rows.push(['Frequency span', fmtFreq(freq1Hz - freq0Hz)]);
+                }
+                rows.push(['Frequency step', fmtFreq(r.frequencyStepHz)]);
             } else {
                 rows.push(['Mode', 'Zero-span (CW)']);
             }
@@ -741,6 +844,7 @@
 
         /* ── Wire up all inputs ──────────────────────────────────────────────── */
         for (const id of PERSIST_INPUTS) {
+            if (id === 'freqMode') continue;  // freqMode has its own change listener above
             document.getElementById(id).addEventListener('input', update);
             document.getElementById(id).addEventListener('change', update);
         }
