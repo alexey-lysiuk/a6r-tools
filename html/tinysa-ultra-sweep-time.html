@@ -459,9 +459,13 @@
         function fmtFreq(hz) {
             if (hz === 0) return '0 Hz';
             if (hz < 1000) return hz.toFixed(0) + ' Hz';
-            if (hz < 1e6)  return (hz / 1e3).toPrecision(4).replace(/\.?0+$/, '') + ' kHz';
-            if (hz < 1e9)  return (hz / 1e6).toPrecision(4).replace(/\.?0+$/, '') + ' MHz';
-            return (hz / 1e9).toPrecision(4).replace(/\.?0+$/, '') + ' GHz';
+            /* toPrecision(4) may return an integer string like "1000" (no decimal) for
+               values that round to a multiple of 1000. The two-step replace only removes
+               trailing zeros that appear after the decimal point. */
+            const trim = s => s.replace(/(\.\d*[1-9])0+$/, '$1').replace(/\.0+$/, '');
+            if (hz < 1e6)  return trim((hz / 1e3).toPrecision(4)) + ' kHz';
+            if (hz < 1e9)  return trim((hz / 1e6).toPrecision(4)) + ' MHz';
+            return               trim((hz / 1e9).toPrecision(4)) + ' GHz';
         }
 
         /* ── Format time (µs) for display ─────────────────────────────────────── */
