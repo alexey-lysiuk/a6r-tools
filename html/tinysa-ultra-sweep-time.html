@@ -331,9 +331,8 @@
         <div class="freq-mode-row">
             <label for="model">Model:</label>
             <select id="model">
-                <option value="normal">tinySA</option>
-                <option value="ultra" selected>tinySA Ultra</option>
-                <option value="ultraplus">tinySA Ultra+</option>
+                <option value="ultra" selected>tinySA Ultra (ZS-405)</option>
+                <option value="ultraplus">tinySA Ultra+ (ZS-406, ZS-407)</option>
             </select>
         </div>
 
@@ -815,19 +814,32 @@
             const rbwX10    = parseInt(rbwSelectEl.value, 10);
             const sdMode    = parseInt(stepDelayModeEl.value, 10);
             const spurRaw   = spurRemovalEl.value;
-            /* Resolve auto spur removal: On for Ultra/Ultra+, Off for tinySA */
+            /* Auto spur removal threshold: Ultra ≥ 800 MHz, Ultra+ ≥ 900 MHz */
+            const autoSpurThreshHz = modelVal === 'ultraplus' ? 900e6 : 800e6;
+            /* Compute stop frequency (best effort for hint; may be NaN) */
+            let stopHz = NaN;
+            if (isFinite(aVal) && isFinite(bVal)) {
+                stopHz = mode === 'centerspan'
+                    ? aVal * 1e6 + bVal * 1e6 / 2
+                    : bVal * 1e6;
+            }
             const spurAuto  = spurRaw === 'auto';
             const spur      = spurAuto
-                ? (modelVal === 'ultra' || modelVal === 'ultraplus')
+                ? (isFinite(stopHz) && stopHz >= autoSpurThreshHz)
                 : spurRaw === '1';
             const repeat    = Math.max(1, parseInt(repeatCountEl.value, 10) || 1);
             const faster    = Math.max(0, parseInt(fasterSpeedupEl.value, 10) || 0);
 
             /* Update spur removal hint */
             if (spurAuto) {
-                spurHintEl.textContent = spur
-                    ? 'Auto → On for tinySA Ultra / Ultra+'
-                    : 'Auto → Off for tinySA';
+                const threshMHz = autoSpurThreshHz / 1e6;
+                if (!isFinite(stopHz)) {
+                    spurHintEl.textContent = `Auto → On if stop ≥ ${threshMHz} MHz`;
+                } else if (spur) {
+                    spurHintEl.textContent = `Auto → On (stop ≥ ${threshMHz} MHz)`;
+                } else {
+                    spurHintEl.textContent = `Auto → Off (stop < ${threshMHz} MHz)`;
+                }
             } else {
                 spurHintEl.textContent = '';
             }
