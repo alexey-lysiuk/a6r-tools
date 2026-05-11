@@ -549,7 +549,7 @@
 
         /* ── Main calculation: mirrors calc_min_sweep_time_us() in sa_core.c ─── */
         function calcMinSweepTime(freq0Hz, freq1Hz, sweepPoints, rbwX10Setting,
-                                  stepDelayMode, spurRemoval, repeat, fasterSpeedup) {
+                                  stepDelayMode, spurFactor, repeat, fasterSpeedup) {
             const isCW = (freq0Hz === freq1Hz) || (sweepPoints <= 1);
 
             /* Frequency step in Hz — uses INTEGER division like the firmware:
@@ -620,7 +620,7 @@
             let bareSweepTimeUs;
             if (isCW) {
                 /* CW (zero-span): fixed overhead; fast only when repeat=1 and no spur */
-                bareSweepTimeUs = (repeat !== 1 || spurRemoval)
+                bareSweepTimeUs = (repeat !== 1 || spurFactor > 1)
                     ? MINIMUM_SWEEP_TIME_SLOW
                     : MINIMUM_SWEEP_TIME;
             } else {
@@ -628,7 +628,7 @@
             }
 
             /* ── Total minimum sweep time ────────────────────────────────────── */
-            let totalUs = vbwSteps * (spurRemoval ? 2 : 1) * bareSweepTimeUs;
+            let totalUs = vbwSteps * spurFactor * bareSweepTimeUs;
             totalUs += (repeat - 1) * REPEAT_TIME * sweepPoints;
 
             return {
@@ -769,7 +769,7 @@
         /* Shows the minimum possible sweep time per RBW, independent of frequency
            range (i.e. assumes the frequency step is large enough that vbwSteps=1).
            activeRbwX10: the currently resolved RBW to highlight, or null. */
-        function renderRbwTable(points, sdMode, spur, repeat, faster, activeRbwX10) {
+        function renderRbwTable(points, sdMode, spurFactor, repeat, faster, activeRbwX10) {
             rbwTableBodyEl.innerHTML = '';
             for (let i = 0; i < RBW_CHOICES.length; i++) {
                 const rbwX10 = RBW_CHOICES[i];
@@ -779,7 +779,7 @@
                 if (faster > 1) stepDelay = Math.floor(stepDelay / faster);
 
                 const bare  = (stepDelay + MEASURE_TIME) * points;
-                const total = (spur ? 2 : 1) * bare + (repeat - 1) * REPEAT_TIME * points;
+                const total = spurFactor * bare + (repeat - 1) * REPEAT_TIME * points;
                 const ft    = fmtTimeUs(total);
 
                 const tr = document.createElement('tr');
@@ -816,17 +816,30 @@
             const spurRaw   = spurRemovalEl.value;
             /* Auto spur removal threshold: Ultra ≥ 800 MHz, Ultra+ ≥ 900 MHz */
             const autoSpurThreshHz = modelVal === 'ultraplus' ? 900e6 : 800e6;
-            /* Compute stop frequency (best effort for hint; may be NaN) */
-            let stopHz = NaN;
+            /* Compute start/stop frequencies (best effort for hint; may be NaN) */
+            let startHz = NaN;
+            let stopHz  = NaN;
             if (isFinite(aVal) && isFinite(bVal)) {
-                stopHz = mode === 'centerspan'
-                    ? aVal * 1e6 + bVal * 1e6 / 2
-                    : bVal * 1e6;
+                if (mode === 'centerspan') {
+                    startHz = aVal * 1e6 - bVal * 1e6 / 2;
+                    stopHz  = aVal * 1e6 + bVal * 1e6 / 2;
+                } else {
+                    startHz = aVal * 1e6;
+                    stopHz  = bVal * 1e6;
+                }
             }
             const spurAuto  = spurRaw === 'auto';
             const spur      = spurAuto
                 ? (isFinite(stopHz) && stopHz >= autoSpurThreshHz)
                 : spurRaw === '1';
+            /* Split spur: in auto mode spur removal applies only above the threshold.
+               When start < threshold ≤ stop, only the ultra portion is swept twice.
+               Note: `spur` already guarantees stopHz >= autoSpurThreshHz, so
+               isSplitSpur is true only when the sweep crosses the threshold. */
+            const isSplitSpur = spurAuto && spur && isFinite(startHz) && startHz < autoSpurThreshHz;
+            const effectiveSpurFactor = isSplitSpur
+                ? 1 + (stopHz - autoSpurThreshHz) / (stopHz - startHz)
+                : (spur ? 2 : 1);
             const repeat    = Math.max(1, parseInt(repeatCountEl.value, 10) || 1);
             const faster    = Math.max(0, parseInt(fasterSpeedupEl.value, 10) || 0);
 
@@ -836,7 +849,11 @@
                 if (!isFinite(stopHz)) {
                     spurHintEl.textContent = `Auto → On if stop ≥ ${threshMHz} MHz`;
                 } else if (spur) {
-                    spurHintEl.textContent = `Auto → On (stop ≥ ${threshMHz} MHz)`;
+                    if (isSplitSpur) {
+                        spurHintEl.textContent = `Auto → On above ${threshMHz} MHz only (× ${effectiveSpurFactor.toFixed(2)})`;
+                    } else {
+                        spurHintEl.textContent = `Auto → On (stop ≥ ${threshMHz} MHz)`;
+                    }
                 } else {
                     spurHintEl.textContent = `Auto → Off (stop < ${threshMHz} MHz)`;
                 }
@@ -863,7 +880,6 @@
                 if (bVal < 0) {
                     mainError = 'Span must be ≥ 0 MHz.';
                 } else {
-                    const startHz = aVal * 1e6 - bVal * 1e6 / 2;
                     if (startHz < 0) mainError = 'Center − Span/2 must be ≥ 0 MHz.';
                 }
             }
@@ -888,7 +904,7 @@
 
                 const { freq0Hz, freq1Hz } = toStartStop(aVal, bVal, mode);
                 const r = calcMinSweepTime(freq0Hz, freq1Hz, points, rbwX10,
-                                           sdMode, spur, repeat, faster);
+                                           sdMode, effectiveSpurFactor, repeat, faster);
                 activeRbwX10 = r.actualRbwX10;
 
                 /* ── Format main result ──────────────────────────────────────── */
@@ -928,7 +944,11 @@
                     rows.push(['Sub-steps (vbwSteps)', r.vbwSteps.toString()]);
                 }
                 if (spurAuto) {
-                    rows.push(['Spur removal (Auto)', spur ? 'On (× 2)' : 'Off']);
+                    if (isSplitSpur) {
+                        rows.push(['Spur removal (Auto)', `On above ${autoSpurThreshHz / 1e6} MHz (× ${effectiveSpurFactor.toFixed(2)})`]);
+                    } else {
+                        rows.push(['Spur removal (Auto)', spur ? 'On (× 2)' : 'Off']);
+                    }
                 } else if (spur) {
                     rows.push(['Spur removal factor', '× 2']);
                 }
@@ -976,7 +996,7 @@
             }
 
             /* ── Always render the RBW reference table ───────────────────────── */
-            renderRbwTable(tablePoints, sdMode, spur, repeat, faster, activeRbwX10);
+            renderRbwTable(tablePoints, sdMode, effectiveSpurFactor, repeat, faster, activeRbwX10);
         }
 
         /* ── Wire up all inputs ──────────────────────────────────────────────── */
