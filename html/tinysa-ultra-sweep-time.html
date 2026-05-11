@@ -425,7 +425,7 @@
 
     <div class="settings-panel" style="margin-top: 16px;">
         <div class="section-title">Sweep Time by RBW</div>
-        <div class="rbw-table-note">Minimum sweep time for each RBW at one measurement per display point (vbwSteps = 1), independent of frequency range</div>
+        <div class="rbw-table-note">Minimum sweep time for each RBW at one measurement per display point (vbwSteps = 1), independent of frequency range.</div>
         <table class="rbw-table">
             <thead>
                 <tr>
@@ -446,6 +446,10 @@
         const MINIMUM_SWEEP_TIME  = 1800;    // µs: minimum CW sweep (tinySA4 with __FAST_SWEEP__)
         const MINIMUM_SWEEP_TIME_SLOW = 15000; // µs: minimum CW sweep when fast mode not possible
         const REPEAT_TIME         = 111;     // µs: extra time per point per additional repeat
+
+        /* Sweep points limits */
+        const MIN_SWEEP_POINTS = 20;
+        const MAX_SWEEP_POINTS = 450;
 
         /* Step delay modes (SD_* from nanovna.h) */
         const SD_NORMAL       = 0;
@@ -798,7 +802,7 @@
 
             /* Points and faster speedup are needed for the RBW table too.
                Use clamped fallbacks so the table always renders sensibly. */
-            const tablePoints = (isFinite(points) && points >= 20 && points <= 450) ? points : 450;
+            const tablePoints = (isFinite(points) && points >= MIN_SWEEP_POINTS && points <= MAX_SWEEP_POINTS) ? points : MAX_SWEEP_POINTS;
 
             /* ── Validate settings for the main result ──────────────────────── */
             let mainError = null;
@@ -820,8 +824,8 @@
                 }
             }
 
-            if (!mainError && (!isFinite(points) || points < 20 || points > 450)) {
-                mainError = 'Sweep points must be between 20 and 450.';
+            if (!mainError && (!isFinite(points) || points < MIN_SWEEP_POINTS || points > MAX_SWEEP_POINTS)) {
+                mainError = `Sweep points must be between ${MIN_SWEEP_POINTS} and ${MAX_SWEEP_POINTS}.`;
             }
             if (!mainError && (faster < 0 || !isFinite(faster))) {
                 mainError = 'Faster speedup divisor must be a non-negative integer (0 = off, ≥2 divides step delay).';
