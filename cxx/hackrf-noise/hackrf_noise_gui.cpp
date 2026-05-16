@@ -66,6 +66,7 @@ bool start_transmit(hackrf_device** device,
     }
 
     bool device_opened = false;
+    hackrf_device* opened_device = nullptr;
 
     auto report_and_cleanup = [&](const char* operation, int code, bool reset_tx_running = false) -> bool
     {
@@ -76,12 +77,13 @@ bool start_transmit(hackrf_device** device,
 
         if (device_opened)
         {
-            hackrf_close(*device);
+            hackrf_close(opened_device);
+            opened_device = nullptr;
             device_opened = false;
         }
 
-        *device = nullptr;
         hackrf_exit();
+        *device = nullptr;
 
         return false;
     };
@@ -93,35 +95,35 @@ bool start_transmit(hackrf_device** device,
         return false;
     }
 
-    *device = nullptr;
-
-    result = hackrf_open(device);
+    result = hackrf_open(&opened_device);
     if (result != HACKRF_SUCCESS)
         return report_and_cleanup("hackrf_open", result);
+
+    *device = opened_device;
     device_opened = true;
 
     const uint32_t sample_rate = (uint32_t)(bw_mhz * 1e6f);
-    result = hackrf_set_sample_rate(*device, sample_rate);
+    result = hackrf_set_sample_rate(opened_device, sample_rate);
     if (result != HACKRF_SUCCESS)
         return report_and_cleanup("hackrf_set_sample_rate", result);
 
     const uint32_t filter_bw = hackrf_compute_baseband_filter_bw(sample_rate);
-    result = hackrf_set_baseband_filter_bandwidth(*device, filter_bw);
+    result = hackrf_set_baseband_filter_bandwidth(opened_device, filter_bw);
     if (result != HACKRF_SUCCESS)
         return report_and_cleanup("hackrf_set_baseband_filter_bandwidth", result);
 
     const uint64_t freq_hz = (uint64_t)(freq_mhz * 1e6f);
-    result = hackrf_set_freq(*device, freq_hz);
+    result = hackrf_set_freq(opened_device, freq_hz);
     if (result != HACKRF_SUCCESS)
         return report_and_cleanup("hackrf_set_freq", result);
 
-    result = hackrf_set_txvga_gain(*device, (uint32_t)power_db);
+    result = hackrf_set_txvga_gain(opened_device, (uint32_t)power_db);
     if (result != HACKRF_SUCCESS)
         return report_and_cleanup("hackrf_set_txvga_gain", result);
 
     g_tx_running.store(true, std::memory_order_relaxed);
 
-    result = hackrf_start_tx(*device, tx_callback, nullptr);
+    result = hackrf_start_tx(opened_device, tx_callback, nullptr);
     if (result != HACKRF_SUCCESS)
         return report_and_cleanup("hackrf_start_tx", result, true);
 
