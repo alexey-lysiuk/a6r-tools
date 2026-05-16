@@ -205,9 +205,9 @@ int main(int argc, char* argv[])
 
         if (power_db < channel_info->power_range.min || power_db > channel_info->power_range.max)
         {
-            fprintf(stderr, "Error: power must be between %d and %u dB\n",
-                    channel_info->power_range.min,
-                    channel_info->power_range.max);
+            fprintf(stderr, "Error: power must be between %d and %d dB\n",
+                    static_cast<int>(channel_info->power_range.min),
+                    static_cast<int>(channel_info->power_range.max));
             return EXIT_FAILURE;
         }
 
