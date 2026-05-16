@@ -116,9 +116,9 @@ static struct iio_context* create_iio_context_auto(void)
     struct iio_context_info** context_info = NULL;
     ssize_t context_count = 0;
     struct iio_context* context = NULL;
+    int scan_context_error_code = 0;
 
     scan_context = iio_create_scan_context(NULL, 0);
-    const int scan_context_error_code = errno;
     if (scan_context)
     {
         context_count = iio_scan_context_get_info_list(scan_context, &context_info);
@@ -136,7 +136,10 @@ static struct iio_context* create_iio_context_auto(void)
                 errno = 0;
                 context = iio_create_context_from_uri(uri);
                 if (!context)
+                {
                     print_errno_error("Error: failed to create IIO context from scanned URI", errno);
+                    fprintf(stderr, "Warning: falling back to default IIO context\n");
+                }
             }
         }
         else if (context_count > 1)
@@ -152,6 +155,7 @@ static struct iio_context* create_iio_context_auto(void)
     }
     else
     {
+        scan_context_error_code = errno;
         print_errno_error("Warning: failed to create IIO scan context", scan_context_error_code);
     }
 
