@@ -39,7 +39,7 @@
 
 static volatile sig_atomic_t g_running = 1;
 
-static uint32_t g_rng_state = 0xA5A5A5A5U;
+static uint32_t g_noise_rng_state = 0xA5A5A5A5U;
 
 static void signal_handler(int signal)
 {
@@ -49,14 +49,14 @@ static void signal_handler(int signal)
 
 static int16_t next_noise_sample(void)
 {
-    /* Prevent xorshift from entering a zero lock-up state. */
-    if (g_rng_state == 0)
-        g_rng_state = 1U;
+    /* Prevent xorshift32 from entering a zero lock-up state. */
+    if (g_noise_rng_state == 0)
+        g_noise_rng_state = 1U;
 
-    g_rng_state ^= g_rng_state << 13;
-    g_rng_state ^= g_rng_state >> 17;
-    g_rng_state ^= g_rng_state << 5;
-    return (int16_t)g_rng_state;
+    g_noise_rng_state ^= g_noise_rng_state << 13;
+    g_noise_rng_state ^= g_noise_rng_state >> 17;
+    g_noise_rng_state ^= g_noise_rng_state << 5;
+    return (int16_t)g_noise_rng_state;
 }
 
 static void print_usage(const char* program)
@@ -295,7 +295,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    g_rng_state = (uint32_t)time(NULL);
+    g_noise_rng_state = (uint32_t)time(NULL) ^ ((uint32_t)clock() << 1);
 
     printf("Transmitting noise at %.3f MHz, bandwidth %d MHz, TX hardware gain %d dB\n",
            freq_mhz, bw_mhz, power_db);
