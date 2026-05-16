@@ -102,6 +102,52 @@ static bool parse_int(const char* text, int* value)
     return true;
 }
 
+static void print_errno_error(const char* message, int error_code)
+{
+    if (error_code != 0)
+        fprintf(stderr, "%s: errno=%d (%s)\n", message, error_code, strerror(error_code));
+    else
+        fprintf(stderr, "%s (errno was not set)\n", message);
+}
+
+static struct iio_context* create_iio_context_auto(void)
+{
+    struct iio_scan_context* scan_context = NULL;
+    struct iio_context_info** context_info = NULL;
+    ssize_t context_count = 0;
+    struct iio_context* context = NULL;
+
+    scan_context = iio_create_scan_context(NULL, 0);
+    if (scan_context)
+    {
+        context_count = iio_scan_context_get_info_list(scan_context, &context_info);
+        if (context_count == 1)
+        {
+            const char* uri = iio_context_info_get_uri(context_info[0]);
+            if (uri && *uri)
+            {
+                errno = 0;
+                context = iio_create_context_from_uri(uri);
+                if (!context)
+                    print_errno_error("Error: failed to create IIO context from scanned URI", errno);
+            }
+        }
+
+        iio_context_info_list_free(context_info);
+        iio_scan_context_destroy(scan_context);
+    }
+
+    if (context)
+        return context;
+
+    errno = 0;
+    context = iio_create_default_context();
+    if (!context)
+        print_errno_error("Error: failed to create IIO context", errno);
+
+    return context;
+}
+
 static int configure_tx(struct iio_context** context_out,
                         struct iio_device** tx_dev_out,
                         struct iio_channel** tx_i_out,
@@ -119,17 +165,9 @@ static int configure_tx(struct iio_context** context_out,
     struct iio_channel* tx_q = NULL;
     int result = 0;
 
-    context = iio_create_default_context();
+    context = create_iio_context_auto();
     if (!context)
-    {
-        const int context_error_code = errno;
-        if (context_error_code != 0)
-            fprintf(stderr, "Error: failed to create IIO context: errno=%d (%s)\n",
-                    context_error_code, strerror(context_error_code));
-        else
-            fprintf(stderr, "Error: failed to create IIO context (errno was not set)\n");
         return -1;
-    }
 
     phy = iio_context_find_device(context, "ad9361-phy");
     tx_dev = iio_context_find_device(context, "cf-ad9361-dds-core-lpc");
