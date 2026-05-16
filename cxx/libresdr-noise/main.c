@@ -131,7 +131,7 @@ static struct iio_context* create_iio_context_auto(void)
         else if (context_count == 1)
         {
             const char* uri = iio_context_info_get_uri(context_info[0]);
-            if (uri && *uri)
+            if (uri)
             {
                 errno = 0;
                 context = iio_create_context_from_uri(uri);
@@ -149,7 +149,7 @@ static struct iio_context* create_iio_context_auto(void)
                     context_count);
         }
 
-        if (context_info)
+        if (context_count >= 0 && context_info)
             iio_context_info_list_free(context_info);
         iio_scan_context_destroy(scan_context);
     }
