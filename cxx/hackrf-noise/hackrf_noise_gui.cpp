@@ -59,19 +59,28 @@ bool start_transmit(hackrf_device** device,
                     float freq_mhz, float bw_mhz, int power_db,
                     std::string& error)
 {
-    auto fail = [&](const char* operation, int code, bool reset_tx_running = false) -> bool
+    if (!device)
+    {
+        error = "Invalid device pointer";
+        return false;
+    }
+
+    bool device_opened = false;
+
+    auto report_and_cleanup = [&](const char* operation, int code, bool reset_tx_running = false) -> bool
     {
         error = std::string(operation) + " failed: " + hackrf_error_name((hackrf_error)code);
 
         if (reset_tx_running)
             g_tx_running.store(false, std::memory_order_relaxed);
 
-        if (*device)
+        if (device_opened)
         {
             hackrf_close(*device);
-            *device = nullptr;
+            device_opened = false;
         }
 
+        *device = nullptr;
         hackrf_exit();
 
         return false;
@@ -88,32 +97,33 @@ bool start_transmit(hackrf_device** device,
 
     result = hackrf_open(device);
     if (result != HACKRF_SUCCESS)
-        return fail("hackrf_open", result);
+        return report_and_cleanup("hackrf_open", result);
+    device_opened = true;
 
     const uint32_t sample_rate = (uint32_t)(bw_mhz * 1e6f);
     result = hackrf_set_sample_rate(*device, sample_rate);
     if (result != HACKRF_SUCCESS)
-        return fail("hackrf_set_sample_rate", result);
+        return report_and_cleanup("hackrf_set_sample_rate", result);
 
     const uint32_t filter_bw = hackrf_compute_baseband_filter_bw(sample_rate);
     result = hackrf_set_baseband_filter_bandwidth(*device, filter_bw);
     if (result != HACKRF_SUCCESS)
-        return fail("hackrf_set_baseband_filter_bandwidth", result);
+        return report_and_cleanup("hackrf_set_baseband_filter_bandwidth", result);
 
     const uint64_t freq_hz = (uint64_t)(freq_mhz * 1e6f);
     result = hackrf_set_freq(*device, freq_hz);
     if (result != HACKRF_SUCCESS)
-        return fail("hackrf_set_freq", result);
+        return report_and_cleanup("hackrf_set_freq", result);
 
     result = hackrf_set_txvga_gain(*device, (uint32_t)power_db);
     if (result != HACKRF_SUCCESS)
-        return fail("hackrf_set_txvga_gain", result);
+        return report_and_cleanup("hackrf_set_txvga_gain", result);
 
     g_tx_running.store(true, std::memory_order_relaxed);
 
     result = hackrf_start_tx(*device, tx_callback, nullptr);
     if (result != HACKRF_SUCCESS)
-        return fail("hackrf_start_tx", result, true);
+        return report_and_cleanup("hackrf_start_tx", result, true);
 
     return true;
 }
