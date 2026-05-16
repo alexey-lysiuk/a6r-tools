@@ -118,12 +118,15 @@ static struct iio_context* create_iio_context_auto(void)
     struct iio_context* context = NULL;
 
     scan_context = iio_create_scan_context(NULL, 0);
+    const int scan_context_error_code = errno;
     if (scan_context)
     {
         context_count = iio_scan_context_get_info_list(scan_context, &context_info);
         if (context_count < 0)
         {
-            fprintf(stderr, "Warning: failed to scan IIO contexts: %zd\n", context_count);
+            fprintf(stderr,
+                    "Warning: failed to scan IIO contexts (error code: %zd)\n",
+                    context_count);
         }
         else if (context_count == 1)
         {
@@ -149,7 +152,7 @@ static struct iio_context* create_iio_context_auto(void)
     }
     else
     {
-        print_errno_error("Warning: failed to create IIO scan context", errno);
+        print_errno_error("Warning: failed to create IIO scan context", scan_context_error_code);
     }
 
     if (context)
