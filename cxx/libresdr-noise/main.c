@@ -49,6 +49,7 @@ static void signal_handler(int signal)
 
 static int16_t next_noise_sample(void)
 {
+    /* Keep xorshift out of a zero lock-up state if state is ever reset. */
     if (g_rng_state == 0)
         g_rng_state = 1U;
 
@@ -303,18 +304,22 @@ int main(int argc, char* argv[])
     while (g_running)
     {
         const ptrdiff_t step = iio_buffer_step(tx_buffer);
-        char* data = (char*)iio_buffer_first(tx_buffer, tx_i);
+        char* sample_ptr = (char*)iio_buffer_first(tx_buffer, tx_i);
         char* end = (char*)iio_buffer_end(tx_buffer);
 
-        while (data < end)
+        while (sample_ptr < end)
         {
-            int16_t* i_sample = (int16_t*)data;
+            /*
+             * TX buffer format is CS16 with interleaved I/Q, so each complex
+             * sample is stored as two consecutive int16_t values.
+             */
+            int16_t* i_sample = (int16_t*)sample_ptr;
             int16_t* q_sample = i_sample + 1;
 
             *i_sample = next_noise_sample();
             *q_sample = next_noise_sample();
 
-            data += step;
+            sample_ptr += step;
         }
 
         const ssize_t push_result = iio_buffer_push(tx_buffer);
