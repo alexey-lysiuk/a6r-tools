@@ -120,12 +120,12 @@ static int configure_tx(struct iio_context** context_out,
     int result = 0;
 
     context = iio_create_default_context();
+    const int context_error_code = errno;
     if (!context)
     {
-        const int error_code = errno;
-        if (error_code != 0)
+        if (context_error_code != 0)
             fprintf(stderr, "Error: failed to create IIO context: errno=%d (%s)\n",
-                    error_code, strerror(error_code));
+                    context_error_code, strerror(context_error_code));
         else
             fprintf(stderr, "Error: failed to create IIO context (errno was not set)\n");
         return -1;
