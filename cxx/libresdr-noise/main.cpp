@@ -19,10 +19,13 @@
 
 #include <atomic>
 #include <chrono>
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
+#include <limits>
 #include <queue>
 #include <random>
 #include <thread>
@@ -58,10 +61,44 @@ static const char* failcode_name(const rfnm_api_failcode code)
     case RFNM_API_NOT_SUPPORTED: return "RFNM_API_NOT_SUPPORTED";
     case RFNM_API_SW_UPGRADE_REQUIRED: return "RFNM_API_SW_UPGRADE_REQUIRED";
     case RFNM_API_DQBUF_NO_DATA: return "RFNM_API_DQBUF_NO_DATA";
-    case RFNM_API_MIN_QBUF_CNT_NOT_SATIFIED: return "RFNM_API_MIN_QBUF_CNT_NOT_SATIFIED";
+    case RFNM_API_MIN_QBUF_CNT_NOT_SATIFIED: return "RFNM_API_MIN_QBUF_CNT_NOT_SATISFIED";
     case RFNM_API_MIN_QBUF_QUEUE_FULL: return "RFNM_API_MIN_QBUF_QUEUE_FULL";
     default: return "RFNM_API_UNKNOWN";
     }
+}
+
+static bool parse_double(const char* text, double* value)
+{
+    if (!text || !value)
+        return false;
+
+    char* end = nullptr;
+    errno = 0;
+    const double parsed_value = strtod(text, &end);
+    if (errno != 0 || end == text || *end != '\0')
+        return false;
+
+    *value = parsed_value;
+    return true;
+}
+
+static bool parse_int(const char* text, int* value)
+{
+    if (!text || !value)
+        return false;
+
+    char* end = nullptr;
+    errno = 0;
+    const long parsed_value = strtol(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\0' ||
+        parsed_value < std::numeric_limits<int>::min() ||
+        parsed_value > std::numeric_limits<int>::max())
+    {
+        return false;
+    }
+
+    *value = static_cast<int>(parsed_value);
+    return true;
 }
 
 static void print_usage(const char* program)
@@ -91,19 +128,31 @@ int main(int argc, char* argv[])
         }
         if (strcmp(argv[i], "-f") == 0 && i + 1 < argc)
         {
-            freq_mhz = atof(argv[++i]);
+            if (!parse_double(argv[++i], &freq_mhz))
+            {
+                fprintf(stderr, "Error: invalid frequency value\n");
+                return EXIT_FAILURE;
+            }
             freq_set = true;
             continue;
         }
         if (strcmp(argv[i], "-b") == 0 && i + 1 < argc)
         {
-            bw_mhz = atoi(argv[++i]);
+            if (!parse_int(argv[++i], &bw_mhz))
+            {
+                fprintf(stderr, "Error: invalid bandwidth value\n");
+                return EXIT_FAILURE;
+            }
             bw_set = true;
             continue;
         }
         if (strcmp(argv[i], "-p") == 0 && i + 1 < argc)
         {
-            power_db = atoi(argv[++i]);
+            if (!parse_int(argv[++i], &power_db))
+            {
+                fprintf(stderr, "Error: invalid power value\n");
+                return EXIT_FAILURE;
+            }
             power_set = true;
             continue;
         }
@@ -139,18 +188,18 @@ int main(int argc, char* argv[])
     {
         rfnm::device device(rfnm::TRANSPORT_USB);
 
+        if (device.get_tx_channel_count() == 0)
+        {
+            fprintf(stderr, "Error: no LibreSDR TX channels available\n");
+            return EXIT_FAILURE;
+        }
+
         const uint32_t tx_channel = 0;
         const struct rfnm_api_tx_ch* channel_info = device.get_tx_channel(tx_channel);
 
         if (!channel_info)
         {
             fprintf(stderr, "Error: failed to query TX channel\n");
-            return EXIT_FAILURE;
-        }
-
-        if (device.get_tx_channel_count() == 0)
-        {
-            fprintf(stderr, "Error: no LibreSDR TX channels available\n");
             return EXIT_FAILURE;
         }
 
