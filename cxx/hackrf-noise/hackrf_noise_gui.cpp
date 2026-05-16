@@ -68,11 +68,11 @@ bool start_transmit(hackrf_device** device,
     bool device_opened = false;
     hackrf_device* opened_device = nullptr;
 
-    auto report_and_cleanup = [&](const char* operation, int code, bool reset_tx_running = false) -> bool
+    auto report_and_cleanup = [&](const char* operation, int code, bool should_reset_tx_flag = false) -> bool
     {
         error = std::string(operation) + " failed: " + hackrf_error_name((hackrf_error)code);
 
-        if (reset_tx_running)
+        if (should_reset_tx_flag)
             g_tx_running.store(false, std::memory_order_relaxed);
 
         if (device_opened)
@@ -83,8 +83,6 @@ bool start_transmit(hackrf_device** device,
         }
 
         hackrf_exit();
-        *device = nullptr;
-
         return false;
     };
 
@@ -98,8 +96,6 @@ bool start_transmit(hackrf_device** device,
     result = hackrf_open(&opened_device);
     if (result != HACKRF_SUCCESS)
         return report_and_cleanup("hackrf_open", result);
-
-    *device = opened_device;
     device_opened = true;
 
     const uint32_t sample_rate = (uint32_t)(bw_mhz * 1e6f);
@@ -127,6 +123,7 @@ bool start_transmit(hackrf_device** device,
     if (result != HACKRF_SUCCESS)
         return report_and_cleanup("hackrf_start_tx", result, true);
 
+    *device = opened_device;
     return true;
 }
 
