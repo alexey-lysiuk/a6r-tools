@@ -39,10 +39,20 @@
 
 static volatile sig_atomic_t g_running = 1;
 
+static uint32_t g_rng_state = 0;
+
 static void signal_handler(int signal)
 {
     (void)signal;
     g_running = 0;
+}
+
+static int16_t next_noise_sample(void)
+{
+    g_rng_state ^= g_rng_state << 13;
+    g_rng_state ^= g_rng_state >> 17;
+    g_rng_state ^= g_rng_state << 5;
+    return (int16_t)g_rng_state;
 }
 
 static void print_usage(const char* program)
@@ -281,7 +291,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    srand((unsigned int)time(NULL));
+    g_rng_state = (uint32_t)time(NULL) | 1U;
 
     printf("Transmitting noise at %.3f MHz, bandwidth %d MHz, TX hardware gain %d dB\n",
            freq_mhz, bw_mhz, power_db);
@@ -298,8 +308,8 @@ int main(int argc, char* argv[])
             int16_t* i_sample = (int16_t*)data;
             int16_t* q_sample = i_sample + 1;
 
-            *i_sample = (int16_t)((rand() % 65536) - 32768);
-            *q_sample = (int16_t)((rand() % 65536) - 32768);
+            *i_sample = next_noise_sample();
+            *q_sample = next_noise_sample();
 
             data += step;
         }
