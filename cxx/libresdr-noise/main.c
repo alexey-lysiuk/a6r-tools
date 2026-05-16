@@ -121,7 +121,11 @@ static struct iio_context* create_iio_context_auto(void)
     if (scan_context)
     {
         context_count = iio_scan_context_get_info_list(scan_context, &context_info);
-        if (context_count == 1)
+        if (context_count < 0)
+        {
+            fprintf(stderr, "Warning: failed to scan IIO contexts: %zd\n", context_count);
+        }
+        else if (context_count == 1)
         {
             const char* uri = iio_context_info_get_uri(context_info[0]);
             if (uri && *uri)
@@ -142,6 +146,10 @@ static struct iio_context* create_iio_context_auto(void)
         if (context_info)
             iio_context_info_list_free(context_info);
         iio_scan_context_destroy(scan_context);
+    }
+    else
+    {
+        print_errno_error("Warning: failed to create IIO scan context", errno);
     }
 
     if (context)
