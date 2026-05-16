@@ -49,7 +49,7 @@ static void signal_handler(int signal)
 
 static int16_t next_noise_sample(void)
 {
-    /* Keep xorshift out of a zero lock-up state if state is ever reset. */
+    /* Prevent xorshift from entering a zero lock-up state. */
     if (g_rng_state == 0)
         g_rng_state = 1U;
 
@@ -295,7 +295,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    g_rng_state = (uint32_t)time(NULL) | 1U;
+    g_rng_state = (uint32_t)time(NULL);
 
     printf("Transmitting noise at %.3f MHz, bandwidth %d MHz, TX hardware gain %d dB\n",
            freq_mhz, bw_mhz, power_db);
