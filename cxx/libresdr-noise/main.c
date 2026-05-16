@@ -39,7 +39,7 @@
 
 static volatile sig_atomic_t g_running = 1;
 
-static uint32_t g_rng_state = 0;
+static uint32_t g_rng_state = 0xA5A5A5A5U;
 
 static void signal_handler(int signal)
 {
@@ -49,6 +49,9 @@ static void signal_handler(int signal)
 
 static int16_t next_noise_sample(void)
 {
+    if (g_rng_state == 0)
+        g_rng_state = 1U;
+
     g_rng_state ^= g_rng_state << 13;
     g_rng_state ^= g_rng_state >> 17;
     g_rng_state ^= g_rng_state << 5;
