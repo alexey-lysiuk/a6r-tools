@@ -132,8 +132,15 @@ static struct iio_context* create_iio_context_auto(void)
                     print_errno_error("Error: failed to create IIO context from scanned URI", errno);
             }
         }
+        else if (context_count > 1)
+        {
+            fprintf(stderr,
+                    "Warning: %zd IIO contexts detected, skipping auto-selection\n",
+                    context_count);
+        }
 
-        iio_context_info_list_free(context_info);
+        if (context_info)
+            iio_context_info_list_free(context_info);
         iio_scan_context_destroy(scan_context);
     }
 
