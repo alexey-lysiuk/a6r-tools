@@ -38,12 +38,14 @@ static constexpr int64_t  MIN_BANDWIDTH_HZ  = 1000000LL;
 static constexpr int64_t  MAX_BANDWIDTH_HZ  = 100000000LL;
 static constexpr int      MIN_POWER_DB      = -90;
 static constexpr int      MAX_POWER_DB      = 0;
-static constexpr uint32_t TX_SAMPLE_RATE_HZ = 20000000UL;
+static constexpr uint32_t TX_MIN_SAMPLE_RATE_HZ = 20000000UL;
+static constexpr uint32_t TX_MAX_SAMPLE_RATE_HZ = 61440000UL;
 static constexpr size_t   TX_BUFFER_SAMPLES = 16384;
 
 struct TxRuntime
 {
     iio_context*      context   = nullptr;
+    iio_device*       phy       = nullptr;
     iio_device*       tx_dev    = nullptr;
     iio_channel*      phy_tx    = nullptr;
     iio_channel*      lo_tx     = nullptr;
@@ -56,6 +58,16 @@ struct TxRuntime
     std::string       error_message;
     std::thread       tx_thread;
 };
+
+static uint32_t compute_sample_rate_hz(int64_t bandwidth_hz)
+{
+    const int64_t preferred_rate_hz = bandwidth_hz * 2;
+    if (preferred_rate_hz < (int64_t)TX_MIN_SAMPLE_RATE_HZ)
+        return TX_MIN_SAMPLE_RATE_HZ;
+    if (preferred_rate_hz > (int64_t)TX_MAX_SAMPLE_RATE_HZ)
+        return TX_MAX_SAMPLE_RATE_HZ;
+    return (uint32_t)preferred_rate_hz;
+}
 
 static int16_t next_noise_sample(uint32_t& state)
 {
@@ -142,6 +154,7 @@ static bool configure_tx(TxRuntime* runtime, uint64_t freq_hz, int64_t bandwidth
         return false;
 
     iio_device* phy = iio_context_find_device(runtime->context, "ad9361-phy");
+    runtime->phy = phy;
     runtime->tx_dev = iio_context_find_device(runtime->context, "cf-ad9361-dds-core-lpc");
     if (!phy || !runtime->tx_dev)
     {
@@ -165,7 +178,7 @@ static bool configure_tx(TxRuntime* runtime, uint64_t freq_hz, int64_t bandwidth
         return false;
     }
 
-    int result = ad9361_set_bb_rate(phy, TX_SAMPLE_RATE_HZ);
+    int result = ad9361_set_bb_rate(phy, compute_sample_rate_hz(bandwidth_hz));
     if (result < 0)
     {
         error = "ad9361_set_bb_rate() failed: " + std::to_string(result);
@@ -398,8 +411,13 @@ void draw_ui_content(AppState& state)
         if (bw_changed && state.bw_mhz != state.applied_bw_mhz)
         {
             const int64_t bandwidth_hz = (int64_t)state.bw_mhz * 1000000LL;
-            const int result = iio_channel_attr_write_longlong(state.runtime->phy_tx, "rf_bandwidth", bandwidth_hz);
-            if (result >= 0)
+            const int sample_rate_result = state.runtime->phy ?
+                ad9361_set_bb_rate(state.runtime->phy, compute_sample_rate_hz(bandwidth_hz)) :
+                -EINVAL;
+            const int bandwidth_result = sample_rate_result >= 0 ?
+                iio_channel_attr_write_longlong(state.runtime->phy_tx, "rf_bandwidth", bandwidth_hz) :
+                sample_rate_result;
+            if (bandwidth_result >= 0)
             {
                 state.applied_bw_mhz = state.bw_mhz;
                 state.status_msg = "Transmitting";
@@ -408,7 +426,7 @@ void draw_ui_content(AppState& state)
             else
             {
                 state.bw_mhz = state.applied_bw_mhz;
-                state.status_msg = "Failed to set bandwidth: " + std::to_string(result);
+                state.status_msg = "Failed to set bandwidth: " + std::to_string(bandwidth_result);
                 state.status_error = true;
             }
         }
