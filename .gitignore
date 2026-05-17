@@ -1,4 +1,6 @@
 /build*/
+/data/capture_converted.bmp
 node_modules/
+__pycache__/
 package.json
 package-lock.json
