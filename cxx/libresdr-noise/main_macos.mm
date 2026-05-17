@@ -128,6 +128,23 @@
 
 @end
 
+static void setup_app_menu()
+{
+    NSMenu* menubar = [[NSMenu alloc] init];
+    NSMenuItem* app_menu_item = [[NSMenuItem alloc] init];
+    [menubar addItem:app_menu_item];
+    [NSApp setMainMenu:menubar];
+
+    NSMenu* app_menu = [[NSMenu alloc] init];
+    NSString* app_name = [[NSProcessInfo processInfo] processName];
+    NSString* quit_title = [@"Quit " stringByAppendingString:app_name];
+    NSMenuItem* quit_item = [[NSMenuItem alloc] initWithTitle:quit_title
+                                                       action:@selector(terminate:)
+                                                keyEquivalent:@"q"];
+    [app_menu addItem:quit_item];
+    [app_menu_item setSubmenu:app_menu];
+}
+
 int main(int argc, char* argv[])
 {
     (void)argc;
@@ -137,6 +154,7 @@ int main(int argc, char* argv[])
     {
         NSApplication* app = [NSApplication sharedApplication];
         [app setActivationPolicy:NSApplicationActivationPolicyRegular];
+        setup_app_menu();
         AppDelegate* delegate = [[AppDelegate alloc] init];
         app.delegate = delegate;
         [app run];
