@@ -34,7 +34,8 @@
 #define MAX_FREQUENCY_HZ 6000000000ULL
 #define MIN_BANDWIDTH_HZ 1000000LL
 #define MAX_BANDWIDTH_HZ 100000000LL
-#define TX_SAMPLE_RATE_HZ 20000000UL
+#define TX_MIN_SAMPLE_RATE_HZ 20000000UL
+#define TX_MAX_SAMPLE_RATE_HZ 61440000UL
 #define TX_BUFFER_SAMPLES 16384
 
 static volatile sig_atomic_t g_running = 1;
@@ -57,6 +58,16 @@ static int16_t next_noise_sample(void)
     g_noise_rng_state ^= g_noise_rng_state >> 17;
     g_noise_rng_state ^= g_noise_rng_state << 5;
     return (int16_t)g_noise_rng_state;
+}
+
+static uint32_t compute_sample_rate_hz(int64_t bandwidth_hz)
+{
+    const int64_t preferred_rate_hz = bandwidth_hz * 2;
+    if (preferred_rate_hz < (int64_t)TX_MIN_SAMPLE_RATE_HZ)
+        return TX_MIN_SAMPLE_RATE_HZ;
+    if (preferred_rate_hz > (int64_t)TX_MAX_SAMPLE_RATE_HZ)
+        return TX_MAX_SAMPLE_RATE_HZ;
+    return (uint32_t)preferred_rate_hz;
 }
 
 static void print_usage(const char* program)
@@ -221,7 +232,7 @@ static int configure_tx(struct iio_context** context_out,
         return -1;
     }
 
-    result = ad9361_set_bb_rate(phy, TX_SAMPLE_RATE_HZ);
+    result = ad9361_set_bb_rate(phy, compute_sample_rate_hz(bandwidth_hz));
     if (result < 0)
     {
         fprintf(stderr, "Error: ad9361_set_bb_rate() failed: %d\n", result);
