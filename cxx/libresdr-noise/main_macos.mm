@@ -143,6 +143,11 @@ static void setup_app_menu()
                                                 keyEquivalent:@"q"];
     [app_menu addItem:quit_item];
     [app_menu_item setSubmenu:app_menu];
+
+    [quit_item release];
+    [app_menu release];
+    [app_menu_item release];
+    [menubar release];
 }
 
 int main(int argc, char* argv[])
