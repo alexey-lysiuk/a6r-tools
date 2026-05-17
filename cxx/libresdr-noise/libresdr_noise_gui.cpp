@@ -411,17 +411,17 @@ void draw_ui_content(AppState& state)
         if (bw_changed && state.bw_mhz != state.applied_bw_mhz)
         {
             const int64_t bandwidth_hz = (int64_t)state.bw_mhz * 1000000LL;
-            constexpr int INVALID_RESULT = -EINVAL;
-            int bandwidth_result = INVALID_RESULT;
+            int sample_rate_result = -EINVAL;
+            int bandwidth_result = 0;
             if (state.runtime->phy)
             {
-                bandwidth_result = ad9361_set_bb_rate(state.runtime->phy, compute_sample_rate_hz(bandwidth_hz));
-                if (bandwidth_result >= 0)
+                sample_rate_result = ad9361_set_bb_rate(state.runtime->phy, compute_sample_rate_hz(bandwidth_hz));
+                if (sample_rate_result >= 0)
                 {
                     bandwidth_result = iio_channel_attr_write_longlong(state.runtime->phy_tx, "rf_bandwidth", bandwidth_hz);
                 }
             }
-            if (bandwidth_result >= 0)
+            if (sample_rate_result >= 0 && bandwidth_result >= 0)
             {
                 state.applied_bw_mhz = state.bw_mhz;
                 state.status_msg = "Transmitting";
@@ -430,7 +430,10 @@ void draw_ui_content(AppState& state)
             else
             {
                 state.bw_mhz = state.applied_bw_mhz;
-                state.status_msg = "Failed to set bandwidth: " + std::to_string(bandwidth_result);
+                if (sample_rate_result < 0)
+                    state.status_msg = "Failed to set sample rate: " + std::to_string(sample_rate_result);
+                else
+                    state.status_msg = "Failed to set bandwidth: " + std::to_string(bandwidth_result);
                 state.status_error = true;
             }
         }
