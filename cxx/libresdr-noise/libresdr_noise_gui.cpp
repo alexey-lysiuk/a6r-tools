@@ -411,8 +411,8 @@ void draw_ui_content(AppState& state)
         if (bw_changed && state.bw_mhz != state.applied_bw_mhz)
         {
             const int64_t bandwidth_hz = (int64_t)state.bw_mhz * 1000000LL;
-            constexpr int error_sentinel = -EINVAL;
-            int bandwidth_result = error_sentinel;
+            constexpr int INVALID_RESULT = -EINVAL;
+            int bandwidth_result = INVALID_RESULT;
             if (state.runtime->phy)
             {
                 bandwidth_result = ad9361_set_bb_rate(state.runtime->phy, compute_sample_rate_hz(bandwidth_hz));
