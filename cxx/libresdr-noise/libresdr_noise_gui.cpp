@@ -411,12 +411,15 @@ void draw_ui_content(AppState& state)
         if (bw_changed && state.bw_mhz != state.applied_bw_mhz)
         {
             const int64_t bandwidth_hz = (int64_t)state.bw_mhz * 1000000LL;
-            const int sample_rate_result = state.runtime->phy ?
-                ad9361_set_bb_rate(state.runtime->phy, compute_sample_rate_hz(bandwidth_hz)) :
-                -EINVAL;
-            const int bandwidth_result = sample_rate_result >= 0 ?
-                iio_channel_attr_write_longlong(state.runtime->phy_tx, "rf_bandwidth", bandwidth_hz) :
-                sample_rate_result;
+            int bandwidth_result = -EINVAL;
+            if (state.runtime->phy)
+            {
+                const int sample_rate_result = ad9361_set_bb_rate(state.runtime->phy, compute_sample_rate_hz(bandwidth_hz));
+                if (sample_rate_result >= 0)
+                    bandwidth_result = iio_channel_attr_write_longlong(state.runtime->phy_tx, "rf_bandwidth", bandwidth_hz);
+                else
+                    bandwidth_result = sample_rate_result;
+            }
             if (bandwidth_result >= 0)
             {
                 state.applied_bw_mhz = state.bw_mhz;
