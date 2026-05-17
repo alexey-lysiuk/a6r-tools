@@ -136,9 +136,7 @@ static void setup_app_menu()
     [NSApp setMainMenu:menubar];
 
     NSMenu* app_menu = [[NSMenu alloc] init];
-    NSString* app_name = [[NSProcessInfo processInfo] processName];
-    NSString* quit_title = [@"Quit " stringByAppendingString:app_name];
-    NSMenuItem* quit_item = [[NSMenuItem alloc] initWithTitle:quit_title
+    NSMenuItem* quit_item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"Quit %@", [[NSProcessInfo processInfo] processName]]
                                                        action:@selector(terminate:)
                                                 keyEquivalent:@"q"];
     [app_menu addItem:quit_item];
