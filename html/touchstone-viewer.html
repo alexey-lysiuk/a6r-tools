@@ -461,8 +461,8 @@
             swrRef:      'ts-swr-ref',
         };
 
-        /* ── Restore persisted settings ─────────────────────────────────────── */
-        (function restoreSettings() {
+        /* ── Initialize settings (restore from localStorage + apply system defaults) ── */
+        (function initializeSettings() {
             const savedTheme = localStorage.getItem(LS.theme);
             const sysLight   = window.matchMedia('(prefers-color-scheme: light)').matches;
             if (savedTheme === 'light' || (savedTheme === null && sysLight)) {
@@ -698,7 +698,7 @@
             hoveredSmith = null;
             draw();
             const controller = new AbortController();
-            const timeoutId  = setTimeout(() => controller.abort(), 30000);
+            const timeoutId  = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
             try {
                 const response = await fetch(url, { signal: controller.signal });
                 clearTimeout(timeoutId);
@@ -773,6 +773,8 @@
                 if (!line) continue;
 
                 if (line.startsWith('#')) {
+                    /* Compare upper-cased tokens; 'KHZ' matches both 'KHz' and 'kHz' in
+                       practice since the Touchstone spec allows case-insensitive options. */
                     const parts = line.slice(1).trim().toUpperCase().split(/\s+/);
                     for (const p of parts) {
                         if      (p === 'HZ' )  freqUnit   = 1;
@@ -843,15 +845,24 @@
         }
 
         function swrOf(c) {
-            const rho = Math.min(Math.hypot(c.re, c.im), 0.9999);
+            const rho = Math.min(Math.hypot(c.re, c.im), MAX_REFLECTION_COEFF);
             return (1 + rho) / (1 - rho);
         }
 
-        /* ── Layout constants (pixels) ──────────────────────────────────────── */
+        /* ── Layout and interaction constants ──────────────────────────────── */
         const PAD_LEFT   = 70;
         const PAD_RIGHT  = 20;
         const PAD_TOP    = 36;
         const PAD_BOTTOM = 52;
+
+        /** Caps |Γ| to prevent division by zero in SWR calculation (SWR = (1+ρ)/(1-ρ)). */
+        const MAX_REFLECTION_COEFF = 0.9999;
+
+        /** Pixel radius within which a Smith chart data point is considered hovered. */
+        const SMITH_HOVER_THRESHOLD_PX = 40;
+
+        /** Timeout in ms for URL fetch requests. */
+        const URL_FETCH_TIMEOUT_MS = 30000;
 
         /* ── Main draw dispatcher ───────────────────────────────────────────── */
         function draw() {
@@ -1403,7 +1414,7 @@
                 }
             }
 
-            if (bestIdx < 0 || bestDist > 40) {
+            if (bestIdx < 0 || bestDist > SMITH_HOVER_THRESHOLD_PX) {
                 tooltip.style.display = 'none';
                 hoveredSmith = null;
                 drawSmithOverlay(null);
@@ -1416,7 +1427,7 @@
             const c   = fileData[bestParam.toLowerCase()][bestIdx];
             const mag = Math.hypot(c.re, c.im);
             const ang = Math.atan2(c.im, c.re) * 180 / Math.PI;
-            const rho = Math.min(mag, 0.9999);
+            const rho = Math.min(mag, MAX_REFLECTION_COEFF);
             const swr = (1 + rho) / (1 - rho);
 
             /* Impedance: Z = Z0*(1+Γ)/(1-Γ), Z0=50Ω */
