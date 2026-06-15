@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Touchstone Viewer</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMyIgZmlsbD0iIzFlMWUxZSIvPgogIDxwb2x5bGluZSBmaWxsPSJub25lIiBzdHJva2U9IiNmZmQ3MDAiIHN0cm9rZS13aWR0aD0iMS41IgogICAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgcG9pbnRzPSIxLDI3IDMsMjYgNSwyNCA3LDkgOSwyMyAxMSwyNSAxMywyMCAxNSwxOCAxNywyMiAxOSwyNSAyMSwyNCAyMywxOSAyNSwyMyAyNywyNSAyOSwyNCAzMSwyNiIvPgo8L3N2Zz4=">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* ── Theme variables ────────────────────────────────────────────────── */
+        :root {
+            --body-bg:        #1e1e1e;
+            --text:           #e0e0e0;
+            --heading:        #c0c0c0;
+            --label:          #a0a0a0;
+            --input-bg:       #252525;
+            --input-border:   #404040;
+            --input-text:     #e0e0e0;
+            --btn-bg:         #383838;
+            --btn-text:       #d0d0d0;
+            --btn-hover:      #484848;
+            --error:          #f08080;
+            --wrapper-bg:     #252525;
+            --wrapper-border: #404040;
+            --tooltip-bg:     rgba(20, 20, 20, 0.92);
+            --tooltip-border: #505050;
+            --tooltip-text:   #d0d0d0;
+        }
+
+        body.light {
+            --body-bg:        #f0f2f5;
+            --text:           #303848;
+            --heading:        #1a3a6e;
+            --label:          #404860;
+            --input-bg:       #ffffff;
+            --input-border:   #b0bcc8;
+            --input-text:     #303848;
+            --btn-bg:         #3060a0;
+            --btn-text:       #ffffff;
+            --btn-hover:      #204080;
+            --error:          #c02020;
+            --wrapper-bg:     #ffffff;
+            --wrapper-border: #b0bcc8;
+            --tooltip-bg:     rgba(240, 242, 245, 0.95);
+            --tooltip-border: #8090a8;
+            --tooltip-text:   #303848;
+        }
+
+        body {
+            font-family: sans-serif;
+            background: var(--body-bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            margin: 0 0 16px;
+            color: var(--heading);
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-sep {
+            width: 1px;
+            height: 24px;
+            background: var(--input-border);
+            flex-shrink: 0;
+        }
+
+        #sourceToggleBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #sourceToggleBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        .source-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .source-group.hidden {
+            display: none;
+        }
+
+        input[type="file"] {
+            font-size: 0.85rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        input[type="file"]::-webkit-file-upload-button,
+        input[type="file"]::file-selector-button {
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: none;
+            border-radius: 3px;
+            padding: 4px 10px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+
+        input[type="file"]::-webkit-file-upload-button:hover,
+        input[type="file"]::file-selector-button:hover {
+            background: var(--btn-hover);
+        }
+
+        #urlInput {
+            font-size: 0.85rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            width: 260px;
+            min-width: 80px;
+        }
+
+        #loadUrlBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #loadUrlBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        #message {
+            font-size: 0.85rem;
+            color: var(--error);
+            min-height: 1.2em;
+        }
+
+        /* ── Toolbar right group ────────────────────────────────────────────── */
+        .toolbar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #themeBtn {
+            font-size: 0.82rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #themeBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        /* ── Display mode selector ──────────────────────────────────────────── */
+        .ctrl-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            color: var(--label);
+        }
+
+        .ctrl-item select,
+        .ctrl-item input[type="number"] {
+            font-size: 0.82rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 3px 6px;
+        }
+
+        /* ── Parameter colour pickers ───────────────────────────────────────── */
+        .color-pickers {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .cp-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82rem;
+            color: var(--label);
+        }
+
+        .vis-btn {
+            font-size: 0.8rem;
+            font-weight: bold;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            padding: 2px 6px;
+            cursor: pointer;
+            line-height: 1;
+            min-width: 28px;
+        }
+
+        .vis-btn:hover {
+            background: var(--btn-hover);
+        }
+
+        .cp-item.param-hidden .vis-btn {
+            opacity: 0.45;
+            text-decoration: line-through;
+        }
+
+        .cp-item.param-hidden input[type="color"] {
+            opacity: 0.35;
+        }
+
+        .cp-item.param-na {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .cp-item input[type="color"] {
+            width: 28px;
+            height: 22px;
+            padding: 1px 2px;
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            background: var(--input-bg);
+            cursor: pointer;
+        }
+
+        /* ── Scale controls ─────────────────────────────────────────────────── */
+        .y-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .y-controls.hidden {
+            display: none;
+        }
+
+        .ctrl-item.hidden {
+            display: none;
+        }
+
+        /* ── Chart wrapper ──────────────────────────────────────────────────── */
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            background: var(--wrapper-bg);
+            border: 1px solid var(--wrapper-border);
+            border-radius: 6px;
+            padding: 8px;
+        }
+
+        .chart-wrapper.drag-over {
+            border-color: #ffd700;
+            box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.35);
+        }
+
+        #chart {
+            display: block;
+            width: 100%;
+            cursor: crosshair;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: var(--tooltip-bg);
+            border: 1px solid var(--tooltip-border);
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 0.78rem;
+            color: var(--tooltip-text);
+            pointer-events: none;
+            white-space: nowrap;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Touchstone Viewer</h1>
+
+    <div class="toolbar">
+        <button id="sourceToggleBtn" title="Switch to URL loading">URL</button>
+        <div class="source-group" id="fileGroup">
+            <input type="file" id="fileInput" accept=".s1p,.s2p">
+        </div>
+        <div class="source-group hidden" id="urlGroup">
+            <label for="urlInput">URL:</label>
+            <input type="text" id="urlInput" placeholder="https://…/file.s2p">
+            <button id="loadUrlBtn">Load</button>
+        </div>
+        <span id="message"></span>
+
+        <div class="toolbar-sep"></div>
+
+        <label class="ctrl-item">Display:
+            <select id="displayMode">
+                <option value="logmag">Log Mag</option>
+                <option value="swr">SWR</option>
+                <option value="smith">Smith</option>
+            </select>
+        </label>
+
+        <div class="toolbar-sep"></div>
+
+        <div class="color-pickers" id="colorPickers">
+            <span class="cp-item" id="cpS11">
+                <button class="vis-btn" id="visS11" title="Hide S11">S11</button>
+                <input type="color" id="colorS11" value="#ffcc00" title="S11 color" aria-label="S11 color picker">
+            </span>
+            <span class="cp-item param-na" id="cpS21">
+                <button class="vis-btn" id="visS21" title="Hide S21">S21</button>
+                <input type="color" id="colorS21" value="#44dd44" title="S21 color" aria-label="S21 color picker">
+            </span>
+            <span class="cp-item param-na" id="cpS12">
+                <button class="vis-btn" id="visS12" title="Hide S12">S12</button>
+                <input type="color" id="colorS12" value="#ff44cc" title="S12 color" aria-label="S12 color picker">
+            </span>
+            <span class="cp-item param-na" id="cpS22">
+                <button class="vis-btn" id="visS22" title="Hide S22">S22</button>
+                <input type="color" id="colorS22" value="#ff4444" title="S22 color" aria-label="S22 color picker">
+            </span>
+        </div>
+
+        <div class="toolbar-sep" id="scaleSep"></div>
+
+        <div class="y-controls" id="scaleControls">
+            <label class="ctrl-item">Scale:
+                <select id="scaleSelect" title="Y axis scale per division"></select>
+            </label>
+            <label class="ctrl-item" id="refLevelLabel">Max:
+                <input type="number" id="refLevelInput" placeholder="Auto" step="1"
+                       title="Maximum value at the top of the Y axis" style="width:72px">
+            </label>
+            <label class="ctrl-item hidden" id="minLevelLabel">Min:
+                <input type="number" id="minLevelInput" placeholder="Auto" step="1"
+                       title="Minimum value at the bottom of the Y axis" style="width:72px">
+            </label>
+        </div>
+
+        <div class="toolbar-right">
+            <button id="themeBtn" title="Toggle light/dark theme">&#9728; Light</button>
+        </div>
+    </div>
+
+    <div class="chart-wrapper" id="chartWrapper">
+        <canvas id="chart"></canvas>
+        <canvas id="crosshair" style="position:absolute;top:8px;left:8px;pointer-events:none;"></canvas>
+        <div id="tooltip"></div>
+    </div>
+
+    <script>
+        'use strict';
+
+        /* ── S-parameter definitions ────────────────────────────────────────── */
+        const ALL_PARAMS        = ['S11', 'S21', 'S12', 'S22'];
+        const REFLECTION_PARAMS = new Set(['S11', 'S22']);
+
+        /* ── Default colours (yellow, light-green, magenta, red) ────────────── */
+        const DEFAULT_COLORS = { S11: '#ffcc00', S21: '#44dd44', S12: '#ff44cc', S22: '#ff4444' };
+        const paramColors    = { ...DEFAULT_COLORS };
+        const paramVisible   = { S11: true, S21: true, S12: true, S22: true };
+
+        /* ── Application state ──────────────────────────────────────────────── */
+        let fileData   = null;   // { frequencies, portCount, s11, s21, s12, s22, filename }
+        let currentTheme = 'dark';
+        let displayMode  = 'logmag';
+        let hoveredIdx   = null;   // frequency index closest to cursor (rect charts)
+        let hoveredSmith = null;   // { idx, param } for Smith chart hover
+
+        /* ── Canvas theme palettes ──────────────────────────────────────────── */
+        const THEMES = {
+            dark: {
+                canvasBg:      '#1e1e1e',
+                grid:          'rgba(255,255,255,0.07)',
+                tick:          '#808080',
+                axisLabel:     '#b0b0b0',
+                plotBorder:    '#404040',
+                chartTitle:    '#606060',
+                crosshair:     'rgba(255,255,255,0.45)',
+                legendBg:      'rgba(30,30,30,0.85)',
+                legendText:    '#909090',
+                smithGrid:     'rgba(80,140,200,0.28)',
+                smithGridMaj:  'rgba(80,140,200,0.55)',
+                smithLabel:    'rgba(120,170,230,0.75)',
+                smithBoundary: '#506070',
+            },
+            light: {
+                canvasBg:      '#ffffff',
+                grid:          'rgba(0,0,0,0.07)',
+                tick:          '#607080',
+                axisLabel:     '#404860',
+                plotBorder:    '#8090a8',
+                chartTitle:    '#6080a0',
+                crosshair:     'rgba(0,0,0,0.35)',
+                legendBg:      'rgba(255,255,255,0.85)',
+                legendText:    '#506070',
+                smithGrid:     'rgba(0,80,160,0.18)',
+                smithGridMaj:  'rgba(0,80,160,0.40)',
+                smithLabel:    'rgba(0,80,160,0.65)',
+                smithBoundary: '#8090a8',
+            },
+        };
+
+        /* ── DOM references ─────────────────────────────────────────────────── */
+        const fileInput       = document.getElementById('fileInput');
+        const urlInput        = document.getElementById('urlInput');
+        const loadUrlBtn      = document.getElementById('loadUrlBtn');
+        const sourceToggleBtn = document.getElementById('sourceToggleBtn');
+        const fileGroup       = document.getElementById('fileGroup');
+        const urlGroup        = document.getElementById('urlGroup');
+        const messageEl       = document.getElementById('message');
+        const canvas          = document.getElementById('chart');
+        const crosshairCanvas = document.getElementById('crosshair');
+        const tooltip         = document.getElementById('tooltip');
+        const wrapper         = document.getElementById('chartWrapper');
+        const themeBtn        = document.getElementById('themeBtn');
+        const displayModeEl   = document.getElementById('displayMode');
+        const scaleControls   = document.getElementById('scaleControls');
+        const scaleSep        = document.getElementById('scaleSep');
+        const scaleSelect     = document.getElementById('scaleSelect');
+        const refLevelInput   = document.getElementById('refLevelInput');
+        const refLevelLabel   = document.getElementById('refLevelLabel');
+        const minLevelInput   = document.getElementById('minLevelInput');
+        const minLevelLabel   = document.getElementById('minLevelLabel');
+
+        /* ── Settings persistence keys ──────────────────────────────────────── */
+        const LS = {
+            theme:       'ts-theme',
+            mode:        'ts-mode',
+            colors:      'ts-colors',
+            visible:     'ts-visible',
+            logmagScale: 'ts-logmag-scale',
+            logmagRef:   'ts-logmag-ref',
+            logmagMin:   'ts-logmag-min',
+            swrScale:    'ts-swr-scale',
+            swrRef:      'ts-swr-ref',
+        };
+
+        /* ── Scale options per display mode ─────────────────────────────────── */
+        const SWR_DEFAULT_MAX = 10;
+
+        const SCALE_OPTIONS = {
+            logmag: [
+                { label: 'Auto',      value: 'auto' },
+                { label: '1 dB/div',  value: '1'    },
+                { label: '2 dB/div',  value: '2'    },
+                { label: '5 dB/div',  value: '5'    },
+                { label: '10 dB/div', value: '10'   },
+                { label: '20 dB/div', value: '20'   },
+            ],
+            swr: [
+                { label: '0.5/div', value: '0.5' },
+                { label: '1/div',   value: '1'   },
+                { label: '2/div',   value: '2'   },
+                { label: '5/div',   value: '5'   },
+                { label: '10/div',  value: '10'  },
+            ],
+        };
+
+        /* ── Initialize settings (restore from localStorage + apply system defaults) ── */
+        (function initializeSettings() {
+            const savedTheme = localStorage.getItem(LS.theme);
+            const sysLight   = window.matchMedia('(prefers-color-scheme: light)').matches;
+            if (savedTheme === 'light' || (savedTheme === null && sysLight)) {
+                currentTheme = 'light';
+                document.body.classList.add('light');
+                themeBtn.textContent = '\uD83C\uDF19 Dark';
+            }
+
+            try {
+                const saved = JSON.parse(localStorage.getItem(LS.colors));
+                if (saved && typeof saved === 'object') {
+                    for (const p of ALL_PARAMS) {
+                        if (saved[p]) {
+                            paramColors[p] = saved[p];
+                            const el = document.getElementById('color' + p);
+                            if (el) el.value = saved[p];
+                        }
+                    }
+                }
+            } catch (_) {}
+
+            try {
+                const saved = JSON.parse(localStorage.getItem(LS.visible));
+                if (saved && typeof saved === 'object') {
+                    for (const p of ALL_PARAMS) {
+                        if (typeof saved[p] === 'boolean') paramVisible[p] = saved[p];
+                    }
+                }
+            } catch (_) {}
+
+            for (const p of ALL_PARAMS) updateVisBtn(p);
+
+            const savedMode = localStorage.getItem(LS.mode);
+            if (savedMode && ['logmag', 'swr', 'smith'].includes(savedMode)) {
+                displayMode = savedMode;
+                displayModeEl.value = savedMode;
+            }
+
+            applyDisplayMode();
+        })();
+
+        function applyDisplayMode() {
+            const isSmith = displayMode === 'smith';
+            scaleControls.classList.toggle('hidden', isSmith);
+            scaleSep.classList.toggle('hidden', isSmith);
+
+            if (!isSmith) {
+                /* Rebuild scale dropdown for the current mode */
+                const opts         = SCALE_OPTIONS[displayMode];
+                const lsScale      = displayMode === 'logmag' ? LS.logmagScale : LS.swrScale;
+                const lsRef        = displayMode === 'logmag' ? LS.logmagRef   : LS.swrRef;
+                const defaultScale = displayMode === 'logmag' ? 'auto' : '1';
+                const defaultRef   = displayMode === 'logmag' ? ''     : String(SWR_DEFAULT_MAX);
+                const savedScale   = localStorage.getItem(lsScale) ?? defaultScale;
+                const savedRef     = localStorage.getItem(lsRef)   ?? defaultRef;
+
+                scaleSelect.innerHTML = '';
+                for (const o of opts) {
+                    const opt = document.createElement('option');
+                    opt.value = o.value;
+                    opt.textContent = o.label;
+                    if (o.value === savedScale) opt.selected = true;
+                    scaleSelect.appendChild(opt);
+                }
+
+                refLevelLabel.firstChild.textContent =
+                    displayMode === 'logmag' ? 'Max:' : 'Max SWR:';
+                refLevelInput.value       = savedRef;
+                refLevelInput.placeholder = displayMode === 'logmag'
+                    ? 'Auto' : String(SWR_DEFAULT_MAX);
+
+                /* Min level — only for LogMag */
+                const showMin = displayMode === 'logmag';
+                minLevelLabel.classList.toggle('hidden', !showMin);
+                if (showMin) {
+                    minLevelInput.value = localStorage.getItem(LS.logmagMin) ?? '';
+                }
+            }
+
+            /* Grey-out S21/S12 for SWR/Smith where they don't apply */
+            for (const p of ALL_PARAMS) {
+                const el = document.getElementById('cp' + p);
+                if (!el) continue;
+                const na = !isSmith && displayMode === 'logmag'
+                    ? false
+                    : !REFLECTION_PARAMS.has(p);
+                el.classList.toggle('param-na', na);
+            }
+
+            if (fileData) draw();
+        }
+
+        /* ── Theme toggle ───────────────────────────────────────────────────── */
+        themeBtn.addEventListener('click', () => {
+            if (currentTheme === 'dark') {
+                currentTheme = 'light';
+                document.body.classList.add('light');
+                themeBtn.textContent = '\uD83C\uDF19 Dark';
+            } else {
+                currentTheme = 'dark';
+                document.body.classList.remove('light');
+                themeBtn.textContent = '\u2600 Light';
+            }
+            localStorage.setItem(LS.theme, currentTheme);
+            if (fileData) draw();
+        });
+
+        /* ── Display mode change ────────────────────────────────────────────── */
+        displayModeEl.addEventListener('change', () => {
+            displayMode = displayModeEl.value;
+            localStorage.setItem(LS.mode, displayMode);
+            applyDisplayMode();
+        });
+
+        /* ── Scale/ref controls ─────────────────────────────────────────────── */
+        scaleSelect.addEventListener('change', () => {
+            const lsKey = displayMode === 'logmag' ? LS.logmagScale : LS.swrScale;
+            localStorage.setItem(lsKey, scaleSelect.value);
+            if (fileData) draw();
+        });
+
+        refLevelInput.addEventListener('input', () => {
+            const lsKey = displayMode === 'logmag' ? LS.logmagRef : LS.swrRef;
+            localStorage.setItem(lsKey, refLevelInput.value);
+            if (fileData) draw();
+        });
+
+        minLevelInput.addEventListener('input', () => {
+            localStorage.setItem(LS.logmagMin, minLevelInput.value);
+            if (fileData) draw();
+        });
+
+        /* ── Colour picker sync ─────────────────────────────────────────────── */
+        for (const p of ALL_PARAMS) {
+            const picker = document.getElementById('color' + p);
+            picker.addEventListener('input', () => {
+                paramColors[p] = picker.value;
+                localStorage.setItem(LS.colors, JSON.stringify(paramColors));
+                if (fileData) draw();
+            });
+        }
+
+        /* ── Parameter visibility toggle ────────────────────────────────────── */
+        for (const p of ALL_PARAMS) {
+            document.getElementById('vis' + p).addEventListener('click', () => {
+                paramVisible[p] = !paramVisible[p];
+                updateVisBtn(p);
+                localStorage.setItem(LS.visible, JSON.stringify(paramVisible));
+                if (fileData) draw();
+            });
+        }
+
+        /* ── Source toggle (file ↔ URL) ─────────────────────────────────────── */
+        let sourceMode = 'file';
+
+        function switchSourceMode(mode) {
+            sourceMode = mode;
+            if (mode === 'url') {
+                fileGroup.classList.add('hidden');
+                urlGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'File';
+                sourceToggleBtn.title = 'Switch to file loading';
+            } else {
+                urlGroup.classList.add('hidden');
+                fileGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'URL';
+                sourceToggleBtn.title = 'Switch to URL loading';
+            }
+        }
+
+        sourceToggleBtn.addEventListener('click', () => {
+            switchSourceMode(sourceMode === 'file' ? 'url' : 'file');
+            if (sourceMode === 'url') urlInput.focus();
+            showMessage('');
+        });
+
+        /* ── File loading ───────────────────────────────────────────────────── */
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (file) loadFile(file);
+        });
+
+        wrapper.addEventListener('dragover',  (e) => { e.preventDefault(); wrapper.classList.add('drag-over'); });
+        wrapper.addEventListener('dragenter', (e) => { e.preventDefault(); wrapper.classList.add('drag-over'); });
+        wrapper.addEventListener('dragleave', ()  => { wrapper.classList.remove('drag-over'); });
+        wrapper.addEventListener('drop', (e) => {
+            e.preventDefault();
+            wrapper.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            loadFile(file);
+        });
+
+        window.addEventListener('resize', () => { if (fileData) draw(); });
+
+        function loadFile(file) {
+            fileData = null;
+            hoveredIdx = null;
+            hoveredSmith = null;
+            draw();
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsed = parseTouchstone(e.target.result, file.name);
+                    if (parsed.frequencies.length === 0) {
+                        showMessage('No data found in the selected file.');
+                        return;
+                    }
+                    showMessage('');
+                    fileData = { ...parsed, filename: file.name };
+                    updateParamNaState();
+                    draw();
+                } catch (err) {
+                    showMessage('Failed to parse file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        async function loadFromURL(url) {
+            if (!url) return;
+            showMessage('Loading\u2026');
+            fileData = null;
+            hoveredIdx = null;
+            hoveredSmith = null;
+            draw();
+            const controller = new AbortController();
+            const timeoutId  = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    showMessage('Failed to fetch URL: ' + response.status + ' ' + response.statusText);
+                    return;
+                }
+                const text     = await response.text();
+                const urlPath  = url.split('?')[0];
+                const filename = urlPath.split('/').filter(Boolean).pop() || url;
+                try {
+                    const parsed = parseTouchstone(text, filename);
+                    if (parsed.frequencies.length === 0) {
+                        showMessage('No data found in the fetched file.');
+                        return;
+                    }
+                    showMessage('');
+                    fileData = { ...parsed, filename };
+                    updateParamNaState();
+                    draw();
+                } catch (err) {
+                    showMessage('Failed to parse file: ' + err.message);
+                }
+            } catch (err) {
+                clearTimeout(timeoutId);
+                showMessage('Failed to load URL: ' + err.message);
+            }
+        }
+
+        loadUrlBtn.addEventListener('click', () => loadFromURL(urlInput.value.trim()));
+        urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadFromURL(urlInput.value.trim()); });
+
+        function showMessage(text) { messageEl.textContent = text; }
+
+        /* After loading, grey out parameters that don't exist in the file */
+        function updateParamNaState() {
+            if (!fileData) return;
+            for (const p of ALL_PARAMS) {
+                const el = document.getElementById('cp' + p);
+                if (!el) continue;
+                const hasData = fileData[p.toLowerCase()] && fileData[p.toLowerCase()].length > 0;
+                /* For SWR/Smith, additionally grey out S21/S12 */
+                const modeNa = (displayMode === 'swr' || displayMode === 'smith')
+                    && !REFLECTION_PARAMS.has(p);
+                el.classList.toggle('param-na', !hasData || modeNa);
+            }
+        }
+
+        /* ── Touchstone parser ──────────────────────────────────────────────── */
+        /**
+         * Parse a Touchstone v1 file (.s1p or .s2p).
+         *
+         * Options line: # [freq_unit] [param_type] [data_format] R [ref_resistance]
+         *   freq_unit:   Hz | KHz | MHz | GHz  (default GHz)
+         *   data_format: RI | MA | DB          (default MA)
+         *
+         * Returns { frequencies, portCount, s11, s21, s12, s22 }.
+         * Arrays s21, s12, s22 are empty for 1-port files.
+         * Each S-parameter array contains complex { re, im } objects.
+         */
+        function parseTouchstone(text, filename) {
+            const ext = (filename || '').split('.').pop().toLowerCase();
+
+            let freqUnit   = 1e9;   /* GHz */
+            let dataFormat = 'MA';
+
+            const tokens = [];
+
+            for (const rawLine of text.split('\n')) {
+                /* Strip inline comments (everything after !) */
+                const line = rawLine.split('!')[0].trim();
+                if (!line) continue;
+
+                if (line.startsWith('#')) {
+                    /* Compare upper-cased tokens; 'KHZ' matches both 'KHz' and 'kHz' in
+                       practice since the Touchstone spec allows case-insensitive options. */
+                    const parts = line.slice(1).trim().toUpperCase().split(/\s+/);
+                    for (const p of parts) {
+                        if      (p === 'HZ' )  freqUnit   = 1;
+                        else if (p === 'KHZ')  freqUnit   = 1e3;
+                        else if (p === 'MHZ')  freqUnit   = 1e6;
+                        else if (p === 'GHZ')  freqUnit   = 1e9;
+                        else if (p === 'RI' || p === 'MA' || p === 'DB') dataFormat = p;
+                    }
+                    continue;
+                }
+
+                /* Skip Touchstone v2 keyword lines */
+                if (line.startsWith('[')) continue;
+
+                const nums = line.split(/[\s,]+/).map(Number).filter(v => isFinite(v));
+                tokens.push(...nums);
+            }
+
+            /* Determine port count: try to infer from extension, then from token count */
+            let portCount = ext === 's2p' ? 2 : 1;
+            const tokPer1 = 3, tokPer2 = 9;
+            if (portCount === 1 && tokens.length % tokPer1 !== 0 && tokens.length % tokPer2 === 0) {
+                portCount = 2;
+            }
+            if (portCount === 2 && tokens.length % tokPer2 !== 0 && tokens.length % tokPer1 === 0) {
+                portCount = 1;
+            }
+
+            const step = portCount === 2 ? tokPer2 : tokPer1;
+            const frequencies = [];
+            const s11 = [], s21 = [], s12 = [], s22 = [];
+
+            for (let i = 0; i + step <= tokens.length; i += step) {
+                frequencies.push(tokens[i] * freqUnit);
+                const pairs = [];
+                for (let j = i + 1; j < i + step; j += 2) {
+                    pairs.push(toComplex(tokens[j], tokens[j + 1], dataFormat));
+                }
+                s11.push(pairs[0]);
+                if (portCount === 2) {
+                    s21.push(pairs[1]);
+                    s12.push(pairs[2]);
+                    s22.push(pairs[3]);
+                }
+            }
+
+            return { frequencies, portCount, s11, s21, s12, s22 };
+        }
+
+        /** Convert a pair of raw Touchstone values to a complex number { re, im }. */
+        function toComplex(a, b, format) {
+            if (format === 'RI') {
+                return { re: a, im: b };
+            } else if (format === 'MA') {
+                const ang = b * Math.PI / 180;
+                return { re: a * Math.cos(ang), im: a * Math.sin(ang) };
+            } else {   /* DB */
+                const mag = Math.pow(10, a / 20);
+                const ang = b * Math.PI / 180;
+                return { re: mag * Math.cos(ang), im: mag * Math.sin(ang) };
+            }
+        }
+
+        /* ── Y-value helpers ────────────────────────────────────────────────── */
+        function logMagOf(c) {
+            const rho = Math.hypot(c.re, c.im);
+            return rho > 0 ? 20 * Math.log10(rho) : -200;
+        }
+
+        function swrOf(c) {
+            const rho = Math.min(Math.hypot(c.re, c.im), MAX_REFLECTION_COEFF);
+            return (1 + rho) / (1 - rho);
+        }
+
+        /* ── Layout and interaction constants ──────────────────────────────── */
+        const PAD_LEFT   = 70;
+        const PAD_RIGHT  = 20;
+        const PAD_TOP    = 36;
+        const PAD_BOTTOM = 52;
+
+        /** Caps |Γ| to prevent division by zero in SWR calculation (SWR = (1+ρ)/(1-ρ)). */
+        const MAX_REFLECTION_COEFF = 0.9999;
+
+        /** Pixel radius within which a Smith chart data point is considered hovered. */
+        const SMITH_HOVER_THRESHOLD_PX = 40;
+
+        /** Timeout in ms for URL fetch requests. */
+        const URL_FETCH_TIMEOUT_MS = 30000;
+
+        /* ── Main draw dispatcher ───────────────────────────────────────────── */
+        function draw() {
+            if (displayMode === 'smith') {
+                drawSmith();
+            } else {
+                drawRectChart();
+            }
+        }
+
+        /* ── Rectangular chart (LogMag + SWR) ───────────────────────────────── */
+        function drawRectChart() {
+            const th  = THEMES[currentTheme];
+            const dpr = window.devicePixelRatio || 1;
+
+            const cssW = wrapper.clientWidth - 16;
+            const cssH = Math.max(320, Math.round(cssW / 2.6));
+            canvas.style.width  = cssW + 'px';
+            canvas.style.height = cssH + 'px';
+            canvas.width  = Math.round(cssW * dpr);
+            canvas.height = Math.round(cssH * dpr);
+
+            crosshairCanvas.style.width  = cssW + 'px';
+            crosshairCanvas.style.height = cssH + 'px';
+            crosshairCanvas.width  = Math.round(cssW * dpr);
+            crosshairCanvas.height = Math.round(cssH * dpr);
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, cssW, cssH);
+            ctx.fillStyle = th.canvasBg;
+            ctx.fillRect(0, 0, cssW, cssH);
+
+            if (!fileData) { drawRectOverlay(null); return; }
+
+            const { frequencies, filename } = fileData;
+            const n = frequencies.length;
+            const plotW = cssW - PAD_LEFT - PAD_RIGHT;
+            const plotH = cssH - PAD_TOP  - PAD_BOTTOM;
+
+            /* ── Build visible traces ── */
+            const traces = {};
+            for (const p of ALL_PARAMS) {
+                if (!paramVisible[p]) continue;
+                const raw = fileData[p.toLowerCase()];
+                if (!raw || raw.length === 0) continue;
+                if ((displayMode === 'swr') && !REFLECTION_PARAMS.has(p)) continue;
+                traces[p] = displayMode === 'swr'
+                    ? raw.map(c => swrOf(c))
+                    : raw.map(c => logMagOf(c));
+            }
+
+            if (Object.keys(traces).length === 0) {
+                drawRectOverlay(null);
+                return;
+            }
+
+            /* ── Y-axis range ── */
+            const allVals = Object.values(traces).flat();
+            const rawMin  = Math.min(...allVals);
+            const rawMax  = Math.max(...allVals);
+
+            const scaleVal    = scaleSelect.value;
+            const refLevelVal = refLevelInput.value;
+            const manualScale = scaleVal !== 'auto' ? Number(scaleVal) : null;
+            const manualRef   = refLevelVal !== '' ? Number(refLevelVal) : null;
+
+            let step, yMax, yMin;
+
+            if (displayMode === 'swr') {
+                step = manualScale !== null ? manualScale : 1;
+                step = Math.max(step, 0.01);
+                yMax = manualRef !== null ? manualRef : SWR_DEFAULT_MAX;
+                yMin = 1;
+            } else {
+                const minLevelVal = minLevelInput.value;
+                const manualMin   = minLevelVal !== '' ? Number(minLevelVal) : null;
+                step = manualScale !== null ? manualScale : niceStep(rawMax - rawMin, 8);
+                yMax = manualRef !== null ? manualRef
+                                         : Math.ceil(rawMax / step) * step;
+                yMin = manualMin !== null ? manualMin : yMax - step * 10;
+            }
+
+            const xScale = (f) => PAD_LEFT  + (f - frequencies[0]) / (frequencies[n - 1] - frequencies[0]) * plotW;
+            const yScale = (v) => PAD_TOP   + (yMax - v) / (yMax - yMin) * plotH;
+
+            /* ── Grid + Y-axis ticks ── */
+            ctx.font         = '11px sans-serif';
+            ctx.textAlign    = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.lineWidth    = 1;
+
+            const yUnit  = displayMode === 'swr' ? '' : ' dB';
+            const yTickStart = displayMode === 'swr' ? Math.ceil(yMin / step) * step : yMin;
+
+            for (let v = yTickStart; v <= yMax + 1e-9; v += step) {
+                const y = Math.round(yScale(v)) + 0.5;
+                ctx.strokeStyle = th.grid;
+                ctx.beginPath();
+                ctx.moveTo(PAD_LEFT, y);
+                ctx.lineTo(PAD_LEFT + plotW, y);
+                ctx.stroke();
+                ctx.fillStyle = th.tick;
+                const label = step >= 1 ? v.toFixed(0) : v.toPrecision(2);
+                ctx.fillText(label + yUnit, PAD_LEFT - 6, y);
+            }
+
+            /* ── Grid + X-axis ticks ── */
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'top';
+            const xTicks = niceFreqTicks(frequencies[0], frequencies[n - 1], 10);
+            let lastTickRight = -Infinity;
+            for (const f of xTicks) {
+                const x = Math.round(xScale(f)) + 0.5;
+                ctx.strokeStyle = th.grid;
+                ctx.lineWidth   = 1;
+                ctx.beginPath();
+                ctx.moveTo(x, PAD_TOP);
+                ctx.lineTo(x, PAD_TOP + plotH);
+                ctx.stroke();
+                const label    = formatFreq(f);
+                const halfW    = ctx.measureText(label).width / 2;
+                if (x - halfW >= lastTickRight) {
+                    ctx.fillStyle = th.tick;
+                    ctx.fillText(label, x, PAD_TOP + plotH + 6);
+                    lastTickRight = x + halfW;
+                }
+            }
+
+            /* ── Plot border ── */
+            ctx.strokeStyle = th.plotBorder;
+            ctx.lineWidth   = 1;
+            ctx.strokeRect(PAD_LEFT + 0.5, PAD_TOP + 0.5, plotW, plotH);
+
+            /* ── Clip region ── */
+            ctx.save();
+            ctx.rect(PAD_LEFT, PAD_TOP, plotW, plotH);
+            ctx.clip();
+
+            /* ── Traces ── */
+            const xPx = frequencies.map(f => xScale(f));
+            for (const p of ALL_PARAMS) {
+                if (!traces[p]) continue;
+                const yPx = traces[p].map(v => yScale(v));
+                ctx.strokeStyle = paramColors[p];
+                ctx.lineWidth   = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(xPx[0], yPx[0]);
+                for (let i = 1; i < n; i++) ctx.lineTo(xPx[i], yPx[i]);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+
+            /* ── Axis labels ── */
+            ctx.fillStyle    = th.axisLabel;
+            ctx.font         = '12px sans-serif';
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('Frequency', PAD_LEFT + plotW / 2, cssH - 2);
+
+            ctx.save();
+            ctx.translate(14, PAD_TOP + plotH / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textBaseline = 'top';
+            ctx.fillText(displayMode === 'swr' ? 'SWR' : 'Magnitude (dB)', 0, 0);
+            ctx.restore();
+
+            /* ── File name ── */
+            ctx.fillStyle    = th.chartTitle;
+            ctx.font         = '11px sans-serif';
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(filename, PAD_LEFT + plotW / 2, 6);
+
+            /* ── Info legend ── */
+            const legendLines = [];
+            for (const p of ALL_PARAMS) {
+                if (!traces[p]) continue;
+                const vals = traces[p];
+                const mn   = Math.min(...vals);
+                const mx   = Math.max(...vals);
+                const unit = displayMode === 'swr' ? '' : ' dB';
+                legendLines.push({
+                    color: paramColors[p],
+                    text: p + ':  min ' + mn.toFixed(2) + unit
+                        + '   max ' + mx.toFixed(2) + unit,
+                });
+            }
+            if (legendLines.length > 0) {
+                const fSize  = 10;
+                const lineH  = fSize + 4;
+                const pad    = 6;
+                ctx.font     = fSize + 'px monospace';
+                const maxW   = Math.max(...legendLines.map(l => ctx.measureText(l.text).width));
+                const boxW   = maxW + pad * 2;
+                const boxH   = legendLines.length * lineH + pad * 2;
+                const bx     = PAD_LEFT + plotW - boxW - 8;
+                const by     = PAD_TOP + 8;
+
+                ctx.fillStyle = th.legendBg;
+                ctx.fillRect(bx, by, boxW, boxH);
+                ctx.strokeStyle = th.plotBorder;
+                ctx.lineWidth   = 1;
+                ctx.strokeRect(bx + 0.5, by + 0.5, boxW, boxH);
+
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'top';
+                for (let i = 0; i < legendLines.length; i++) {
+                    ctx.fillStyle = legendLines[i].color;
+                    ctx.fillText(legendLines[i].text, bx + pad, by + pad + i * lineH);
+                }
+            }
+
+            /* ── Store layout for hover ── */
+            canvas._layout = { xPx, xScale, yScale, plotW, plotH, yMin, yMax, traces };
+
+            drawRectOverlay(hoveredIdx);
+        }
+
+        /* ── Smith chart ────────────────────────────────────────────────────── */
+        function drawSmith() {
+            const th  = THEMES[currentTheme];
+            const dpr = window.devicePixelRatio || 1;
+
+            const cssW = wrapper.clientWidth - 16;
+            const cssH = Math.min(cssW, Math.max(360, Math.round(cssW * 0.72)));
+            canvas.style.width  = cssW + 'px';
+            canvas.style.height = cssH + 'px';
+            canvas.width  = Math.round(cssW * dpr);
+            canvas.height = Math.round(cssH * dpr);
+
+            crosshairCanvas.style.width  = cssW + 'px';
+            crosshairCanvas.style.height = cssH + 'px';
+            crosshairCanvas.width  = Math.round(cssW * dpr);
+            crosshairCanvas.height = Math.round(cssH * dpr);
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, cssW, cssH);
+            ctx.fillStyle = th.canvasBg;
+            ctx.fillRect(0, 0, cssW, cssH);
+
+            if (!fileData) { drawSmithOverlay(null); return; }
+
+            /* Chart geometry */
+            const labelPad = 34;   /* space around circle for axis labels */
+            const R = Math.max(80, (Math.min(cssW, cssH) / 2) - labelPad);
+            const cx = cssW / 2;
+            const cy = cssH / 2;
+
+            /* Draw grid */
+            drawSmithGrid(ctx, cx, cy, R, th);
+
+            /* ── Clip to unit circle for traces ── */
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+            ctx.clip();
+
+            for (const p of ['S11', 'S22']) {
+                if (!paramVisible[p]) continue;
+                const raw = fileData[p.toLowerCase()];
+                if (!raw || raw.length === 0) continue;
+
+                ctx.strokeStyle = paramColors[p];
+                ctx.lineWidth   = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(cx + raw[0].re * R, cy - raw[0].im * R);
+                for (let i = 1; i < raw.length; i++) {
+                    ctx.lineTo(cx + raw[i].re * R, cy - raw[i].im * R);
+                }
+                ctx.stroke();
+
+                /* Start dot */
+                ctx.fillStyle = paramColors[p];
+                ctx.beginPath();
+                ctx.arc(cx + raw[0].re * R, cy - raw[0].im * R, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            ctx.restore();
+
+            /* ── File name ── */
+            ctx.fillStyle    = th.chartTitle;
+            ctx.font         = '11px sans-serif';
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(fileData.filename, cx, 6);
+
+            /* ── Legend ── */
+            const lParams = ['S11', 'S22'].filter(p =>
+                paramVisible[p] && fileData[p.toLowerCase()] && fileData[p.toLowerCase()].length > 0
+            );
+            if (lParams.length > 0) {
+                const fSize = 10, lineH = fSize + 4, pad = 6;
+                ctx.font = fSize + 'px monospace';
+                const maxW = Math.max(...lParams.map(p => ctx.measureText(p).width));
+                const boxW = maxW + pad * 2;
+                const boxH = lParams.length * lineH + pad * 2;
+                const bx   = cx + R - boxW - 4;
+                const by   = cy - R + 4;
+                ctx.fillStyle   = th.legendBg;
+                ctx.fillRect(bx, by, boxW, boxH);
+                ctx.strokeStyle = th.smithBoundary;
+                ctx.lineWidth   = 1;
+                ctx.strokeRect(bx + 0.5, by + 0.5, boxW, boxH);
+                ctx.textAlign    = 'left';
+                ctx.textBaseline = 'top';
+                for (let i = 0; i < lParams.length; i++) {
+                    ctx.fillStyle = paramColors[lParams[i]];
+                    ctx.fillText(lParams[i], bx + pad, by + pad + i * lineH);
+                }
+            }
+
+            canvas._layout = { cx, cy, R };
+            drawSmithOverlay(hoveredSmith);
+        }
+
+        /* ── Smith chart grid ───────────────────────────────────────────────── */
+        function drawSmithGrid(ctx, cx, cy, R, th) {
+            /* Outer boundary */
+            ctx.strokeStyle = th.smithBoundary;
+            ctx.lineWidth   = 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            /* Clip all grid lines to interior of unit circle */
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, R - 0.5, 0, 2 * Math.PI);
+            ctx.clip();
+
+            /* ── Resistance circles ── */
+            const rVals = [0.2, 0.5, 1, 2, 5, 10, 20];
+            for (const r of rVals) {
+                const rNorm   = r / (1 + r);          /* centre in Γ-plane */
+                const rRadius = 1 / (1 + r);
+                ctx.strokeStyle = (r === 1) ? th.smithGridMaj : th.smithGrid;
+                ctx.lineWidth   = (r === 1) ? 0.9 : 0.7;
+                ctx.beginPath();
+                ctx.arc(cx + rNorm * R, cy, rRadius * R, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+
+            /* ── Real axis ── */
+            ctx.strokeStyle = th.smithGridMaj;
+            ctx.lineWidth   = 0.9;
+            ctx.beginPath();
+            ctx.moveTo(cx - R, cy);
+            ctx.lineTo(cx + R, cy);
+            ctx.stroke();
+
+            /* ── Reactance arcs ── */
+            const xVals = [0.2, 0.5, 1, 2, 5, 10, 20];
+            for (const x of xVals) {
+                for (const sign of [1, -1]) {
+                    const arcR = R / x;
+                    ctx.strokeStyle = (x === 1) ? th.smithGridMaj : th.smithGrid;
+                    ctx.lineWidth   = (x === 1) ? 0.9 : 0.7;
+                    ctx.beginPath();
+                    /* Arc centre at (1, 1/(sign*x)) in Γ-plane → (cx+R, cy - R/(sign*x)) */
+                    ctx.arc(cx + R, cy - (R / (sign * x)), arcR, 0, 2 * Math.PI);
+                    ctx.stroke();
+                }
+            }
+
+            ctx.restore();
+
+            /* ── Resistance labels along real axis ── */
+            ctx.font         = '9px sans-serif';
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle    = th.smithLabel;
+
+            /* r = 0 at far left */
+            ctx.fillText('0', cx - R, cy + 3);
+
+            /* For each r, label at left intersection: Γ_re = (r-1)/(r+1) */
+            const rLabel = [0.2, 0.5, 1, 2, 5];
+            for (const r of rLabel) {
+                const gammaRe = (r - 1) / (r + 1);
+                const lx = cx + gammaRe * R;
+                ctx.fillText(String(r), lx, cy + 3);
+            }
+
+            /* Short circuit / open circuit at boundary */
+            ctx.fillText('S.C.', cx - R, cy - 14);
+            ctx.fillText('O.C.', cx + R - 10, cy - 14);
+
+            /* ── Reactance labels at outer circle ── */
+            ctx.textBaseline = 'middle';
+            const xLabel = [0.5, 1, 2, 5];
+            for (const x of xLabel) {
+                /* Intersection of arc x with unit circle: ((x²-1)/(x²+1), 2x/(x²+1)) */
+                const x2   = x * x;
+                const gRe  = (x2 - 1) / (x2 + 1);
+                const gIm  = 2 * x   / (x2 + 1);
+
+                /* Normalise to slightly outside unit circle for label */
+                const dist = 1.12;
+                for (const sign of [1, -1]) {
+                    const lx = cx + gRe   * R * dist;
+                    const ly = cy - gIm * sign * R * dist;
+                    ctx.textAlign = gRe < 0 ? 'right' : gRe > 0.6 ? 'left' : 'center';
+                    const label = sign > 0
+                        ? (x === 1 ? '+j' : '+j' + x)
+                        : (x === 1 ? '−j' : '−j' + x);
+                    ctx.fillText(label, lx, ly);
+                }
+            }
+
+            /* ── Imaginary axis line (Γ_re = 0) ── */
+            ctx.strokeStyle = th.smithGrid;
+            ctx.lineWidth   = 0.6;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - R);
+            ctx.lineTo(cx, cy + R);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        /* ── Rectangular chart overlay (crosshair) ──────────────────────────── */
+        function drawRectOverlay(idx) {
+            const dpr  = window.devicePixelRatio || 1;
+            const ctx2 = crosshairCanvas.getContext('2d');
+            ctx2.setTransform(1, 0, 0, 1, 0, 0);
+            ctx2.clearRect(0, 0, crosshairCanvas.width, crosshairCanvas.height);
+            if (!canvas._layout || !fileData || idx === null) return;
+
+            ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const { xPx, plotH } = canvas._layout;
+            const th  = THEMES[currentTheme];
+            const x   = Math.round(xPx[idx]) + 0.5;
+
+            ctx2.strokeStyle = th.crosshair;
+            ctx2.lineWidth   = 1;
+            ctx2.setLineDash([4, 3]);
+            ctx2.beginPath();
+            ctx2.moveTo(x, PAD_TOP);
+            ctx2.lineTo(x, PAD_TOP + plotH);
+            ctx2.stroke();
+            ctx2.setLineDash([]);
+        }
+
+        /* ── Smith chart overlay (hover dot) ────────────────────────────────── */
+        function drawSmithOverlay(hovered) {
+            const dpr  = window.devicePixelRatio || 1;
+            const ctx2 = crosshairCanvas.getContext('2d');
+            ctx2.setTransform(1, 0, 0, 1, 0, 0);
+            ctx2.clearRect(0, 0, crosshairCanvas.width, crosshairCanvas.height);
+            if (!canvas._layout || !fileData || !hovered) return;
+
+            ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const { cx, cy, R } = canvas._layout;
+            const { idx, param } = hovered;
+            const raw = fileData[param.toLowerCase()];
+            if (!raw || idx >= raw.length) return;
+
+            const c  = raw[idx];
+            const px = cx + c.re * R;
+            const py = cy - c.im * R;
+
+            ctx2.strokeStyle = '#ffffff';
+            ctx2.fillStyle   = paramColors[param];
+            ctx2.lineWidth   = 1.5;
+            ctx2.beginPath();
+            ctx2.arc(px, py, 5, 0, 2 * Math.PI);
+            ctx2.fill();
+            ctx2.stroke();
+        }
+
+        /* ── Mouse events ───────────────────────────────────────────────────── */
+        canvas.addEventListener('mousemove', (e) => {
+            if (!fileData || !canvas._layout) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx   = e.clientX - rect.left;
+            const my   = e.clientY - rect.top;
+
+            if (displayMode === 'smith') {
+                handleSmithHover(mx, my);
+            } else {
+                handleRectHover(mx, my);
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+            hoveredIdx   = null;
+            hoveredSmith = null;
+            if (displayMode === 'smith') {
+                drawSmithOverlay(null);
+            } else {
+                drawRectOverlay(null);
+            }
+        });
+
+        function handleRectHover(mx, my) {
+            const { xPx, yScale, plotW, plotH, traces } = canvas._layout;
+            const { frequencies } = fileData;
+
+            if (mx < PAD_LEFT || mx > PAD_LEFT + plotW ||
+                my < PAD_TOP  || my > PAD_TOP  + plotH) {
+                tooltip.style.display = 'none';
+                hoveredIdx = null;
+                drawRectOverlay(null);
+                return;
+            }
+
+            /* Find closest frequency index by pixel-x distance */
+            let idx = 0, best = Infinity;
+            for (let i = 0; i < xPx.length; i++) {
+                const d = Math.abs(xPx[i] - mx);
+                if (d < best) { best = d; idx = i; }
+            }
+
+            hoveredIdx = idx;
+            drawRectOverlay(idx);
+
+            /* Build tooltip */
+            let html = '<b>' + formatFreqTooltip(frequencies[idx]) + '</b>';
+            for (const p of ALL_PARAMS) {
+                if (!traces[p]) continue;
+                const val  = traces[p][idx];
+                const unit = displayMode === 'swr' ? '' : ' dB';
+                html += '<br><span style="color:' + paramColors[p] + '">' + p + '</span>: '
+                      + val.toFixed(3) + unit;
+            }
+            showTooltip(html, mx, my);
+        }
+
+        function handleSmithHover(mx, my) {
+            const { cx, cy, R } = canvas._layout;
+            const { frequencies } = fileData;
+
+            /* Find closest point on any visible Smith trace */
+            let bestIdx = -1, bestParam = null, bestDist = Infinity;
+            for (const p of ['S11', 'S22']) {
+                if (!paramVisible[p]) continue;
+                const raw = fileData[p.toLowerCase()];
+                if (!raw || raw.length === 0) continue;
+                for (let i = 0; i < raw.length; i++) {
+                    const px = cx + raw[i].re * R;
+                    const py = cy - raw[i].im * R;
+                    const d  = Math.hypot(px - mx, py - my);
+                    if (d < bestDist) { bestDist = d; bestIdx = i; bestParam = p; }
+                }
+            }
+
+            if (bestIdx < 0 || bestDist > SMITH_HOVER_THRESHOLD_PX) {
+                tooltip.style.display = 'none';
+                hoveredSmith = null;
+                drawSmithOverlay(null);
+                return;
+            }
+
+            hoveredSmith = { idx: bestIdx, param: bestParam };
+            drawSmithOverlay(hoveredSmith);
+
+            const c   = fileData[bestParam.toLowerCase()][bestIdx];
+            const mag = Math.hypot(c.re, c.im);
+            const ang = Math.atan2(c.im, c.re) * 180 / Math.PI;
+            const rho = Math.min(mag, MAX_REFLECTION_COEFF);
+            const swr = (1 + rho) / (1 - rho);
+
+            /* Impedance: Z = Z0*(1+Γ)/(1-Γ), Z0=50Ω */
+            const denom = (1 - c.re) * (1 - c.re) + c.im * c.im;
+            const zRe = 50 * ((1 - c.re * c.re - c.im * c.im) / denom);
+            const zIm = 50 * (2 * c.im / denom);
+            const zSign = zIm >= 0 ? '+' : '−';
+
+            let html = '<b>' + formatFreqTooltip(frequencies[bestIdx]) + '</b>';
+            html += '<br><span style="color:' + paramColors[bestParam] + '">' + bestParam + '</span>';
+            html += '<br>|S|: ' + mag.toFixed(4)
+                 + ' (' + logMagOf(c).toFixed(2) + ' dB)';
+            html += '<br>∠S: ' + ang.toFixed(2) + '°';
+            html += '<br>SWR: ' + swr.toFixed(3);
+            html += '<br>Z: ' + zRe.toFixed(2) + ' ' + zSign + ' j'
+                 + Math.abs(zIm).toFixed(2) + ' Ω';
+            showTooltip(html, mx, my);
+        }
+
+        function showTooltip(html, mx, my) {
+            tooltip.innerHTML = html;
+            tooltip.style.display = 'block';
+            const tw = tooltip.offsetWidth;
+            const th = tooltip.offsetHeight;
+            let tx = mx + 14;
+            let ty = my - th / 2;
+            if (tx + tw > wrapper.clientWidth - 8) tx = mx - tw - 14;
+            if (ty < 4) ty = 4;
+            tooltip.style.left = tx + 'px';
+            tooltip.style.top  = ty + 'px';
+        }
+
+        /* ── Auto-load from ?url= query parameter ─────────────────────────── */
+        (function () {
+            const params   = new URLSearchParams(window.location.search);
+            const urlParam = params.get('url');
+            if (urlParam) {
+                switchSourceMode('url');
+                urlInput.value = urlParam;
+                loadFromURL(urlParam);
+            }
+        })();
+
+        /* ── Utility functions ──────────────────────────────────────────────── */
+
+        function niceStep(range, targetCount) {
+            if (range <= 0) return 1;
+            const raw       = range / targetCount;
+            const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+            const n         = raw / magnitude;
+            let step;
+            if      (n <= 1)  step = 1;
+            else if (n <= 2)  step = 2;
+            else if (n <= 5)  step = 5;
+            else              step = 10;
+            return step * magnitude;
+        }
+
+        function niceFreqTicks(fMin, fMax, maxCount) {
+            const step  = niceStep(fMax - fMin, maxCount);
+            const start = Math.ceil(fMin / step) * step;
+            const ticks = [];
+            for (let f = start; f <= fMax + 1e-9; f += step) ticks.push(f);
+            return ticks;
+        }
+
+        function formatFreq(hz) {
+            if (hz >= 1e9) return (hz / 1e9).toFixed(3).replace(/\.?0+$/, '') + ' GHz';
+            if (hz >= 1e6) return (hz / 1e6).toFixed(3).replace(/\.?0+$/, '') + ' MHz';
+            if (hz >= 1e3) return (hz / 1e3).toFixed(3).replace(/\.?0+$/, '') + ' kHz';
+            return hz.toFixed(0) + ' Hz';
+        }
+
+        function formatFreqTooltip(hz) {
+            if (hz >= 1e9) return (hz / 1e9).toFixed(6) + ' GHz';
+            if (hz >= 1e6) return (hz / 1e6).toFixed(6) + ' MHz';
+            if (hz >= 1e3) return (hz / 1e3).toFixed(6) + ' kHz';
+            return hz.toFixed(6) + ' Hz';
+        }
+
+        function updateVisBtn(p) {
+            const cpItem = document.getElementById('cp' + p);
+            if (!cpItem) return;
+            const btn = document.getElementById('vis' + p);
+            if (paramVisible[p]) {
+                cpItem.classList.remove('param-hidden');
+                btn.title = 'Hide ' + p;
+            } else {
+                cpItem.classList.add('param-hidden');
+                btn.title = 'Show ' + p;
+            }
+        }
+    </script>
+</body>
+</html>
