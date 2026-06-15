@@ -461,6 +461,26 @@
             swrRef:      'ts-swr-ref',
         };
 
+        /* ── Scale options per display mode ─────────────────────────────────── */
+        const SCALE_OPTIONS = {
+            logmag: [
+                { label: 'Auto',      value: 'auto' },
+                { label: '1 dB/div',  value: '1'    },
+                { label: '2 dB/div',  value: '2'    },
+                { label: '5 dB/div',  value: '5'    },
+                { label: '10 dB/div', value: '10'   },
+                { label: '20 dB/div', value: '20'   },
+            ],
+            swr: [
+                { label: 'Auto',    value: 'auto' },
+                { label: '0.5/div', value: '0.5'  },
+                { label: '1/div',   value: '1'    },
+                { label: '2/div',   value: '2'    },
+                { label: '5/div',   value: '5'    },
+                { label: '10/div',  value: '10'   },
+            ],
+        };
+
         /* ── Initialize settings (restore from localStorage + apply system defaults) ── */
         (function initializeSettings() {
             const savedTheme = localStorage.getItem(LS.theme);
@@ -503,26 +523,6 @@
 
             applyDisplayMode();
         })();
-
-        /* ── Scale options per display mode ─────────────────────────────────── */
-        const SCALE_OPTIONS = {
-            logmag: [
-                { label: 'Auto',      value: 'auto' },
-                { label: '1 dB/div',  value: '1'    },
-                { label: '2 dB/div',  value: '2'    },
-                { label: '5 dB/div',  value: '5'    },
-                { label: '10 dB/div', value: '10'   },
-                { label: '20 dB/div', value: '20'   },
-            ],
-            swr: [
-                { label: 'Auto',    value: 'auto' },
-                { label: '0.5/div', value: '0.5'  },
-                { label: '1/div',   value: '1'    },
-                { label: '2/div',   value: '2'    },
-                { label: '5/div',   value: '5'    },
-                { label: '10/div',  value: '10'   },
-            ],
-        };
 
         function applyDisplayMode() {
             const isSmith = displayMode === 'smith';
