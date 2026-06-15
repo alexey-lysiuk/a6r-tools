@@ -272,6 +272,10 @@
             display: none;
         }
 
+        .ctrl-item.hidden {
+            display: none;
+        }
+
         /* ── Chart wrapper ──────────────────────────────────────────────────── */
         .chart-wrapper {
             position: relative;
@@ -359,9 +363,13 @@
             <label class="ctrl-item">Scale:
                 <select id="scaleSelect" title="Y axis scale per division"></select>
             </label>
-            <label class="ctrl-item" id="refLevelLabel">Ref level:
+            <label class="ctrl-item" id="refLevelLabel">Max:
                 <input type="number" id="refLevelInput" placeholder="Auto" step="1"
-                       title="Reference level at the top of the Y axis" style="width:72px">
+                       title="Maximum value at the top of the Y axis" style="width:72px">
+            </label>
+            <label class="ctrl-item hidden" id="minLevelLabel">Min:
+                <input type="number" id="minLevelInput" placeholder="Auto" step="1"
+                       title="Minimum value at the bottom of the Y axis" style="width:72px">
             </label>
         </div>
 
@@ -448,6 +456,8 @@
         const scaleSelect     = document.getElementById('scaleSelect');
         const refLevelInput   = document.getElementById('refLevelInput');
         const refLevelLabel   = document.getElementById('refLevelLabel');
+        const minLevelInput   = document.getElementById('minLevelInput');
+        const minLevelLabel   = document.getElementById('minLevelLabel');
 
         /* ── Settings persistence keys ──────────────────────────────────────── */
         const LS = {
@@ -457,6 +467,7 @@
             visible:     'ts-visible',
             logmagScale: 'ts-logmag-scale',
             logmagRef:   'ts-logmag-ref',
+            logmagMin:   'ts-logmag-min',
             swrScale:    'ts-swr-scale',
             swrRef:      'ts-swr-ref',
         };
@@ -472,12 +483,11 @@
                 { label: '20 dB/div', value: '20'   },
             ],
             swr: [
-                { label: 'Auto',    value: 'auto' },
-                { label: '0.5/div', value: '0.5'  },
-                { label: '1/div',   value: '1'    },
-                { label: '2/div',   value: '2'    },
-                { label: '5/div',   value: '5'    },
-                { label: '10/div',  value: '10'   },
+                { label: '0.5/div', value: '0.5' },
+                { label: '1/div',   value: '1'   },
+                { label: '2/div',   value: '2'   },
+                { label: '5/div',   value: '5'   },
+                { label: '10/div',  value: '10'  },
             ],
         };
 
@@ -531,11 +541,13 @@
 
             if (!isSmith) {
                 /* Rebuild scale dropdown for the current mode */
-                const opts     = SCALE_OPTIONS[displayMode];
-                const lsScale  = displayMode === 'logmag' ? LS.logmagScale : LS.swrScale;
-                const lsRef    = displayMode === 'logmag' ? LS.logmagRef   : LS.swrRef;
-                const savedScale = localStorage.getItem(lsScale) || 'auto';
-                const savedRef   = localStorage.getItem(lsRef)   || '';
+                const opts       = SCALE_OPTIONS[displayMode];
+                const lsScale    = displayMode === 'logmag' ? LS.logmagScale : LS.swrScale;
+                const lsRef      = displayMode === 'logmag' ? LS.logmagRef   : LS.swrRef;
+                const defaultScale = displayMode === 'logmag' ? 'auto' : '1';
+                const defaultRef   = displayMode === 'logmag' ? ''     : '10';
+                const savedScale = localStorage.getItem(lsScale) ?? defaultScale;
+                const savedRef   = localStorage.getItem(lsRef)   ?? defaultRef;
 
                 scaleSelect.innerHTML = '';
                 for (const o of opts) {
@@ -546,10 +558,15 @@
                     scaleSelect.appendChild(opt);
                 }
 
-                refLevelInput.value = savedRef;
-                refLevelLabel.firstChild.textContent =
-                    displayMode === 'logmag' ? 'Ref level:' : 'Max SWR:';
-                refLevelInput.placeholder = displayMode === 'logmag' ? 'Auto' : 'Auto';
+                refLevelInput.value       = savedRef;
+                refLevelInput.placeholder = displayMode === 'logmag' ? 'Auto' : '';
+
+                /* Min level — only for LogMag */
+                const showMin = displayMode === 'logmag';
+                minLevelLabel.classList.toggle('hidden', !showMin);
+                if (showMin) {
+                    minLevelInput.value = localStorage.getItem(LS.logmagMin) ?? '';
+                }
             }
 
             /* Grey-out S21/S12 for SWR/Smith where they don't apply */
@@ -597,6 +614,11 @@
         refLevelInput.addEventListener('input', () => {
             const lsKey = displayMode === 'logmag' ? LS.logmagRef : LS.swrRef;
             localStorage.setItem(lsKey, refLevelInput.value);
+            if (fileData) draw();
+        });
+
+        minLevelInput.addEventListener('input', () => {
+            localStorage.setItem(LS.logmagMin, minLevelInput.value);
             if (fileData) draw();
         });
 
@@ -933,15 +955,17 @@
             let step, yMax, yMin;
 
             if (displayMode === 'swr') {
-                step = manualScale !== null ? manualScale : niceStep(rawMax - 1, 8);
+                step = manualScale !== null ? manualScale : 1;
                 step = Math.max(step, 0.01);
-                yMax = manualRef !== null ? manualRef : Math.ceil(rawMax / step) * step;
+                yMax = manualRef !== null ? manualRef : 10;
                 yMin = 1;
             } else {
+                const minLevelVal = minLevelInput.value;
+                const manualMin   = minLevelVal !== '' ? Number(minLevelVal) : null;
                 step = manualScale !== null ? manualScale : niceStep(rawMax - rawMin, 8);
                 yMax = manualRef !== null ? manualRef
                                          : Math.ceil(rawMax / step) * step;
-                yMin = yMax - step * 10;
+                yMin = manualMin !== null ? manualMin : yMax - step * 10;
             }
 
             const xScale = (f) => PAD_LEFT  + (f - frequencies[0]) / (frequencies[n - 1] - frequencies[0]) * plotW;
