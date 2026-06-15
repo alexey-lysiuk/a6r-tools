@@ -473,6 +473,8 @@
         };
 
         /* ── Scale options per display mode ─────────────────────────────────── */
+        const SWR_DEFAULT_MAX = 10;
+
         const SCALE_OPTIONS = {
             logmag: [
                 { label: 'Auto',      value: 'auto' },
@@ -541,13 +543,13 @@
 
             if (!isSmith) {
                 /* Rebuild scale dropdown for the current mode */
-                const opts       = SCALE_OPTIONS[displayMode];
-                const lsScale    = displayMode === 'logmag' ? LS.logmagScale : LS.swrScale;
-                const lsRef      = displayMode === 'logmag' ? LS.logmagRef   : LS.swrRef;
+                const opts         = SCALE_OPTIONS[displayMode];
+                const lsScale      = displayMode === 'logmag' ? LS.logmagScale : LS.swrScale;
+                const lsRef        = displayMode === 'logmag' ? LS.logmagRef   : LS.swrRef;
                 const defaultScale = displayMode === 'logmag' ? 'auto' : '1';
-                const defaultRef   = displayMode === 'logmag' ? ''     : '10';
-                const savedScale = localStorage.getItem(lsScale) ?? defaultScale;
-                const savedRef   = localStorage.getItem(lsRef)   ?? defaultRef;
+                const defaultRef   = displayMode === 'logmag' ? ''     : String(SWR_DEFAULT_MAX);
+                const savedScale   = localStorage.getItem(lsScale) ?? defaultScale;
+                const savedRef     = localStorage.getItem(lsRef)   ?? defaultRef;
 
                 scaleSelect.innerHTML = '';
                 for (const o of opts) {
@@ -558,8 +560,11 @@
                     scaleSelect.appendChild(opt);
                 }
 
+                refLevelLabel.firstChild.textContent =
+                    displayMode === 'logmag' ? 'Max:' : 'Max SWR:';
                 refLevelInput.value       = savedRef;
-                refLevelInput.placeholder = displayMode === 'logmag' ? 'Auto' : '';
+                refLevelInput.placeholder = displayMode === 'logmag'
+                    ? 'Auto' : String(SWR_DEFAULT_MAX);
 
                 /* Min level — only for LogMag */
                 const showMin = displayMode === 'logmag';
@@ -957,7 +962,7 @@
             if (displayMode === 'swr') {
                 step = manualScale !== null ? manualScale : 1;
                 step = Math.max(step, 0.01);
-                yMax = manualRef !== null ? manualRef : 10;
+                yMax = manualRef !== null ? manualRef : SWR_DEFAULT_MAX;
                 yMin = 1;
             } else {
                 const minLevelVal = minLevelInput.value;
