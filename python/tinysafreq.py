@@ -108,6 +108,9 @@ def _extract_range(text: str):
     return None
 
 
+_FREQ_BAR_HEIGHT = 10
+
+
 def _process_file(filename: str):
     try:
         img = Image.open(filename).convert('RGB')
@@ -116,7 +119,8 @@ def _process_file(filename: str):
         return None
 
     w, h = img.size
-    big = img.resize((w * 3, h * 3), Image.NEAREST)
+    freq_bar = img.crop((0, h - _FREQ_BAR_HEIGHT, w, h))
+    big = freq_bar.resize((w * 3, _FREQ_BAR_HEIGHT * 3), Image.NEAREST)
     text = pytesseract.image_to_string(big, config='--psm 11')
 
     result = _extract_range(text)
