@@ -775,6 +775,10 @@ pre {
 
 // ── VS Code custom editor ──────────────────────────────────────────────────────
 
+function uriFilename(uri) {
+    return uri.path.split('/').pop() || uri.fsPath.split(/[\\/]/).pop() || '';
+}
+
 class PresetDocument {
     constructor(uri, preset, error) {
         this.uri    = uri;
@@ -799,7 +803,7 @@ class PresetViewerProvider {
 
     resolveCustomEditor(document, webviewPanel, _token) {
         webviewPanel.webview.options = { enableScripts: false };
-        const filename = document.uri.path.split('/').pop() || document.uri.fsPath.split(/[\\/]/).pop();
+        const filename = uriFilename(document.uri);
         if (document.preset) {
             webviewPanel.webview.html = getWebviewHtml(document.preset, filename);
         } else {
