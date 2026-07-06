@@ -5,6 +5,23 @@
     "version": "0.1.0",
     "publisher": "alexey-lysiuk",
     "license": "GPL-3.0-or-later",
+    "homepage": "https://github.com/alexey-lysiuk/a6r-tools",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/alexey-lysiuk/a6r-tools.git",
+        "directory": "vscode/tinysa4preset-viewer"
+    },
+    "bugs": {
+        "url": "https://github.com/alexey-lysiuk/a6r-tools/issues"
+    },
+    "keywords": [
+        "tinysa",
+        "tinySA4",
+        "preset",
+        "viewer",
+        "rf",
+        "spectrum"
+    ],
     "engines": {
         "vscode": "^1.74.0"
     },
