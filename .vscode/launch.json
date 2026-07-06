@@ -32,7 +32,7 @@
             "request": "launch",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/vscode/tinysa4preset-viewer",
-                "${workspaceFolder}/data/startup.prs"
+                "${workspaceFolder}"
             ]
         },
         {
