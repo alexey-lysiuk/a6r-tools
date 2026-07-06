@@ -1,0 +1,30 @@
+{
+    "name": "tinysa4preset-viewer",
+    "displayName": "tinySA4 Preset Viewer",
+    "description": "Read-only viewer for tinySA4 preset files (.prs)",
+    "version": "0.1.0",
+    "publisher": "alexey-lysiuk",
+    "license": "GPL-3.0-or-later",
+    "engines": {
+        "vscode": "^1.74.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [],
+    "main": "./extension.js",
+    "contributes": {
+        "customEditors": [
+            {
+                "viewType": "tinysa4preset-viewer.presetViewer",
+                "displayName": "tinySA4 Preset Viewer",
+                "selector": [
+                    {
+                        "filenamePattern": "*.prs"
+                    }
+                ],
+                "priority": "default"
+            }
+        ]
+    }
+}
