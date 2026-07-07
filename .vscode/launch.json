@@ -27,6 +27,15 @@
             ]
         },
         {
+            "name": "tinysa4preset-viewer (Extension)",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/vscode/tinysa4preset-viewer",
+                "${workspaceFolder}"
+            ]
+        },
+        {
             "name": "remotecontrol.py",
             "type": "debugpy",
             "request": "launch",

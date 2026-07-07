@@ -1,0 +1,37 @@
+name: Build tinySA4 Preset Viewer
+
+on:
+  push:
+    paths:
+      - vscode/tinysa4preset-viewer/**
+  pull_request:
+    paths:
+      - vscode/tinysa4preset-viewer/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build tinySA4 Preset Viewer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install vsce
+        run: npm install --global @vscode/vsce
+
+      - name: Package extension
+        working-directory: vscode/tinysa4preset-viewer
+        run: vsce package
+
+      - name: Upload extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinysa4preset-viewer
+          path: vscode/tinysa4preset-viewer/*.vsix
