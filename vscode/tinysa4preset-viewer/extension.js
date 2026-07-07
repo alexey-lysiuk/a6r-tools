@@ -366,7 +366,7 @@ function formatTime(us) {
 
 function formatRBW(rbw_x10) {
     if (rbw_x10 === 0) return 'Auto';
-    return formatFreq(rbw_x10 / 10);
+    return formatFreq(rbw_x10 * 100);  // stored as kHz×10; convert to Hz
 }
 
 function formatVBW(vbw_x100) {
