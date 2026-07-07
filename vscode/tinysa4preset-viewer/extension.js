@@ -376,9 +376,8 @@ function formatRBW(rbw_x10) {
 function formatVBW(vbw_x100, rbw_x10) {
     if (vbw_x100 === 0) return 'Auto';
     if (rbw_x10 === 0) return 'Auto';
-    // vbw_x100 is a fraction of RBW multiplied by 100
-    // VBW in Hz = (rbw_x10 * 100) * (vbw_x100 / 100) = rbw_x10 * vbw_x100
-    return formatFreq(rbw_x10 * vbw_x100);
+    // vbw_x100 is the divisor of RBW; VBW in Hz = (rbw_x10 * 100) / vbw_x100
+    return formatFreq((rbw_x10 * 100) / vbw_x100);
 }
 
 // HTML-escape a string to prevent XSS in the generated WebView HTML
