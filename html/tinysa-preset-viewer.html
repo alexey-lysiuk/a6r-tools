@@ -343,7 +343,7 @@
         </div>
     </div>
 
-    <div id="dropZone" class="visible">Drop a <code>.prs</code> preset file here, or use the file picker above.</div>
+    <div id="dropZone" class="visible">Drop a <code>.prs</code> preset file here, or use the toolbar above.</div>
 
     <div id="content"></div>
 
@@ -455,7 +455,7 @@
             let checksum = 0;
             for (let i = 0; i < count; i++) {
                 const n = view.getUint32(i * 4, true);
-                checksum = ((checksum << 1) | (checksum >>> 31)) >>> 0;  // rotate left by 1
+                checksum = ((checksum << 1) | (checksum >>> 31)) >>> 0;  // 32-bit left rotation by 1
                 checksum = (checksum + n) >>> 0;                          // add with uint32 wrap
             }
             return checksum;
@@ -1010,6 +1010,7 @@ ${section('Advanced',        kvTable(advRows), true)}
                     return r.arrayBuffer();
                 })
                 .then(buf => {
+                    // Extract bare filename: strip path, then strip query string
                     const filename = url.split('/').pop().split('?')[0] || 'preset.prs';
                     loadBytes(buf, filename);
                 })
