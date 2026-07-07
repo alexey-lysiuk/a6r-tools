@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinySA Ultra Preset Viewer</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMyIgZmlsbD0iIzFlMWUxZSIvPgogIDxwb2x5bGluZSBmaWxsPSJub25lIiBzdHJva2U9IiNmZmQ3MDAiIHN0cm9rZS13aWR0aD0iMS41IgogICAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgcG9pbnRzPSIxLDI3IDMsMjYgNSwyNCA3LDkgOSwyMyAxMSwyNSAxMywyMCAxNSwxOCAxNywyMiAxOSwyNSAyMSwyNCAyMywxOSAyNSwyMyAyNywyNSAyOSwyNCAzMSwyNiIvPgo8L3N2Zz4=">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* ── Theme variables ────────────────────────────────────────────────── */
+        :root {
+            --body-bg:        #1e1e1e;
+            --text:           #e0e0e0;
+            --heading:        #c0c0c0;
+            --label:          #a0a0a0;
+            --input-bg:       #252525;
+            --input-border:   #404040;
+            --input-text:     #e0e0e0;
+            --btn-bg:         #383838;
+            --btn-text:       #d0d0d0;
+            --btn-hover:      #484848;
+            --error:          #f08080;
+            --section-bg:     #252525;
+            --section-border: #404040;
+            --section-title:  #bbb;
+            --muted:          #888;
+            --row-hover:      rgba(255,255,255,0.05);
+        }
+
+        body.light {
+            --body-bg:        #f0f2f5;
+            --text:           #303848;
+            --heading:        #1a3a6e;
+            --label:          #404860;
+            --input-bg:       #ffffff;
+            --input-border:   #b0bcc8;
+            --input-text:     #303848;
+            --btn-bg:         #3060a0;
+            --btn-text:       #ffffff;
+            --btn-hover:      #204080;
+            --error:          #c02020;
+            --section-bg:     #ffffff;
+            --section-border: #b0bcc8;
+            --section-title:  #2a4a80;
+            --muted:          #606878;
+            --row-hover:      rgba(0,0,0,0.04);
+        }
+
+        body {
+            font-family: sans-serif;
+            background: var(--body-bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            margin: 0 0 16px;
+            color: var(--heading);
+        }
+
+        /* ── Toolbar ────────────────────────────────────────────────────────── */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-sep {
+            width: 1px;
+            height: 24px;
+            background: var(--input-border);
+            flex-shrink: 0;
+        }
+
+        #sourceToggleBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #sourceToggleBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        .source-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .source-group.hidden {
+            display: none;
+        }
+
+        input[type="file"] {
+            font-size: 0.85rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        input[type="file"]::-webkit-file-upload-button,
+        input[type="file"]::file-selector-button {
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: none;
+            border-radius: 3px;
+            padding: 4px 10px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+
+        input[type="file"]::-webkit-file-upload-button:hover,
+        input[type="file"]::file-selector-button:hover {
+            background: var(--btn-hover);
+        }
+
+        #urlInput {
+            font-size: 0.85rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            width: 260px;
+            min-width: 80px;
+        }
+
+        #loadUrlBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #loadUrlBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        #message {
+            font-size: 0.85rem;
+            color: var(--error);
+            min-height: 1.2em;
+        }
+
+        .toolbar-right {
+            margin-left: auto;
+        }
+
+        #themeBtn {
+            font-size: 0.82rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #themeBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        /* ── Drop zone ──────────────────────────────────────────────────────── */
+        #dropZone {
+            display: none;
+            border: 2px dashed var(--input-border);
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        #dropZone.visible {
+            display: block;
+        }
+
+        #dropZone.drag-over {
+            border-color: #ffd700;
+            color: var(--text);
+        }
+
+        /* ── Content area ───────────────────────────────────────────────────── */
+        #content {
+            display: none;
+        }
+
+        #content.visible {
+            display: block;
+        }
+
+        /* ── File header ────────────────────────────────────────────────────── */
+        .file-header {
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--section-border);
+        }
+
+        .file-header h2 {
+            margin: 0 0 4px;
+            font-size: 1.15em;
+            font-weight: 600;
+            color: var(--heading);
+        }
+
+        .file-header .subtitle {
+            font-size: 0.85em;
+            color: var(--muted);
+        }
+
+        /* ── Collapsible sections ───────────────────────────────────────────── */
+        details {
+            margin-bottom: 8px;
+            background: var(--section-bg);
+            border: 1px solid var(--section-border);
+            border-radius: 6px;
+        }
+
+        details > summary {
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            user-select: none;
+        }
+
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details > summary::before {
+            content: '▶';
+            font-size: 0.65em;
+            color: var(--muted);
+            transition: transform 0.15s;
+            display: inline-block;
+            width: 1em;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        details[open] > summary::before {
+            transform: rotate(90deg);
+        }
+
+        .section-title {
+            font-weight: 600;
+            font-size: 0.82em;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--section-title);
+        }
+
+        .section-content {
+            padding: 4px 14px 12px 32px;
+        }
+
+        /* ── Tables ─────────────────────────────────────────────────────────── */
+        p {
+            margin: 0 0 8px;
+        }
+
+        p.empty {
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-bottom: 6px;
+            font-size: 0.9em;
+        }
+
+        table th, table td {
+            padding: 3px 14px 3px 0;
+            text-align: left;
+            vertical-align: top;
+            white-space: nowrap;
+        }
+
+        table tbody tr:hover td,
+        table tbody tr:hover th {
+            background: var(--row-hover);
+        }
+
+        /* Key-value table */
+        table.kv th {
+            color: var(--muted);
+            font-weight: normal;
+            min-width: 200px;
+        }
+
+        /* Data table (markers, bands, limits) */
+        table:not(.kv) thead th {
+            border-bottom: 1px solid var(--section-border);
+            color: var(--muted);
+            font-weight: 600;
+            padding-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>tinySA Ultra Preset Viewer</h1>
+
+    <div class="toolbar">
+        <button id="sourceToggleBtn" title="Switch to URL loading">URL</button>
+        <div class="source-group" id="fileGroup">
+            <input type="file" id="fileInput" accept=".prs" autocomplete="off">
+        </div>
+        <div class="source-group hidden" id="urlGroup">
+            <label for="urlInput">URL:</label>
+            <input type="text" id="urlInput" placeholder="https://…/preset.prs">
+            <button id="loadUrlBtn">Load</button>
+        </div>
+        <span id="message"></span>
+        <div class="toolbar-right">
+            <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
+        </div>
+    </div>
+
+    <div id="dropZone" class="visible">Drop a <code>.prs</code> preset file here, or use the toolbar above.</div>
+
+    <div id="content"></div>
+
+    <script>
+        'use strict';
+
+        // ── Constants ──────────────────────────────────────────────────────────
+
+        const SETTING_MAGIC    = 0x434f4e6d;
+        const PRESET_NAME_LENGTH = 10;
+        const TRACES_MAX       = 4;
+        const MARKERS_MAX      = 8;
+        const BANDS_MAX        = 8;
+        const LIMITS_MAX       = 8;
+        const REFERENCE_MAX    = TRACES_MAX;
+        const CHECKSUM_BYTES   = 1576;
+
+        // ── Enum lookup tables ─────────────────────────────────────────────────
+
+        const MODE_NAMES = {
+            0: 'Low input', 1: 'High input', 2: 'Low output', 3: 'High output', 4: 'Ultra'
+        };
+        const UNIT_NAMES = {
+            0: 'dBm', 1: 'dBmV', 2: 'dBμV', 3: 'Raw', 4: 'Volt', 5: 'Vpp', 6: 'Watt', 7: 'dBc'
+        };
+        const MODULATION_NAMES = {
+            0: 'None', 1: 'AM', 2: 'NFM', 3: 'NFM2', 4: 'NFM3', 5: 'WFM', 6: 'External'
+        };
+        const S_NAMES = {
+            0: 'Off', 1: 'On', 2: 'Auto off', 3: 'Auto on'
+        };
+        const SD_NAMES = {
+            0: 'Normal', 1: 'Precise', 2: 'Fast', 3: 'Noise source', 4: 'Manual'
+        };
+        const W_NAMES = {
+            0: 'Off', 1: 'Small', 2: 'Big', 3: 'Super'
+        };
+        const MEASUREMENT_NAMES = {
+            0: 'Off', 1: 'IMD', 2: 'OIP3', 3: 'Phase noise', 4: 'SNR', 5: 'Pass band',
+            6: 'Linearity', 7: 'AM', 8: 'FM', 9: 'THD', 10: 'CP', 11: 'NF (tinySA)',
+            12: 'NF (store)', 13: 'NF (validate)', 14: 'NF (amplifier)', 15: 'Deconv'
+        };
+        const TRIGGER_NAMES = {
+            0: 'Auto', 1: 'Normal', 2: 'Single', 3: 'Done', 4: 'Up', 5: 'Down',
+            6: 'Mode', 7: 'Pre', 8: 'Post', 9: 'Mid', 10: 'Beep', 11: 'Auto save'
+        };
+        const MARKER_TYPE_FLAGS = {
+            0: 'Normal', 1: 'Reference', 2: 'Delta', 4: 'Noise',
+            8: 'Stored', 16: 'Average', 32: 'Tracking', 64: 'Delete'
+        };
+
+        function enumName(table, value) {
+            return table[value] !== undefined ? table[value] : String(value);
+        }
+
+        function markerTypeName(mtype) {
+            if (mtype === 0) return 'Normal';
+            const flags = [];
+            for (const [bit, name] of Object.entries(MARKER_TYPE_FLAGS)) {
+                if (Number(bit) !== 0 && (mtype & Number(bit)) !== 0) flags.push(name);
+            }
+            return flags.length > 0 ? flags.join(', ') : String(mtype);
+        }
+
+        // ── Binary reader ──────────────────────────────────────────────────────
+
+        class BinaryReader {
+            constructor(data) {
+                this.view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+                this.offset = 0;
+            }
+
+            readUint8()   { return this.view.getUint8(this.offset++); }
+            readInt8()    { return this.view.getInt8(this.offset++); }
+            readBool()    { return this.view.getUint8(this.offset++) !== 0; }
+            readUint16()  { const v = this.view.getUint16(this.offset, true); this.offset += 2; return v; }
+            readInt16()   { const v = this.view.getInt16(this.offset, true); this.offset += 2; return v; }
+            readUint32()  { const v = this.view.getUint32(this.offset, true); this.offset += 4; return v; }
+            readInt32()   { const v = this.view.getInt32(this.offset, true); this.offset += 4; return v; }
+            readFloat32() { const v = this.view.getFloat32(this.offset, true); this.offset += 4; return v; }
+
+            readUint64() {
+                // Frequencies are at most ~6 GHz, well within Number.MAX_SAFE_INTEGER
+                const lo = this.view.getUint32(this.offset, true);
+                const hi = this.view.getUint32(this.offset + 4, true);
+                this.offset += 8;
+                return hi * 0x100000000 + lo;
+            }
+
+            skip(n) { this.offset += n; }
+
+            readString(n) {
+                let str = '';
+                for (let i = 0; i < n; i++) {
+                    const c = this.view.getUint8(this.offset + i);
+                    if (c === 0) break;
+                    str += String.fromCharCode(c);
+                }
+                this.offset += n;
+                return str;
+            }
+        }
+
+        // ── Checksum ───────────────────────────────────────────────────────────
+
+        function calculateChecksum(data) {
+            const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+            const count = CHECKSUM_BYTES / 4;
+            let checksum = 0;
+            for (let i = 0; i < count; i++) {
+                const n = view.getUint32(i * 4, true);
+                checksum = ((checksum << 1) | (checksum >>> 31)) >>> 0;  // 32-bit left rotation by 1
+                checksum = (checksum + n) >>> 0;                          // add with uint32 wrap
+            }
+            return checksum;
+        }
+
+        // ── Sub-structure parsers ──────────────────────────────────────────────
+
+        function parseMarker(reader) {
+            const m = {};
+            m.mtype     = reader.readUint8();
+            m.enabled   = reader.readBool();
+            m.ref       = reader.readUint8();
+            m.trace     = reader.readUint8();
+            m.index     = reader.readUint8();
+            reader.skip(3);
+            m.frequency = reader.readUint64();
+            return m;
+        }
+
+        function parseLimit(reader) {
+            const l = {};
+            l.enabled   = reader.readBool();
+            reader.skip(3);
+            l.level     = reader.readFloat32();
+            l.frequency = reader.readUint64();
+            l.index     = reader.readInt16();
+            reader.skip(6);
+            return l;
+        }
+
+        function parseBand(reader) {
+            const b = {};
+            b.name        = reader.readString(9);
+            b.enabled     = reader.readBool();
+            reader.skip(6);
+            b.start       = reader.readUint64();
+            b.end         = reader.readUint64();
+            b.level       = reader.readFloat32();
+            b.start_index = reader.readInt32();
+            b.stop_index  = reader.readInt32();
+            reader.skip(4);
+            return b;
+        }
+
+        // ── Main preset parser ─────────────────────────────────────────────────
+
+        function parsePreset(data) {
+            const reader = new BinaryReader(data);
+            const p = {};
+
+            const magic = reader.readUint32();
+            if (magic !== SETTING_MAGIC) {
+                throw new Error(`Invalid preset file: wrong magic 0x${magic.toString(16).padStart(8, '0')}`);
+            }
+
+            // PRESET_1: '<8?'
+            p.auto_reflevel    = reader.readBool();
+            p.auto_attenuation = reader.readBool();
+            p.mirror_masking   = reader.readBool();
+            p.tracking_output  = reader.readBool();
+            p.mute             = reader.readBool();
+            p.auto_if          = reader.readBool();
+            p.sweep            = reader.readBool();
+            p.pulse            = reader.readBool();
+
+            // BOOL_TRACES: '<4?'
+            p.stored     = [reader.readBool(), reader.readBool(), reader.readBool(), reader.readBool()];
+            p.normalized = [reader.readBool(), reader.readBool(), reader.readBool(), reader.readBool()];
+            reader.skip(4);
+
+            // 8 bands
+            p.bands = [];
+            for (let i = 0; i < BANDS_MAX; i++) p.bands.push(parseBand(reader));
+
+            // PRESET_2: '<14B'
+            p.mode              = reader.readUint8();
+            p.below_if          = reader.readUint8();
+            p.unit              = reader.readUint8();
+            p.agc               = reader.readUint8();
+            p.lna               = reader.readUint8();
+            p.modulation        = reader.readUint8();
+            p.trigger           = reader.readUint8();
+            p.trigger_mode      = reader.readUint8();
+            p.trigger_direction = reader.readUint8();
+            p.trigger_beep      = reader.readUint8();
+            p.trigger_auto_save = reader.readUint8();
+            p.step_delay_mode   = reader.readUint8();
+            p.waterfall         = reader.readUint8();
+            p.level_meter       = reader.readUint8();
+
+            // UINT8_TRACES: '<4B'
+            p.average  = [reader.readUint8(), reader.readUint8(), reader.readUint8(), reader.readUint8()];
+            p.subtract = [reader.readUint8(), reader.readUint8(), reader.readUint8(), reader.readUint8()];
+
+            // PRESET_3: '<3BbBbBb15Bx3Hh3Hh2H2x3iQ2I'
+            p.measurement                 = reader.readUint8();
+            p.spur_removal                = reader.readUint8();
+            p.disable_correction          = reader.readUint8();
+            p.normalized_trace            = reader.readInt8();
+            p.listen                      = reader.readUint8();
+            p.tracking                    = reader.readInt8();
+            p.atten_step                  = reader.readUint8();
+            p.active_marker               = reader.readInt8();
+            p.unit_scale_index            = reader.readUint8();
+            p.noise                       = reader.readUint8();
+            p.lo_drive                    = reader.readUint8();
+            p.rx_drive                    = reader.readUint8();
+            p.test                        = reader.readUint8();
+            p.harmonic                    = reader.readUint8();
+            p.fast_speedup                = reader.readUint8();
+            p.faster_speedup              = reader.readUint8();
+            p.traces                      = reader.readUint8();
+            p.draw_line                   = reader.readUint8();
+            p.lock_display                = reader.readUint8();
+            p.jog_jump                    = reader.readUint8();
+            p.multi_band                  = reader.readUint8();
+            p.multi_trace                 = reader.readUint8();
+            p.trigger_trace               = reader.readUint8();
+            reader.skip(1);
+            p.repeat                      = reader.readUint16();
+            p.linearity_step              = reader.readUint16();
+            p.sweep_points                = reader.readUint16();
+            p.attenuate_x2                = reader.readInt16();
+            p.step_delay                  = reader.readUint16();
+            p.offset_delay                = reader.readUint16();
+            p.freq_mode                   = reader.readUint16();
+            p.refer                       = reader.readInt16();
+            p.modulation_depth_x100       = reader.readUint16();
+            p.modulation_deviation_div100 = reader.readUint16();
+            reader.skip(2);
+            p.decay                       = reader.readInt32();
+            p.attack                      = reader.readInt32();
+            p.slider_position             = reader.readInt32();
+            p.slider_span                 = reader.readUint64();
+            p.rbw_x10                     = reader.readUint32();
+            p.vbw_x100                    = reader.readUint32();
+
+            // UINT_TRACES: '<4I'
+            p.scan_after_dirty = [reader.readUint32(), reader.readUint32(), reader.readUint32(), reader.readUint32()];
+
+            // PRESET_4: '<9f4x6Q2f'
+            p.modulation_frequency = reader.readFloat32();
+            p.reflevel             = reader.readFloat32();
+            p.scale                = reader.readFloat32();
+            p.external_gain        = reader.readFloat32();
+            p.trigger_level        = reader.readFloat32();
+            p.level                = reader.readFloat32();
+            p.level_sweep          = reader.readFloat32();
+            p.unit_scale           = reader.readFloat32();
+            p.normalize_level      = reader.readFloat32();
+            reader.skip(4);
+            p.frequency_step   = reader.readUint64();
+            p.frequency0       = reader.readUint64();
+            p.frequency1       = reader.readUint64();
+            p.frequency_var    = reader.readUint64();
+            p.frequency_if     = reader.readUint64();
+            p.frequency_offset = reader.readUint64();
+            p.trace_scale      = reader.readFloat32();
+            p.trace_refpos     = reader.readFloat32();
+
+            // 8 markers
+            p.markers = [];
+            for (let i = 0; i < MARKERS_MAX; i++) p.markers.push(parseMarker(reader));
+
+            // 8×4 limits
+            p.limits = [];
+            for (let i = 0; i < LIMITS_MAX; i++) {
+                const row = [];
+                for (let j = 0; j < REFERENCE_MAX; j++) row.push(parseLimit(reader));
+                p.limits.push(row);
+            }
+
+            // PRESET_5: '<5IB?2x2i2?2xI10s?5xQ'
+            p.sweep_time_us            = reader.readUint32();
+            p.measure_sweep_time_us    = reader.readUint32();
+            p.actual_sweep_time_us     = reader.readUint32();
+            p.additional_step_delay_us = reader.readUint32();
+            p.trigger_grid             = reader.readUint32();
+            p.ultra                    = reader.readUint8();
+            p.extra_lna                = reader.readBool();
+            reader.skip(2);
+            p.r                        = reader.readInt32();
+            p.exp_aver                 = reader.readInt32();
+            p.increased_r              = reader.readBool();
+            p.mixer_output             = reader.readBool();
+            reader.skip(2);
+            p.interval                 = reader.readUint32();
+            p.preset_name              = reader.readString(PRESET_NAME_LENGTH);
+            p.dbuv                     = reader.readBool();
+            reader.skip(5);
+            p.test_argument            = reader.readUint64();
+
+            // CHECKSUM: '<I4x'
+            const fileChecksum = reader.readUint32();
+            reader.skip(4);
+
+            const calculatedChecksum = calculateChecksum(data);
+            if (calculatedChecksum !== fileChecksum) {
+                throw new Error(
+                    `Checksum mismatch: file=0x${fileChecksum.toString(16).padStart(8, '0')}, ` +
+                    `calculated=0x${calculatedChecksum.toString(16).padStart(8, '0')}`
+                );
+            }
+
+            return p;
+        }
+
+        // ── Format helpers ─────────────────────────────────────────────────────
+
+        function trimDecimals(s) {
+            return s.indexOf('.') !== -1 ? s.replace(/\.?0+$/, '') : s;
+        }
+
+        function formatFreq(hz) {
+            if (hz === 0) return '0 Hz';
+            if (hz < 1000) return `${hz} Hz`;
+            if (hz < 1000000) return `${trimDecimals((hz / 1000).toFixed(3))} kHz`;
+            if (hz < 1000000000) return `${trimDecimals((hz / 1000000).toFixed(6))} MHz`;
+            return `${trimDecimals((hz / 1000000000).toFixed(9))} GHz`;
+        }
+
+        function formatTime(us) {
+            if (us === 0) return '0';
+            if (us < 1000) return `${us} μs`;
+            if (us < 1000000) return `${(us / 1000).toFixed(3)} ms`;
+            return `${(us / 1000000).toFixed(3)} s`;
+        }
+
+        function formatRBW(rbw_x10) {
+            if (rbw_x10 === 0) return 'Auto';
+            return formatFreq(rbw_x10 * 100);
+        }
+
+        function formatVBW(vbw_x100, rbw_x10) {
+            if (vbw_x100 === 0) return 'Auto';
+            if (rbw_x10 === 0) return 'Auto';
+            return formatFreq((rbw_x10 * 100) / vbw_x100);
+        }
+
+        function esc(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // ── HTML generation helpers ────────────────────────────────────────────
+
+        function kvTable(rows) {
+            const rowsHtml = rows.map(([k, v]) =>
+                `<tr><th>${esc(k)}</th><td>${esc(String(v))}</td></tr>`
+            ).join('\n');
+            return `<table class="kv">\n${rowsHtml}\n</table>`;
+        }
+
+        function section(title, content, collapsed = false) {
+            const openAttr = collapsed ? '' : ' open';
+            return `<details${openAttr}>
+<summary><span class="section-title">${esc(title)}</span></summary>
+<div class="section-content">${content}</div>
+</details>`;
+        }
+
+        // ── Preset renderer ────────────────────────────────────────────────────
+
+        function renderPreset(preset, filename) {
+            const name = preset.preset_name || filename;
+
+            // Overview
+            const overviewRows = [
+                ['Preset name',  preset.preset_name || '(unnamed)'],
+                ['Mode',         enumName(MODE_NAMES, preset.mode)],
+                ['Unit',         enumName(UNIT_NAMES, preset.unit)],
+                ['Measurement',  enumName(MEASUREMENT_NAMES, preset.measurement)],
+                ['Waterfall',    enumName(W_NAMES, preset.waterfall)],
+                ['Multi-band',   preset.multi_band  ? 'Yes' : 'No'],
+                ['Multi-trace',  preset.multi_trace ? 'Yes' : 'No'],
+            ];
+
+            // Frequency
+            const freqRows = [
+                ['Start',             formatFreq(preset.frequency0)],
+                ['Stop',              formatFreq(preset.frequency1)],
+                ['Step',              formatFreq(preset.frequency_step)],
+                ['Sweep points',      preset.sweep_points],
+                ['RBW',               formatRBW(preset.rbw_x10)],
+                ['VBW',               formatVBW(preset.vbw_x100, preset.rbw_x10)],
+                ['IF frequency',      formatFreq(preset.frequency_if)],
+                ['Frequency offset',  formatFreq(preset.frequency_offset)],
+            ];
+
+            // Level
+            const levelRows = [
+                ['Reference level',    `${preset.reflevel.toFixed(2)} dB`],
+                ['Scale',              `${preset.scale.toFixed(2)} dB/div`],
+                ['Trace ref position', `${preset.trace_refpos.toFixed(2)} dB`],
+                ['Trace scale',        `${preset.trace_scale.toFixed(2)} dB/div`],
+                ['Attenuation',        preset.attenuate_x2 !== 0 ? `${(preset.attenuate_x2 / 2).toFixed(1)} dB` : 'None'],
+                ['External gain',      `${preset.external_gain.toFixed(2)} dB`],
+                ['Auto ref level',     preset.auto_reflevel    ? 'Yes' : 'No'],
+                ['Auto attenuation',   preset.auto_attenuation ? 'Yes' : 'No'],
+            ];
+
+            // Traces
+            const activeTraces = [];
+            for (let i = 0; i < TRACES_MAX; i++) {
+                if (preset.traces & (1 << i)) activeTraces.push(i + 1);
+            }
+
+            let tracesHtml;
+            if (activeTraces.length > 0) {
+                let rows = '<thead><tr><th>Trace</th><th>Average</th><th>Subtract</th><th>Stored</th><th>Normalized</th></tr></thead><tbody>';
+                for (let i = 0; i < TRACES_MAX; i++) {
+                    if (preset.traces & (1 << i)) {
+                        rows += `<tr>
+<td>${i + 1}</td>
+<td>${preset.average[i]}</td>
+<td>${preset.subtract[i]}</td>
+<td>${preset.stored[i]     ? 'Yes' : 'No'}</td>
+<td>${preset.normalized[i] ? 'Yes' : 'No'}</td>
+</tr>`;
+                    }
+                }
+                tracesHtml = `<p>Active: ${esc(activeTraces.join(', '))}</p><table>${rows}</tbody></table>`;
+            } else {
+                tracesHtml = '<p class="empty">No active traces</p>';
+            }
+
+            // Markers
+            const enabledMarkers = preset.markers.filter(m => m.enabled);
+            let markersHtml;
+            if (enabledMarkers.length > 0) {
+                let rows = '<thead><tr><th>#</th><th>Type</th><th>Trace</th><th>Frequency</th></tr></thead><tbody>';
+                for (let i = 0; i < MARKERS_MAX; i++) {
+                    const m = preset.markers[i];
+                    if (m.enabled) {
+                        rows += `<tr>
+<td>${i + 1}</td>
+<td>${esc(markerTypeName(m.mtype))}</td>
+<td>${m.trace + 1}</td>
+<td>${esc(formatFreq(m.frequency))}</td>
+</tr>`;
+                    }
+                }
+                markersHtml = `<table>${rows}</tbody></table>`;
+            } else {
+                markersHtml = '<p class="empty">No active markers</p>';
+            }
+
+            // Bands
+            const enabledBands = preset.bands.filter(b => b.enabled);
+            let bandsHtml;
+            if (enabledBands.length > 0) {
+                let rows = '<thead><tr><th>Name</th><th>Start</th><th>Stop</th><th>Level</th></tr></thead><tbody>';
+                for (const b of enabledBands) {
+                    rows += `<tr>
+<td>${esc(b.name || '—')}</td>
+<td>${esc(formatFreq(b.start))}</td>
+<td>${esc(formatFreq(b.end))}</td>
+<td>${esc(b.level.toFixed(2))} dB</td>
+</tr>`;
+                }
+                bandsHtml = `<table>${rows}</tbody></table>`;
+            } else {
+                bandsHtml = '<p class="empty">No active bands</p>';
+            }
+
+            // Limits
+            let hasLimits = false;
+            let limitRows = '<thead><tr><th>Limit</th><th>Ref</th><th>Frequency</th><th>Level</th></tr></thead><tbody>';
+            for (let i = 0; i < LIMITS_MAX; i++) {
+                for (let j = 0; j < REFERENCE_MAX; j++) {
+                    const l = preset.limits[i][j];
+                    if (l.enabled) {
+                        hasLimits = true;
+                        limitRows += `<tr>
+<td>${i + 1}</td>
+<td>${j + 1}</td>
+<td>${esc(formatFreq(l.frequency))}</td>
+<td>${esc(l.level.toFixed(2))} dB</td>
+</tr>`;
+                    }
+                }
+            }
+            const limitsHtml = hasLimits
+                ? `<table>${limitRows}</tbody></table>`
+                : '<p class="empty">No active limits</p>';
+
+            // Sweep & trigger
+            const sweepRows = [
+                ['Trigger',           enumName(TRIGGER_NAMES, preset.trigger)],
+                ['Trigger mode',      enumName(TRIGGER_NAMES, preset.trigger_mode)],
+                ['Trigger direction', enumName(TRIGGER_NAMES, preset.trigger_direction)],
+                ['Trigger level',     `${preset.trigger_level.toFixed(2)} dB`],
+                ['Trigger beep',      preset.trigger_beep      ? 'Yes' : 'No'],
+                ['Trigger auto save', preset.trigger_auto_save ? 'Yes' : 'No'],
+                ['Repeat',            preset.repeat],
+                ['Step delay mode',   enumName(SD_NAMES, preset.step_delay_mode)],
+                ['Step delay',        preset.step_delay > 0 ? `${preset.step_delay} μs` : 'None'],
+                ['Sweep time',        formatTime(preset.actual_sweep_time_us)],
+            ];
+
+            // Signal path
+            const signalRows = [
+                ['AGC',            enumName(S_NAMES, preset.agc)],
+                ['LNA',            enumName(S_NAMES, preset.lna)],
+                ['Extra LNA',      preset.extra_lna     ? 'Yes' : 'No'],
+                ['Below IF',       enumName(S_NAMES, preset.below_if)],
+                ['Spur removal',   enumName(S_NAMES, preset.spur_removal)],
+                ['Mirror masking', preset.mirror_masking ? 'Yes' : 'No'],
+                ['Auto IF',        preset.auto_if        ? 'Yes' : 'No'],
+                ['Mixer output',   preset.mixer_output   ? 'On' : 'Off'],
+                ['Mute',           preset.mute           ? 'Yes' : 'No'],
+            ];
+
+            // Modulation
+            const modRows = [
+                ['Type',          enumName(MODULATION_NAMES, preset.modulation)],
+                ['Frequency',     `${preset.modulation_frequency.toFixed(1)} Hz`],
+                ['Depth',         `${(preset.modulation_depth_x100 / 100).toFixed(2)}`],
+                ['Deviation',     `${(preset.modulation_deviation_div100 * 100).toFixed(0)} Hz`],
+                ['Level',         `${preset.level.toFixed(2)} dBm`],
+                ['Level sweep',   `${preset.level_sweep.toFixed(2)} dB`],
+            ];
+
+            // Advanced
+            const advRows = [
+                ['Tracking',              preset.tracking],
+                ['Tracking output',       preset.tracking_output ? 'Yes' : 'No'],
+                ['Trigger trace',         preset.trigger_trace < 255 ? preset.trigger_trace + 1 : 'None'],
+                ['Active marker',         preset.active_marker >= 0 ? preset.active_marker + 1 : 'None'],
+                ['Refer',                 preset.refer >= 0 ? preset.refer + 1 : 'None'],
+                ['Normalized trace',      preset.normalized_trace >= 0 ? preset.normalized_trace + 1 : 'None'],
+                ['Normalize level',       `${preset.normalize_level.toFixed(2)} dB`],
+                ['Unit scale index',      preset.unit_scale_index],
+                ['Unit scale',            preset.unit_scale.toFixed(4)],
+                ['Decay',                 preset.decay],
+                ['Attack',                preset.attack],
+                ['Noise floor',           preset.noise],
+                ['LO drive',              preset.lo_drive],
+                ['RX drive',              preset.rx_drive],
+                ['Harmonic',              preset.harmonic],
+                ['Fast speedup',          preset.fast_speedup],
+                ['Faster speedup',        preset.faster_speedup],
+                ['Draw line',             preset.draw_line    ? 'Yes' : 'No'],
+                ['Lock display',          preset.lock_display ? 'Yes' : 'No'],
+                ['Jog jump',              preset.jog_jump],
+                ['Listen',                preset.listen       ? 'Yes' : 'No'],
+                ['Sweep',                 preset.sweep        ? 'Yes' : 'No'],
+                ['Pulse',                 preset.pulse        ? 'Yes' : 'No'],
+                ['Atten step',            preset.atten_step],
+                ['Disable correction',    preset.disable_correction ? 'Yes' : 'No'],
+                ['Linearity step',        preset.linearity_step],
+                ['Freq mode',             preset.freq_mode],
+                ['Offset delay',          preset.offset_delay > 0 ? `${preset.offset_delay} μs` : 'None'],
+                ['Slider position',       preset.slider_position],
+                ['Slider span',           formatFreq(preset.slider_span)],
+                ['Frequency variable',    formatFreq(preset.frequency_var)],
+                ['Trigger grid',          preset.trigger_grid],
+                ['Level meter',           preset.level_meter  ? 'Yes' : 'No'],
+                ['Ultra',                 preset.ultra        ? 'Yes' : 'No'],
+                ['Increased R',           preset.increased_r  ? 'Yes' : 'No'],
+                ['R',                     preset.r],
+                ['Exp aver',              preset.exp_aver],
+                ['dBuV',                  preset.dbuv         ? 'Yes' : 'No'],
+                ['Interval',              preset.interval > 0 ? `${preset.interval} ms` : 'None'],
+                ['Additional step delay', formatTime(preset.additional_step_delay_us)],
+                ['Measure sweep time',    formatTime(preset.measure_sweep_time_us)],
+                ['Test',                  preset.test],
+                ['Test argument',         preset.test_argument],
+            ];
+
+            const html = `
+<div class="file-header">
+  <h2>tinySA Ultra Preset: ${esc(name || '(unnamed)')}</h2>
+  <div class="subtitle">${esc(filename)}</div>
+</div>
+
+${section('Overview',        kvTable(overviewRows))}
+${section('Frequency',       kvTable(freqRows))}
+${section('Level',           kvTable(levelRows))}
+${section('Traces',          tracesHtml)}
+${section('Markers',         markersHtml)}
+${section('Bands',           bandsHtml)}
+${section('Limits',          limitsHtml)}
+${section('Sweep & Trigger', kvTable(sweepRows))}
+${section('Signal Path',     kvTable(signalRows))}
+${section('Modulation',      kvTable(modRows))}
+${section('Advanced',        kvTable(advRows), true)}
+`;
+            contentEl.innerHTML = html;
+            contentEl.classList.add('visible');
+            dropZone.classList.remove('visible');
+        }
+
+        function showError(message, filename) {
+            const html = `
+<div class="file-header">
+  <h2>Failed to parse preset file</h2>
+  <div class="subtitle">${esc(filename)}</div>
+</div>
+<p style="color:var(--error);white-space:pre-wrap;word-break:break-word;">${esc(message)}</p>
+`;
+            contentEl.innerHTML = html;
+            contentEl.classList.add('visible');
+            dropZone.classList.remove('visible');
+        }
+
+        function loadBytes(buffer, filename) {
+            messageEl.textContent = '';
+            try {
+                const data = new Uint8Array(buffer);
+                const preset = parsePreset(data);
+                renderPreset(preset, filename);
+            } catch (e) {
+                showError(e.message, filename);
+            }
+        }
+
+        // ── DOM references ─────────────────────────────────────────────────────
+
+        const fileInput       = document.getElementById('fileInput');
+        const urlInput        = document.getElementById('urlInput');
+        const loadUrlBtn      = document.getElementById('loadUrlBtn');
+        const sourceToggleBtn = document.getElementById('sourceToggleBtn');
+        const fileGroup       = document.getElementById('fileGroup');
+        const urlGroup        = document.getElementById('urlGroup');
+        const messageEl       = document.getElementById('message');
+        const themeBtn        = document.getElementById('themeBtn');
+        const dropZone        = document.getElementById('dropZone');
+        const contentEl       = document.getElementById('content');
+
+        // ── File loading ───────────────────────────────────────────────────────
+
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => loadBytes(e.target.result, file.name);
+            reader.readAsArrayBuffer(file);
+        });
+
+        // ── URL loading ────────────────────────────────────────────────────────
+
+        function loadUrl(url) {
+            if (!url) return;
+            messageEl.textContent = 'Loading…';
+            fetch(url)
+                .then(r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+                    return r.arrayBuffer();
+                })
+                .then(buf => {
+                    // Extract bare filename: strip path, then strip query string
+                    const filename = url.split('/').pop().split('?')[0] || 'preset.prs';
+                    loadBytes(buf, filename);
+                })
+                .catch(e => {
+                    messageEl.textContent = `Error: ${e.message}`;
+                });
+        }
+
+        loadUrlBtn.addEventListener('click', () => loadUrl(urlInput.value.trim()));
+        urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadUrl(urlInput.value.trim()); });
+
+        // ── Source toggle ──────────────────────────────────────────────────────
+
+        let sourceIsUrl = false;
+
+        sourceToggleBtn.addEventListener('click', () => {
+            sourceIsUrl = !sourceIsUrl;
+            if (sourceIsUrl) {
+                fileGroup.classList.add('hidden');
+                urlGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'File';
+                sourceToggleBtn.title = 'Switch to file loading';
+            } else {
+                urlGroup.classList.add('hidden');
+                fileGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'URL';
+                sourceToggleBtn.title = 'Switch to URL loading';
+            }
+        });
+
+        // ── Drag and drop ──────────────────────────────────────────────────────
+
+        function onDragOver(e) {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        }
+
+        function onDragLeave() {
+            dropZone.classList.remove('drag-over');
+        }
+
+        function onDrop(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (!file) return;
+            try {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                fileInput.files = dt.files;
+            } catch (_) { /* DataTransfer not supported */ }
+            const reader = new FileReader();
+            reader.onload = ev => loadBytes(ev.target.result, file.name);
+            reader.readAsArrayBuffer(file);
+        }
+
+        document.body.addEventListener('dragover', onDragOver);
+        document.body.addEventListener('dragleave', onDragLeave);
+        document.body.addEventListener('drop', onDrop);
+
+        // ── Theme toggle ───────────────────────────────────────────────────────
+
+        function applyTheme(light) {
+            document.body.classList.toggle('light', light);
+            themeBtn.textContent = light ? '🌙 Dark' : '☀ Light';
+        }
+
+        themeBtn.addEventListener('click', () => {
+            applyTheme(!document.body.classList.contains('light'));
+        });
+
+        applyTheme(window.matchMedia('(prefers-color-scheme: light)').matches);
+
+        // ── URL parameter auto-load ────────────────────────────────────────────
+
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const url = params.get('url');
+            if (url) {
+                sourceToggleBtn.click();
+                urlInput.value = url;
+                loadUrl(url);
+            }
+        })();
+    </script>
+</body>
+</html>
