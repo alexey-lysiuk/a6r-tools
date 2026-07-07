@@ -330,7 +330,7 @@
     <div class="toolbar">
         <button id="sourceToggleBtn" title="Switch to URL loading">URL</button>
         <div class="source-group" id="fileGroup">
-            <input type="file" id="fileInput" accept=".prs">
+            <input type="file" id="fileInput" accept=".prs" autocomplete="off">
         </div>
         <div class="source-group hidden" id="urlGroup">
             <label for="urlInput">URL:</label>
@@ -1057,6 +1057,11 @@ ${section('Advanced',        kvTable(advRows), true)}
             dropZone.classList.remove('drag-over');
             const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
             if (!file) return;
+            try {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                fileInput.files = dt.files;
+            } catch (_) { /* DataTransfer not supported */ }
             const reader = new FileReader();
             reader.onload = ev => loadBytes(ev.target.result, file.name);
             reader.readAsArrayBuffer(file);
@@ -1068,11 +1073,16 @@ ${section('Advanced',        kvTable(advRows), true)}
 
         // ── Theme toggle ───────────────────────────────────────────────────────
 
+        function applyTheme(light) {
+            document.body.classList.toggle('light', light);
+            themeBtn.textContent = light ? '🌙 Dark' : '☀ Light';
+        }
+
         themeBtn.addEventListener('click', () => {
-            document.body.classList.toggle('light');
-            const isLight = document.body.classList.contains('light');
-            themeBtn.textContent = isLight ? '🌙 Dark' : '☀ Light';
+            applyTheme(!document.body.classList.contains('light'));
         });
+
+        applyTheme(window.matchMedia('(prefers-color-scheme: light)').matches);
 
         // ── URL parameter auto-load ────────────────────────────────────────────
 
