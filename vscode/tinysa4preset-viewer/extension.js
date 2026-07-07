@@ -349,12 +349,16 @@ function parsePreset(data) {
 
 // ── Format helpers ─────────────────────────────────────────────────────────────
 
+function trimDecimals(s) {
+    return s.indexOf('.') !== -1 ? s.replace(/\.?0+$/, '') : s;
+}
+
 function formatFreq(hz) {
     if (hz === 0) return '0 Hz';
     if (hz < 1000) return `${hz} Hz`;
-    if (hz < 1000000) return `${(hz / 1000).toFixed(3)} kHz`;
-    if (hz < 1000000000) return `${(hz / 1000000).toFixed(6)} MHz`;
-    return `${(hz / 1000000000).toFixed(9)} GHz`;
+    if (hz < 1000000) return `${trimDecimals((hz / 1000).toFixed(3))} kHz`;
+    if (hz < 1000000000) return `${trimDecimals((hz / 1000000).toFixed(6))} MHz`;
+    return `${trimDecimals((hz / 1000000000).toFixed(9))} GHz`;
 }
 
 function formatTime(us) {
@@ -369,9 +373,12 @@ function formatRBW(rbw_x10) {
     return formatFreq(rbw_x10 * 100);  // stored as kHz×10; convert to Hz
 }
 
-function formatVBW(vbw_x100) {
+function formatVBW(vbw_x100, rbw_x10) {
     if (vbw_x100 === 0) return 'Auto';
-    return formatFreq(vbw_x100 / 100);
+    if (rbw_x10 === 0) return 'Auto';
+    // vbw_x100 is a fraction of RBW multiplied by 100
+    // VBW in Hz = (rbw_x10 * 100) * (vbw_x100 / 100) = rbw_x10 * vbw_x100
+    return formatFreq(rbw_x10 * vbw_x100);
 }
 
 // HTML-escape a string to prevent XSS in the generated WebView HTML
@@ -425,7 +432,7 @@ function getWebviewHtml(preset, filename) {
         ['Step',              formatFreq(preset.frequency_step)],
         ['Sweep points',      preset.sweep_points],
         ['RBW',               formatRBW(preset.rbw_x10)],
-        ['VBW',               formatVBW(preset.vbw_x100)],
+        ['VBW',               formatVBW(preset.vbw_x100, preset.rbw_x10)],
         ['IF frequency',      formatFreq(preset.frequency_if)],
         ['Frequency offset',  formatFreq(preset.frequency_offset)],
     ];
