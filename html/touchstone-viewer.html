@@ -647,14 +647,14 @@
 
         /* ── Settings persistence keys ──────────────────────────────────────── */
         const LS = {
-            theme:       'ts-theme',
-            mode:        'ts-mode',
-            colors:      'ts-colors',
-            visible:     'ts-visible',
-            logmagScale: 'ts-logmag-scale',
-            logmagRef:   'ts-logmag-ref',
-            logmagMin:   'ts-logmag-min',
-            swrScale:    'ts-swr-scale',
+            theme:        'ts-theme',
+            mode:         'ts-mode',
+            colors:       'ts-colors',
+            visible:      'ts-visible',
+            logmagScale:  'ts-logmag-scale',
+            logmagRef:    'ts-logmag-ref',
+            logmagMin:    'ts-logmag-min',
+            swrScale:     'ts-swr-scale',
             swrRef:       'ts-swr-ref',
             markersPane:  'ts-markers-pane',
         };
@@ -2076,8 +2076,7 @@
 
             /* Keep param selectors in sync with loaded data and current colors */
             for (const sel of [markerParamSelect, markerChangeParamSelect]) {
-                for (let i = 0; i < ALL_PARAMS.length; i++) {
-                    const p = ALL_PARAMS[i];
+                for (const [i, p] of ALL_PARAMS.entries()) {
                     if (i >= sel.options.length) break;
                     const hasData = fileData && fileData[p.toLowerCase()] && fileData[p.toLowerCase()].length > 0;
                     const modeNa  = isSmith || (displayMode === 'swr' && !REFLECTION_PARAMS.has(p));
