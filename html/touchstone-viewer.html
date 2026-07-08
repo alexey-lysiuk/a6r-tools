@@ -333,10 +333,6 @@
             color: var(--text);
         }
 
-        .markers-pane.pane-hidden {
-            display: none;
-        }
-
         .markers-pane-title {
             font-size: 0.78rem;
             font-weight: bold;
@@ -2080,8 +2076,9 @@
 
             /* Keep param selectors in sync with loaded data and current colors */
             for (const sel of [markerParamSelect, markerChangeParamSelect]) {
-                for (let i = 0; i < sel.options.length; i++) {
+                for (let i = 0; i < ALL_PARAMS.length; i++) {
                     const p = ALL_PARAMS[i];
+                    if (i >= sel.options.length) break;
                     const hasData = fileData && fileData[p.toLowerCase()] && fileData[p.toLowerCase()].length > 0;
                     const modeNa  = isSmith || (displayMode === 'swr' && !REFLECTION_PARAMS.has(p));
                     sel.options[i].disabled    = !hasData || modeNa;
