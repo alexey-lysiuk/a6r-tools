@@ -169,7 +169,7 @@
             gap: 8px;
         }
 
-        #themeBtn {
+        #markersBtn, #themeBtn {
             font-size: 0.82rem;
             background: var(--btn-bg);
             color: var(--btn-text);
@@ -180,7 +180,7 @@
             white-space: nowrap;
         }
 
-        #themeBtn:hover {
+        #markersBtn:hover, #themeBtn:hover {
             background: var(--btn-hover);
         }
 
@@ -309,6 +309,140 @@
             white-space: nowrap;
             display: none;
         }
+        /* ── Chart area (chart + markers pane side by side) ─────────────────── */
+        .chart-area {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .chart-area > .chart-wrapper {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* ── Markers pane ────────────────────────────────────────────────────── */
+        .markers-pane {
+            width: 190px;
+            flex-shrink: 0;
+            background: var(--wrapper-bg);
+            border: 1px solid var(--wrapper-border);
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 0.82rem;
+            color: var(--text);
+        }
+
+        .markers-pane.pane-hidden {
+            display: none;
+        }
+
+        .markers-pane-title {
+            font-size: 0.78rem;
+            font-weight: bold;
+            color: var(--heading);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .mc-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .mc-col {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .pane-hidden {
+            display: none;
+        }
+
+        .mc-btn {
+            font-size: 0.78rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            padding: 3px 7px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .mc-btn:hover {
+            background: var(--btn-hover);
+        }
+
+        .mc-btn:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        .mc-select {
+            font-size: 0.78rem;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 3px;
+            padding: 2px 4px;
+        }
+
+        .markers-sep {
+            height: 1px;
+            background: var(--wrapper-border);
+            margin: 4px 0 6px;
+        }
+
+        .markers-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .marker-entry {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: baseline;
+            gap: 4px;
+            padding: 2px 4px;
+            border-radius: 3px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            font-family: monospace;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .marker-entry:hover {
+            background: rgba(128,128,128,0.12);
+        }
+
+        .marker-entry.current {
+            border-color: var(--input-border);
+            background: rgba(128,128,128,0.08);
+        }
+
+        .me-num {
+            font-size: 0.78rem;
+            font-weight: bold;
+            min-width: 22px;
+        }
+
+        .me-freq {
+            flex: 1;
+            font-size: 0.72rem;
+            text-align: right;
+        }
+
+        .me-val {
+            font-size: 0.72rem;
+            text-align: right;
+            min-width: 58px;
+        }
     </style>
 </head>
 <body>
@@ -374,14 +508,52 @@
         </div>
 
         <div class="toolbar-right">
+            <button id="markersBtn" title="Toggle markers pane" aria-pressed="false">Markers</button>
             <button id="themeBtn" title="Toggle light/dark theme">&#9728; Light</button>
         </div>
     </div>
 
-    <div class="chart-wrapper" id="chartWrapper">
-        <canvas id="chart"></canvas>
-        <canvas id="crosshair" style="position:absolute;top:8px;left:8px;pointer-events:none;"></canvas>
-        <div id="tooltip"></div>
+    <div class="chart-area" id="chartArea">
+        <div class="chart-wrapper" id="chartWrapper">
+            <canvas id="chart"></canvas>
+            <canvas id="crosshair" style="position:absolute;top:8px;left:8px;pointer-events:none;"></canvas>
+            <div id="tooltip"></div>
+        </div>
+
+        <div class="markers-pane pane-hidden" id="markersPane">
+            <div class="markers-pane-title">Markers</div>
+            <div class="mc-row">
+                <select id="markerParamSelect" class="mc-select">
+                    <option value="S11" style="color: #ffcc00">S11</option>
+                    <option value="S21" style="color: #44dd44">S21</option>
+                    <option value="S12" style="color: #ff44cc">S12</option>
+                    <option value="S22" style="color: #ff4444">S22</option>
+                </select>
+                <button class="mc-btn" id="addMarkerBtn" title="Add marker at peak">Add</button>
+            </div>
+            <div class="markers-sep"></div>
+            <div class="markers-list" id="markersList"></div>
+            <div class="markers-sep pane-hidden" id="markerBottomSep"></div>
+            <div class="mc-col pane-hidden" id="markerBottomControls">
+                <div class="mc-row">
+                    <select id="markerChangeParamSelect" class="mc-select" disabled>
+                        <option value="S11" style="color: #ffcc00">S11</option>
+                        <option value="S21" style="color: #44dd44">S21</option>
+                        <option value="S12" style="color: #ff44cc">S12</option>
+                        <option value="S22" style="color: #ff4444">S22</option>
+                    </select>
+                    <button class="mc-btn" id="removeMarkerBtn" title="Remove current marker" disabled>Delete</button>
+                </div>
+                <div class="mc-row">
+                    <button class="mc-btn" id="markerPeakLeftBtn" title="Move current marker to nearest maximum to the left" disabled>&#9664; Max</button>
+                    <button class="mc-btn" id="markerPeakRightBtn" title="Move current marker to nearest maximum to the right" disabled>Max &#9654;</button>
+                </div>
+                <div class="mc-row">
+                    <button class="mc-btn" id="markerBottomLeftBtn" title="Move current marker to nearest minimum to the left" disabled>&#9664; Min</button>
+                    <button class="mc-btn" id="markerBottomRightBtn" title="Move current marker to nearest minimum to the right" disabled>Min &#9654;</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -402,6 +574,11 @@
         let displayMode  = 'logmag';
         let hoveredIdx   = null;   // frequency index closest to cursor (rect charts)
         let hoveredSmith = null;   // { idx, param } for Smith chart hover
+
+        /* ── Marker state ────────────────────────────────────────────────────── */
+        let markers           = [];   // Array of { paramKey, freqIndex }
+        let currentMarkerIdx  = -1;   // index into markers array, -1 = none
+        let draggingMarkerIdx = null; // index of marker being dragged, null = none
 
         /* ── Canvas theme palettes ──────────────────────────────────────────── */
         const THEMES = {
@@ -458,6 +635,19 @@
         const refLevelLabel   = document.getElementById('refLevelLabel');
         const minLevelInput   = document.getElementById('minLevelInput');
         const minLevelLabel   = document.getElementById('minLevelLabel');
+        const markersBtn      = document.getElementById('markersBtn');
+        const markersPane     = document.getElementById('markersPane');
+        const markerParamSelect       = document.getElementById('markerParamSelect');
+        const addMarkerBtn            = document.getElementById('addMarkerBtn');
+        const removeMarkerBtn         = document.getElementById('removeMarkerBtn');
+        const markerPeakLeftBtn       = document.getElementById('markerPeakLeftBtn');
+        const markerPeakRightBtn      = document.getElementById('markerPeakRightBtn');
+        const markerBottomLeftBtn     = document.getElementById('markerBottomLeftBtn');
+        const markerBottomRightBtn    = document.getElementById('markerBottomRightBtn');
+        const markersList             = document.getElementById('markersList');
+        const markerChangeParamSelect = document.getElementById('markerChangeParamSelect');
+        const markerBottomSep         = document.getElementById('markerBottomSep');
+        const markerBottomControls    = document.getElementById('markerBottomControls');
 
         /* ── Settings persistence keys ──────────────────────────────────────── */
         const LS = {
@@ -469,7 +659,8 @@
             logmagRef:   'ts-logmag-ref',
             logmagMin:   'ts-logmag-min',
             swrScale:    'ts-swr-scale',
-            swrRef:      'ts-swr-ref',
+            swrRef:       'ts-swr-ref',
+            markersPane:  'ts-markers-pane',
         };
 
         /* ── Scale options per display mode ─────────────────────────────────── */
@@ -533,6 +724,12 @@
                 displayModeEl.value = savedMode;
             }
 
+            if (localStorage.getItem(LS.markersPane) === 'open') {
+                markersPane.classList.remove('pane-hidden');
+                markersBtn.textContent = '\u2713 Markers';
+                markersBtn.setAttribute('aria-pressed', 'true');
+            }
+
             applyDisplayMode();
         })();
 
@@ -585,6 +782,7 @@
             }
 
             if (fileData) draw();
+            updateMarkersPane();
         }
 
         /* ── Theme toggle ───────────────────────────────────────────────────── */
@@ -627,13 +825,178 @@
             if (fileData) draw();
         });
 
+        /* ── Markers pane toggle ─────────────────────────────────────────────── */
+        markersBtn.addEventListener('click', () => {
+            const nowHidden = markersPane.classList.toggle('pane-hidden');
+            markersBtn.textContent = nowHidden ? 'Markers' : '\u2713 Markers';
+            markersBtn.setAttribute('aria-pressed', nowHidden ? 'false' : 'true');
+            localStorage.setItem(LS.markersPane, nowHidden ? 'closed' : 'open');
+            if (fileData) draw();
+        });
+
+        /* ── Add marker ─────────────────────────────────────────────────────── */
+        addMarkerBtn.addEventListener('click', () => {
+            if (!fileData || displayMode === 'smith') return;
+            const paramKey = markerParamSelect.value;
+            const yVals = getParamYValues(paramKey);
+            if (!yVals) return;
+            const occupiedOnParam = new Set(
+                markers.filter(m => m.paramKey === paramKey).map(m => m.freqIndex)
+            );
+            /* Find global maximum index */
+            let globalMaxIdx = 0;
+            for (let i = 1; i < yVals.length; i++) {
+                if (yVals[i] > yVals[globalMaxIdx]) globalMaxIdx = i;
+            }
+            /* Collect interior local-maximum indices sorted by value descending */
+            const peaks = [];
+            for (let i = 1; i < yVals.length - 1; i++) {
+                if (yVals[i] > yVals[i - 1] && yVals[i] >= yVals[i + 1]) peaks.push(i);
+            }
+            peaks.sort((a, b) => yVals[b] - yVals[a]);
+            /* Build candidate list: global max first, then remaining peaks */
+            const candidates = [globalMaxIdx, ...peaks.filter(p => p !== globalMaxIdx)];
+            /* Pick first candidate not already occupied */
+            let freqIndex = 0;
+            for (const c of candidates) {
+                if (!occupiedOnParam.has(c)) { freqIndex = c; break; }
+            }
+            markers.push({ paramKey, freqIndex });
+            currentMarkerIdx = markers.length - 1;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        /* ── Remove current marker ──────────────────────────────────────────── */
+        removeMarkerBtn.addEventListener('click', () => {
+            if (currentMarkerIdx < 0 || currentMarkerIdx >= markers.length) return;
+            markers.splice(currentMarkerIdx, 1);
+            currentMarkerIdx = markers.length === 0 ? -1
+                : Math.min(currentMarkerIdx, markers.length - 1);
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        /* ── Peak / bottom search helpers ───────────────────────────────────── */
+        function findPeakLeft(yVals, fromIdx) {
+            for (let i = fromIdx - 1; i >= 1; i--) {
+                if (yVals[i] > yVals[i - 1] && yVals[i] >= yVals[i + 1]) return i;
+            }
+            return -1;
+        }
+
+        function findPeakRight(yVals, fromIdx) {
+            for (let i = fromIdx + 1; i < yVals.length - 1; i++) {
+                if (yVals[i] > yVals[i - 1] && yVals[i] >= yVals[i + 1]) return i;
+            }
+            return -1;
+        }
+
+        function findBottomLeft(yVals, fromIdx) {
+            for (let i = fromIdx - 1; i >= 1; i--) {
+                if (yVals[i] < yVals[i - 1] && yVals[i] < yVals[i + 1]) return i;
+            }
+            return -1;
+        }
+
+        function findBottomRight(yVals, fromIdx) {
+            for (let i = fromIdx + 1; i < yVals.length - 1; i++) {
+                if (yVals[i] < yVals[i - 1] && yVals[i] < yVals[i + 1]) return i;
+            }
+            return -1;
+        }
+
+        /* ── Peak ◀ / Peak ▶ buttons ────────────────────────────────────────── */
+        markerPeakLeftBtn.addEventListener('click', () => {
+            if (!fileData || currentMarkerIdx < 0 || displayMode === 'smith') return;
+            const m = markers[currentMarkerIdx];
+            const yVals = getParamYValues(m.paramKey);
+            if (!yVals) return;
+            const idx = findPeakLeft(yVals, m.freqIndex);
+            if (idx < 0) return;
+            m.freqIndex = idx;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        markerPeakRightBtn.addEventListener('click', () => {
+            if (!fileData || currentMarkerIdx < 0 || displayMode === 'smith') return;
+            const m = markers[currentMarkerIdx];
+            const yVals = getParamYValues(m.paramKey);
+            if (!yVals) return;
+            const idx = findPeakRight(yVals, m.freqIndex);
+            if (idx < 0) return;
+            m.freqIndex = idx;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        /* ── Bottom ◀ / Bottom ▶ buttons ────────────────────────────────────── */
+        markerBottomLeftBtn.addEventListener('click', () => {
+            if (!fileData || currentMarkerIdx < 0 || displayMode === 'smith') return;
+            const m = markers[currentMarkerIdx];
+            const yVals = getParamYValues(m.paramKey);
+            if (!yVals) return;
+            const idx = findBottomLeft(yVals, m.freqIndex);
+            if (idx < 0) return;
+            m.freqIndex = idx;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        markerBottomRightBtn.addEventListener('click', () => {
+            if (!fileData || currentMarkerIdx < 0 || displayMode === 'smith') return;
+            const m = markers[currentMarkerIdx];
+            const yVals = getParamYValues(m.paramKey);
+            if (!yVals) return;
+            const idx = findBottomRight(yVals, m.freqIndex);
+            if (idx < 0) return;
+            m.freqIndex = idx;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        /* ── Param selector color update ─────────────────────────────────────── */
+        markerParamSelect.addEventListener('change', () => {
+            markerParamSelect.style.color = paramColors[markerParamSelect.value] || '';
+        });
+
+        /* ── Change current marker's parameter ───────────────────────────────── */
+        markerChangeParamSelect.addEventListener('change', () => {
+            if (currentMarkerIdx < 0 || currentMarkerIdx >= markers.length) return;
+            const newParam = markerChangeParamSelect.value;
+            if (!fileData) return;
+            const yVals = getParamYValues(newParam);
+            if (!yVals) return;
+            markers[currentMarkerIdx].paramKey = newParam;
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
+        /* ── Arrow-key movement of current marker ───────────────────────────── */
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            if (!fileData || currentMarkerIdx < 0 || currentMarkerIdx >= markers.length) return;
+            if (displayMode === 'smith') return;
+            const tag = e.target.tagName;
+            if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+            const m = markers[currentMarkerIdx];
+            const maxIdx = fileData.frequencies.length - 1;
+            m.freqIndex = e.key === 'ArrowLeft'
+                ? Math.max(0, m.freqIndex - 1)
+                : Math.min(maxIdx, m.freqIndex + 1);
+            e.preventDefault();
+            updateMarkersPane();
+            drawOverlay(hoveredIdx);
+        });
+
         /* ── Colour picker sync ─────────────────────────────────────────────── */
         for (const p of ALL_PARAMS) {
             const picker = document.getElementById('color' + p);
             picker.addEventListener('input', () => {
                 paramColors[p] = picker.value;
                 localStorage.setItem(LS.colors, JSON.stringify(paramColors));
-                if (fileData) draw();
+                if (fileData) { draw(); updateMarkersPane(); }
             });
         }
 
@@ -697,6 +1060,9 @@
             fileData = null;
             hoveredIdx = null;
             hoveredSmith = null;
+            markers = [];
+            currentMarkerIdx = -1;
+            updateMarkersPane();
             draw();
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -723,6 +1089,9 @@
             fileData = null;
             hoveredIdx = null;
             hoveredSmith = null;
+            markers = [];
+            currentMarkerIdx = -1;
+            updateMarkersPane();
             draw();
             const controller = new AbortController();
             const timeoutId  = setTimeout(() => controller.abort(), URL_FETCH_TIMEOUT_MS);
@@ -882,6 +1251,11 @@
         const PAD_TOP    = 36;
         const PAD_BOTTOM = 52;
 
+        /** Marker triangle geometry and hit-testing constants */
+        const MARKER_HW      = 8;   /* half-width of marker triangle base (px) */
+        const MARKER_H       = 13;  /* height of marker triangle (px)           */
+        const MARKER_HIT_PAD = 3;   /* extra hit-testing tolerance around triangle (px) */
+
         /** Caps |Γ| to prevent division by zero in SWR calculation (SWR = (1+ρ)/(1-ρ)). */
         const MAX_REFLECTION_COEFF = 0.9999;
 
@@ -923,7 +1297,7 @@
             ctx.fillStyle = th.canvasBg;
             ctx.fillRect(0, 0, cssW, cssH);
 
-            if (!fileData) { drawRectOverlay(null); return; }
+            if (!fileData) { drawOverlay(null); return; }
 
             const { frequencies, filename } = fileData;
             const n = frequencies.length;
@@ -943,7 +1317,7 @@
             }
 
             if (Object.keys(traces).length === 0) {
-                drawRectOverlay(null);
+                drawOverlay(null);
                 return;
             }
 
@@ -1107,7 +1481,7 @@
             /* ── Store layout for hover ── */
             canvas._layout = { xPx, xScale, yScale, plotW, plotH, yMin, yMax, traces };
 
-            drawRectOverlay(hoveredIdx);
+            drawOverlay(hoveredIdx);
         }
 
         /* ── Smith chart ────────────────────────────────────────────────────── */
@@ -1314,28 +1688,47 @@
             ctx.setLineDash([]);
         }
 
-        /* ── Rectangular chart overlay (crosshair) ──────────────────────────── */
-        function drawRectOverlay(idx) {
+        /* ── Rectangular chart overlay (crosshair + markers) ────────────────── */
+        function drawOverlay(idx) {
             const dpr  = window.devicePixelRatio || 1;
             const ctx2 = crosshairCanvas.getContext('2d');
             ctx2.setTransform(1, 0, 0, 1, 0, 0);
             ctx2.clearRect(0, 0, crosshairCanvas.width, crosshairCanvas.height);
-            if (!canvas._layout || !fileData || idx === null) return;
+            if (!canvas._layout || !fileData) return;
 
             ctx2.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-            const { xPx, plotH } = canvas._layout;
-            const th  = THEMES[currentTheme];
-            const x   = Math.round(xPx[idx]) + 0.5;
+            const { xPx, yScale, plotW, plotH } = canvas._layout;
+            const th = THEMES[currentTheme];
 
-            ctx2.strokeStyle = th.crosshair;
-            ctx2.lineWidth   = 1;
-            ctx2.setLineDash([4, 3]);
-            ctx2.beginPath();
-            ctx2.moveTo(x, PAD_TOP);
-            ctx2.lineTo(x, PAD_TOP + plotH);
-            ctx2.stroke();
-            ctx2.setLineDash([]);
+            /* ── Draw marker triangles ── */
+            for (let mi = 0; mi < markers.length; mi++) {
+                const m = markers[mi];
+                if (!paramVisible[m.paramKey]) continue;
+                const raw = fileData[m.paramKey.toLowerCase()];
+                if (!raw || raw.length === 0 || m.freqIndex >= raw.length) continue;
+                const yVal = displayMode === 'swr'
+                    ? swrOf(raw[m.freqIndex])
+                    : logMagOf(raw[m.freqIndex]);
+                const x = xPx[m.freqIndex];
+                const y = yScale(yVal);
+                if (x < PAD_LEFT - 1 || x > PAD_LEFT + plotW + 1) continue;
+                drawMarkerTriangle(ctx2, x, y, paramColors[m.paramKey],
+                    'M' + (mi + 1), mi === currentMarkerIdx);
+            }
+
+            /* ── Draw crosshair ── */
+            if (idx !== null) {
+                ctx2.strokeStyle = th.crosshair;
+                ctx2.lineWidth   = 1;
+                ctx2.setLineDash([4, 3]);
+                const xPos = Math.round(xPx[idx]) + 0.5;
+                ctx2.beginPath();
+                ctx2.moveTo(xPos, PAD_TOP);
+                ctx2.lineTo(xPos, PAD_TOP + plotH);
+                ctx2.stroke();
+                ctx2.setLineDash([]);
+            }
         }
 
         /* ── Smith chart overlay (hover dot) ────────────────────────────────── */
@@ -1367,12 +1760,68 @@
         }
 
         /* ── Mouse events ───────────────────────────────────────────────────── */
-        canvas.addEventListener('mousemove', (e) => {
-            if (!fileData || !canvas._layout) return;
+        canvas.addEventListener('mousedown', (e) => {
+            if (!fileData || !canvas._layout || displayMode === 'smith') return;
+            const { xPx, yScale } = canvas._layout;
             const rect = canvas.getBoundingClientRect();
             const mx   = e.clientX - rect.left;
             const my   = e.clientY - rect.top;
 
+            for (let mi = 0; mi < markers.length; mi++) {
+                const m   = markers[mi];
+                if (!paramVisible[m.paramKey]) continue;
+                const raw = fileData[m.paramKey.toLowerCase()];
+                if (!raw || raw.length === 0) continue;
+                const yVal = displayMode === 'swr'
+                    ? swrOf(raw[m.freqIndex])
+                    : logMagOf(raw[m.freqIndex]);
+                const x = xPx[m.freqIndex];
+                const y = yScale(yVal);
+                if (mx >= x - MARKER_HW - MARKER_HIT_PAD && mx <= x + MARKER_HW + MARKER_HIT_PAD &&
+                    my >= y - MARKER_H   - MARKER_HIT_PAD && my <= y + MARKER_HIT_PAD) {
+                    currentMarkerIdx  = mi;
+                    draggingMarkerIdx = mi;
+                    canvas.style.cursor = 'grabbing';
+                    updateMarkersPane();
+                    tooltip.style.display = 'none';
+                    drawOverlay(null);
+                    e.preventDefault();
+                    return;
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (draggingMarkerIdx === null) return;
+            draggingMarkerIdx = null;
+            canvas.style.cursor = 'crosshair';
+            canvas.dispatchEvent(new MouseEvent('mousemove', {
+                clientX: e.clientX, clientY: e.clientY, bubbles: true
+            }));
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!canvas._layout) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx   = e.clientX - rect.left;
+            const my   = e.clientY - rect.top;
+
+            /* Handle marker drag */
+            if (draggingMarkerIdx !== null && fileData && displayMode !== 'smith') {
+                const { xPx } = canvas._layout;
+                let idx = 0, bestDist = Infinity;
+                for (let i = 0; i < fileData.frequencies.length; i++) {
+                    const d = Math.abs(xPx[i] - mx);
+                    if (d < bestDist) { bestDist = d; idx = i; }
+                }
+                markers[draggingMarkerIdx].freqIndex = idx;
+                updateMarkersPane();
+                tooltip.style.display = 'none';
+                drawOverlay(null);
+                return;
+            }
+
+            if (!fileData) return;
             if (displayMode === 'smith') {
                 handleSmithHover(mx, my);
             } else {
@@ -1384,10 +1833,11 @@
             tooltip.style.display = 'none';
             hoveredIdx   = null;
             hoveredSmith = null;
+            draggingMarkerIdx = null;
             if (displayMode === 'smith') {
                 drawSmithOverlay(null);
             } else {
-                drawRectOverlay(null);
+                drawOverlay(null);
             }
         });
 
@@ -1399,9 +1849,29 @@
                 my < PAD_TOP  || my > PAD_TOP  + plotH) {
                 tooltip.style.display = 'none';
                 hoveredIdx = null;
-                drawRectOverlay(null);
+                drawOverlay(null);
                 return;
             }
+
+            /* Check if hovering over a marker triangle to change cursor */
+            let overMarker = false;
+            for (let mi = 0; mi < markers.length; mi++) {
+                const m   = markers[mi];
+                if (!paramVisible[m.paramKey]) continue;
+                const raw = fileData[m.paramKey.toLowerCase()];
+                if (!raw || raw.length === 0) continue;
+                const yVal = displayMode === 'swr'
+                    ? swrOf(raw[m.freqIndex])
+                    : logMagOf(raw[m.freqIndex]);
+                const x = xPx[m.freqIndex];
+                const y = yScale(yVal);
+                if (mx >= x - MARKER_HW - MARKER_HIT_PAD && mx <= x + MARKER_HW + MARKER_HIT_PAD &&
+                    my >= y - MARKER_H   - MARKER_HIT_PAD && my <= y + MARKER_HIT_PAD) {
+                    overMarker = true;
+                    break;
+                }
+            }
+            canvas.style.cursor = overMarker ? 'pointer' : 'crosshair';
 
             /* Find closest frequency index by pixel-x distance */
             let idx = 0, best = Infinity;
@@ -1411,7 +1881,7 @@
             }
 
             hoveredIdx = idx;
-            drawRectOverlay(idx);
+            drawOverlay(idx);
 
             /* Build tooltip */
             let html = '<b>' + formatFreqTooltip(frequencies[idx]) + '</b>';
@@ -1547,6 +2017,124 @@
             } else {
                 cpItem.classList.add('param-hidden');
                 btn.title = 'Show ' + p;
+            }
+        }
+
+        /** Return an array of computed y-values (logMag or SWR) for the given param key. */
+        function getParamYValues(paramKey) {
+            if (!fileData || displayMode === 'smith') return null;
+            const raw = fileData[paramKey.toLowerCase()];
+            if (!raw || raw.length === 0) return null;
+            return displayMode === 'swr'
+                ? raw.map(c => swrOf(c))
+                : raw.map(c => logMagOf(c));
+        }
+
+        /** Draw a downward-pointing marker triangle with tip at (x, y). */
+        function drawMarkerTriangle(ctx2, x, y, color, label, isCurrent) {
+            ctx2.beginPath();
+            ctx2.moveTo(x,             y);              /* tip at trace level */
+            ctx2.lineTo(x - MARKER_HW, y - MARKER_H);  /* upper-left         */
+            ctx2.lineTo(x + MARKER_HW, y - MARKER_H);  /* upper-right        */
+            ctx2.closePath();
+            ctx2.fillStyle = color;
+            ctx2.fill();
+            if (isCurrent) {
+                ctx2.strokeStyle = currentTheme === 'dark'
+                    ? 'rgba(255,255,255,0.85)'
+                    : 'rgba(0,0,0,0.75)';
+                ctx2.lineWidth   = 1.5;
+                ctx2.stroke();
+            }
+            /* Label above the triangle – use contrasting color for current */
+            ctx2.fillStyle    = isCurrent
+                ? (currentTheme === 'dark' ? '#ffffff' : '#000000')
+                : color;
+            ctx2.font         = 'bold 9px sans-serif';
+            ctx2.textAlign    = 'center';
+            ctx2.textBaseline = 'bottom';
+            ctx2.fillText(label, x, y - MARKER_H - 1);
+        }
+
+        /** Rebuild the markers pane list and update button states. */
+        function updateMarkersPane() {
+            const hasMarker = currentMarkerIdx >= 0 && currentMarkerIdx < markers.length;
+            const isSmith   = displayMode === 'smith';
+            addMarkerBtn.disabled            = isSmith;
+            removeMarkerBtn.disabled         = !hasMarker || isSmith;
+            markerPeakLeftBtn.disabled       = !hasMarker || isSmith;
+            markerPeakRightBtn.disabled      = !hasMarker || isSmith;
+            markerBottomLeftBtn.disabled     = !hasMarker || isSmith;
+            markerBottomRightBtn.disabled    = !hasMarker || isSmith;
+            markerChangeParamSelect.disabled = !hasMarker || isSmith;
+
+            /* Show/hide the bottom controls section */
+            const showBottom = markers.length > 0;
+            markerBottomSep.classList.toggle('pane-hidden', !showBottom);
+            markerBottomControls.classList.toggle('pane-hidden', !showBottom);
+
+            /* Sync the bottom param selector to the current marker's param */
+            if (hasMarker) {
+                markerChangeParamSelect.value = markers[currentMarkerIdx].paramKey;
+            }
+
+            /* Keep param selectors in sync with loaded data and current colors */
+            for (const sel of [markerParamSelect, markerChangeParamSelect]) {
+                for (let i = 0; i < sel.options.length; i++) {
+                    const p = ALL_PARAMS[i];
+                    const hasData = fileData && fileData[p.toLowerCase()] && fileData[p.toLowerCase()].length > 0;
+                    const modeNa  = isSmith || (displayMode === 'swr' && !REFLECTION_PARAMS.has(p));
+                    sel.options[i].disabled    = !hasData || modeNa;
+                    sel.options[i].style.color = paramColors[p];
+                }
+                sel.style.color = paramColors[sel.value] || '';
+            }
+
+            /* Rebuild the list */
+            markersList.innerHTML = '';
+            if (!fileData) return;
+            const { frequencies } = fileData;
+            for (let mi = 0; mi < markers.length; mi++) {
+                const m     = markers[mi];
+                const color = paramColors[m.paramKey];
+                const freq  = frequencies[m.freqIndex];
+                const raw   = fileData[m.paramKey.toLowerCase()];
+                const yVal  = raw && raw[m.freqIndex]
+                    ? (displayMode === 'swr'
+                        ? swrOf(raw[m.freqIndex])
+                        : logMagOf(raw[m.freqIndex]))
+                    : 0;
+                const valStr = displayMode === 'swr'
+                    ? yVal.toFixed(3)
+                    : yVal.toFixed(2) + ' dB';
+
+                const entry = document.createElement('div');
+                entry.className = 'marker-entry' + (mi === currentMarkerIdx ? ' current' : '');
+                entry.style.color = color;
+
+                const numSpan  = document.createElement('span');
+                numSpan.className   = 'me-num';
+                numSpan.textContent = 'M' + (mi + 1);
+
+                const freqSpan = document.createElement('span');
+                freqSpan.className   = 'me-freq';
+                freqSpan.textContent = formatFreq(freq);
+
+                const valSpan  = document.createElement('span');
+                valSpan.className   = 'me-val';
+                valSpan.textContent = valStr;
+
+                entry.appendChild(numSpan);
+                entry.appendChild(freqSpan);
+                entry.appendChild(valSpan);
+
+                entry.addEventListener('click', () => {
+                    currentMarkerIdx = mi;
+                    updateMarkersPane();
+                    drawOverlay(hoveredIdx);
+                });
+
+                markersList.appendChild(entry);
             }
         }
     </script>
