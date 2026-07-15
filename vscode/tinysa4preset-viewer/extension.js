@@ -65,6 +65,37 @@ const MARKER_TYPE_FLAGS = { // M_NORMAL … M_DELETE (L911-L913)
     8: 'Stored', 16: 'Average', 32: 'Tracking', 64: 'Delete'
 };
 
+/* ── Auto-RBW calculation: mirrors firmware si4468.c / sa_core.c logic ──── */
+/* Fast step-delay mode index (SD_FAST from nanovna.h) */
+const SD_FAST = 2;
+
+/* Available RBW values for SI4463 (tinySA Ultra): RBWx10 = RBW_Hz / 100.
+   Source: si4468.c RBW_choices[], active #else block. */
+const RBW_CHOICES = [2, 10, 30, 100, 300, 1000, 3000, 6000, 8500];
+
+/* Snap requested RBW to the smallest supported value >= wish.
+   Mirrors si4468.c set_rbw(). RBW_CHOICES sorted smallest → largest. */
+function setRbw(wish) {
+    for (let i = 0; i < RBW_CHOICES.length - 1; i++) {
+        if (wish <= RBW_CHOICES[i]) return RBW_CHOICES[i];
+    }
+    return RBW_CHOICES[RBW_CHOICES.length - 1];
+}
+
+/* Compute the actual RBW (in rbw_x10 units) selected by the firmware
+   for a given preset when rbw_x10 === 0 (Auto). */
+function calcAutoRbwX10(preset) {
+    const isCW = (preset.frequency0 === preset.frequency1) || (preset.sweep_points <= 1);
+    const frequencyStepX10 = isCW
+        ? 3000
+        : Math.floor(Math.floor((preset.frequency1 - preset.frequency0) / (preset.sweep_points - 1)) / 100);
+    let tempActualRbwX10 = (preset.step_delay_mode === SD_FAST)
+        ? frequencyStepX10
+        : 2 * frequencyStepX10;
+    tempActualRbwX10 = Math.max(1, Math.min(8500, tempActualRbwX10));
+    return setRbw(tempActualRbwX10);
+}
+
 function enumName(table, value) {
     return table[value] !== undefined ? table[value] : String(value);
 }
@@ -368,16 +399,20 @@ function formatTime(us) {
     return `${(us / 1000000).toFixed(3)} s`;
 }
 
-function formatRBW(rbw_x10) {
-    if (rbw_x10 === 0) return 'Auto';
+function formatRBW(rbw_x10, autoRbwX10) {
+    if (rbw_x10 === 0) {
+        if (autoRbwX10 !== undefined) return `Auto \u2192 ${formatFreq(autoRbwX10 * 100)}`;
+        return 'Auto';
+    }
     return formatFreq(rbw_x10 * 100);  // stored as kHz×10; convert to Hz
 }
 
-function formatVBW(vbw_x100, rbw_x10) {
+function formatVBW(vbw_x100, rbw_x10, autoRbwX10) {
     if (vbw_x100 === 0) return 'Auto';
-    if (rbw_x10 === 0) return 'Auto';
+    const effectiveRbwX10 = (rbw_x10 === 0) ? autoRbwX10 : rbw_x10;
+    if (effectiveRbwX10 === undefined) return 'Auto';
     // vbw_x100 is the divisor of RBW; VBW in Hz = (rbw_x10 * 100) / vbw_x100
-    return formatFreq((rbw_x10 * 100) / vbw_x100);
+    return formatFreq((effectiveRbwX10 * 100) / vbw_x100);
 }
 
 // HTML-escape a string to prevent XSS in the generated WebView HTML
@@ -425,13 +460,14 @@ function getWebviewHtml(preset, filename) {
     ];
 
     // ── Frequency ───────────────────────────────────────────────────────────────
+    const autoRbwX10 = (preset.rbw_x10 === 0) ? calcAutoRbwX10(preset) : undefined;
     const freqRows = [
         ['Start',             formatFreq(preset.frequency0)],
         ['Stop',              formatFreq(preset.frequency1)],
         ['Step',              formatFreq(preset.frequency_step)],
         ['Sweep points',      preset.sweep_points],
-        ['RBW',               formatRBW(preset.rbw_x10)],
-        ['VBW',               formatVBW(preset.vbw_x100, preset.rbw_x10)],
+        ['RBW',               formatRBW(preset.rbw_x10, autoRbwX10)],
+        ['VBW',               formatVBW(preset.vbw_x100, preset.rbw_x10, autoRbwX10)],
         ['IF frequency',      formatFreq(preset.frequency_if)],
         ['Frequency offset',  formatFreq(preset.frequency_offset)],
     ];
