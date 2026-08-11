@@ -163,7 +163,7 @@
     </div>
 
     <div class="screen-wrap">
-        <canvas id="screen" width="480" height="320" aria-label="tinySA Ultra screen"></canvas>
+        <canvas id="screen" width="480" height="320" role="img" aria-label="tinySA Ultra screen"></canvas>
     </div>
 
     <div id="status">WebSerial disconnected.</div>
@@ -172,15 +172,21 @@
         const SCREEN_WIDTH = 480;
         const SCREEN_HEIGHT = 320;
         const PIXEL_BYTES = SCREEN_WIDTH * SCREEN_HEIGHT * 2;
-        const PROMPT = new TextEncoder().encode('ch>');
+        const TEXT_ENCODER = new TextEncoder();
+        const TEXT_DECODER = new TextDecoder();
+        const PROMPT = TEXT_ENCODER.encode('ch>');
+        const TOUCH_MOVE_INTERVAL_MS = 50;
 
         let port = null;
         let reader = null;
         let writer = null;
         let readBuffer = new Uint8Array(0);
-        let ioQueue = Promise.resolve();
+        let ioQueueTail = Promise.resolve();
         let autoTimer = null;
         let refreshInFlight = false;
+        let touchCommandInFlight = false;
+        let lastTouchMoveAt = 0;
+        let disconnectPromise = null;
 
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
@@ -228,6 +234,15 @@
             return -1;
         }
 
+        function consumeOptionalPromptPrefix() {
+            while (readBuffer.length && (readBuffer[0] === 0x0d || readBuffer[0] === 0x0a)) {
+                readBuffer = readBuffer.slice(1);
+            }
+            if (readBuffer.length >= PROMPT.length && findSequence(readBuffer.slice(0, PROMPT.length), PROMPT) === 0) {
+                readBuffer = readBuffer.slice(PROMPT.length);
+            }
+        }
+
         async function readChunk() {
             const { value, done } = await reader.read();
             if (done) {
@@ -272,20 +287,22 @@
         }
 
         async function writeCommand(command) {
-            const bytes = new TextEncoder().encode(`${command}\r`);
+            const bytes = TEXT_ENCODER.encode(`${command}\r`);
             await writer.write(bytes);
         }
 
         function enqueueIo(operation) {
-            ioQueue = ioQueue.then(operation, operation);
-            return ioQueue;
+            const operationPromise = ioQueueTail.then(() => operation());
+            ioQueueTail = operationPromise.catch(() => {});
+            return operationPromise;
         }
 
         async function sendConsoleCommand(command) {
             await writeCommand(command);
+            // The first line is command echo/empty line from tinySA console output.
             await readLine();
             const raw = await readUntilPrompt();
-            return new TextDecoder().decode(raw).trim();
+            return TEXT_DECODER.decode(raw).trim();
         }
 
         function renderRgb565(rawPixels) {
@@ -315,8 +332,10 @@
             try {
                 await enqueueIo(async () => {
                     await writeCommand('capture');
+                    // tinySA Ultra capture response is expected to be one text line followed by raw RGB565 pixels.
                     await readLine();
                     const pixels = await readExact(PIXEL_BYTES);
+                    consumeOptionalPromptPrefix();
                     renderRgb565(pixels);
                 });
                 setStatus(`Screen updated at ${new Date().toLocaleTimeString()}`);
@@ -344,8 +363,12 @@
             return { x, y };
         }
 
-        async function sendTouchPress(event) {
+        async function sendTouchPress(event, force = false) {
             if (!port) {
+                return;
+            }
+            const now = Date.now();
+            if (!force && (touchCommandInFlight || now - lastTouchMoveAt < TOUCH_MOVE_INTERVAL_MS)) {
                 return;
             }
 
@@ -355,9 +378,17 @@
                 return;
             }
 
-            await enqueueIo(async () => {
-                await sendConsoleCommand(command);
-            });
+            touchCommandInFlight = true;
+            lastTouchMoveAt = now;
+            try {
+                await enqueueIo(async () => {
+                    await sendConsoleCommand(command);
+                });
+            } catch (error) {
+                setStatus(`Touch press failed: ${error.message}`, true);
+            } finally {
+                touchCommandInFlight = false;
+            }
         }
 
         async function sendTouchRelease() {
@@ -370,9 +401,13 @@
                 return;
             }
 
-            await enqueueIo(async () => {
-                await sendConsoleCommand(command);
-            });
+            try {
+                await enqueueIo(async () => {
+                    await sendConsoleCommand(command);
+                });
+            } catch (error) {
+                setStatus(`Touch release failed: ${error.message}`, true);
+            }
         }
 
         function startAutoRefresh() {
@@ -406,54 +441,77 @@
                 readBuffer = new Uint8Array(0);
 
                 const info = await enqueueIo(async () => sendConsoleCommand('info'));
-                if (!info.includes('tinySA ULTRA')) {
+                if (!info.toLowerCase().includes('tinysa ultra')) {
                     setStatus('Connected device does not report tinySA ULTRA in info output.', true);
-                } else {
-                    setStatus('Connected to tinySA ULTRA.');
+                    await disconnect(true);
+                    return;
                 }
+                setStatus('Connected to tinySA ULTRA.');
 
                 setConnectedUi(true);
                 await refreshScreen();
             } catch (error) {
                 setStatus(`Connect failed: ${error.message}`, true);
-                await disconnect();
+                await disconnect(true);
             }
         }
 
-        async function disconnect() {
-            stopAutoRefresh();
-            setConnectedUi(false);
-
-            try {
-                if (reader) {
-                    await reader.cancel();
-                    reader.releaseLock();
-                }
-            } catch (error) {
-                console.warn(error);
+        async function disconnect(keepStatus = false) {
+            if (disconnectPromise) {
+                await disconnectPromise;
+                return;
             }
 
-            try {
-                if (writer) {
-                    writer.releaseLock();
+            disconnectPromise = (async () => {
+                stopAutoRefresh();
+                setConnectedUi(false);
+
+                const activeReader = reader;
+                const activeWriter = writer;
+                const activePort = port;
+
+                reader = null;
+                writer = null;
+                port = null;
+                readBuffer = new Uint8Array(0);
+                ioQueueTail = Promise.resolve();
+                touchCommandInFlight = false;
+
+                try {
+                    if (activeReader) {
+                        await activeReader.cancel();
+                        activeReader.releaseLock();
+                    }
+                } catch (error) {
+                    console.warn(error);
                 }
-            } catch (error) {
-                console.warn(error);
-            }
+
+                try {
+                    if (activeWriter) {
+                        activeWriter.releaseLock();
+                    }
+                } catch (error) {
+                    console.warn(error);
+                }
+
+                try {
+                    if (activePort) {
+                        await activePort.close();
+                    }
+                } catch (error) {
+                    console.warn(error);
+                }
+
+                if (!keepStatus) {
+                    setStatus('WebSerial disconnected.');
+                }
+            })();
 
             try {
-                if (port) {
-                    await port.close();
-                }
-            } catch (error) {
-                console.warn(error);
+                await disconnectPromise;
+            } finally {
+                disconnectPromise = null;
             }
-
-            port = null;
-            reader = null;
-            writer = null;
-            readBuffer = new Uint8Array(0);
-            setStatus('WebSerial disconnected.');
         }
 
         connectBtn.addEventListener('click', () => {
@@ -479,7 +537,7 @@
 
         canvas.addEventListener('pointerdown', (event) => {
             canvas.setPointerCapture(event.pointerId);
-            void sendTouchPress(event);
+            void sendTouchPress(event, true);
         });
 
         canvas.addEventListener('pointermove', (event) => {
