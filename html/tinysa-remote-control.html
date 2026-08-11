@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinySA Ultra Remote Control</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMyIgZmlsbD0iIzFlMWUxZSIvPgogIDxwb2x5bGluZSBmaWxsPSJub25lIiBzdHJva2U9IiNmZmQ3MDAiIHN0cm9rZS13aWR0aD0iMS41IgogICAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgcG9pbnRzPSIxLDI3IDMsMjYgNSwyNCA3LDkgOSwyMyAxMSwyNSAxMywyMCAxNSwxOCAxNywyMiAxOSwyNSAyMSwyNCAyMywxOSAyNSwyMyAyNywyNSAyOSwyNCAzMSwyNiIvPgo8L3N2Zz4=">
+    <style>
+        :root {
+            color-scheme: dark light;
+            --body-bg: #1e1e1e;
+            --surface-bg: #252525;
+            --surface-border: #404040;
+            --text: #e0e0e0;
+            --muted: #b0b0b0;
+            --button-bg: #383838;
+            --button-hover: #484848;
+            --button-text: #f5f5f5;
+            --input-bg: #2f2f2f;
+            --input-border: #505050;
+            --error: #f08080;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --body-bg: #f0f2f5;
+                --surface-bg: #ffffff;
+                --surface-border: #b0bcc8;
+                --text: #303848;
+                --muted: #5d6a7f;
+                --button-bg: #3060a0;
+                --button-hover: #204080;
+                --button-text: #ffffff;
+                --input-bg: #ffffff;
+                --input-border: #b0bcc8;
+                --error: #c02020;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: sans-serif;
+            background: var(--body-bg);
+            color: var(--text);
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 1.5rem;
+        }
+
+        .lead {
+            margin: 0 0 16px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .panel {
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            background: var(--surface-bg);
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            border: 1px solid var(--surface-border);
+            border-radius: 6px;
+            background: var(--button-bg);
+            color: var(--button-text);
+            padding: 7px 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--button-hover);
+        }
+
+        input {
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--text);
+            padding: 6px 8px;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .screen-wrap {
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            overflow: hidden;
+            width: min(960px, 100%);
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        #status {
+            margin-top: 8px;
+            min-height: 1.4em;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        #status.error {
+            color: var(--error);
+        }
+    </style>
+</head>
+<body>
+    <h1>tinySA Ultra Remote Control</h1>
+    <p class="lead">Connect via WebSerial, mirror the device screen with auto refresh, and send touch events by clicking or dragging on the mirrored display.</p>
+
+    <div class="panel">
+        <div class="toolbar">
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+            <button id="refreshBtn" disabled>Refresh now</button>
+            <label>Auto refresh (ms)
+                <input id="intervalInput" type="number" min="200" step="100" value="1000">
+            </label>
+            <button id="toggleAutoBtn" disabled>Start auto refresh</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="toolbar">
+            <label>Touch press command
+                <input id="touchPressInput" type="text" value="touch {x} {y}" size="22">
+            </label>
+            <label>Touch release command
+                <input id="touchReleaseInput" type="text" value="touch 0 0" size="14">
+            </label>
+        </div>
+    </div>
+
+    <div class="screen-wrap">
+        <canvas id="screen" width="480" height="320" aria-label="tinySA Ultra screen"></canvas>
+    </div>
+
+    <div id="status">WebSerial disconnected.</div>
+
+    <script>
+        const SCREEN_WIDTH = 480;
+        const SCREEN_HEIGHT = 320;
+        const PIXEL_BYTES = SCREEN_WIDTH * SCREEN_HEIGHT * 2;
+        const PROMPT = new TextEncoder().encode('ch>');
+
+        let port = null;
+        let reader = null;
+        let writer = null;
+        let readBuffer = new Uint8Array(0);
+        let ioQueue = Promise.resolve();
+        let autoTimer = null;
+        let refreshInFlight = false;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const toggleAutoBtn = document.getElementById('toggleAutoBtn');
+        const intervalInput = document.getElementById('intervalInput');
+        const touchPressInput = document.getElementById('touchPressInput');
+        const touchReleaseInput = document.getElementById('touchReleaseInput');
+        const statusEl = document.getElementById('status');
+        const canvas = document.getElementById('screen');
+        const ctx = canvas.getContext('2d');
+
+        function setStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.classList.toggle('error', isError);
+        }
+
+        function setConnectedUi(connected) {
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+            refreshBtn.disabled = !connected;
+            toggleAutoBtn.disabled = !connected;
+            intervalInput.disabled = !connected;
+            touchPressInput.disabled = !connected;
+            touchReleaseInput.disabled = !connected;
+            toggleAutoBtn.textContent = autoTimer ? 'Stop auto refresh' : 'Start auto refresh';
+        }
+
+        function appendBuffer(existing, chunk) {
+            const merged = new Uint8Array(existing.length + chunk.length);
+            merged.set(existing, 0);
+            merged.set(chunk, existing.length);
+            return merged;
+        }
+
+        function findSequence(buffer, sequence) {
+            outer: for (let i = 0; i <= buffer.length - sequence.length; i++) {
+                for (let j = 0; j < sequence.length; j++) {
+                    if (buffer[i + j] !== sequence[j]) {
+                        continue outer;
+                    }
+                }
+                return i;
+            }
+            return -1;
+        }
+
+        async function readChunk() {
+            const { value, done } = await reader.read();
+            if (done) {
+                throw new Error('Serial connection closed');
+            }
+            if (value?.length) {
+                readBuffer = appendBuffer(readBuffer, value);
+            }
+        }
+
+        async function readLine() {
+            while (true) {
+                const index = readBuffer.indexOf(0x0A);
+                if (index !== -1) {
+                    const line = readBuffer.slice(0, index + 1);
+                    readBuffer = readBuffer.slice(index + 1);
+                    return line;
+                }
+                await readChunk();
+            }
+        }
+
+        async function readUntilPrompt() {
+            while (true) {
+                const index = findSequence(readBuffer, PROMPT);
+                if (index !== -1) {
+                    const data = readBuffer.slice(0, index);
+                    readBuffer = readBuffer.slice(index + PROMPT.length);
+                    return data;
+                }
+                await readChunk();
+            }
+        }
+
+        async function readExact(length) {
+            while (readBuffer.length < length) {
+                await readChunk();
+            }
+            const data = readBuffer.slice(0, length);
+            readBuffer = readBuffer.slice(length);
+            return data;
+        }
+
+        async function writeCommand(command) {
+            const bytes = new TextEncoder().encode(`${command}\r`);
+            await writer.write(bytes);
+        }
+
+        function enqueueIo(operation) {
+            ioQueue = ioQueue.then(operation, operation);
+            return ioQueue;
+        }
+
+        async function sendConsoleCommand(command) {
+            await writeCommand(command);
+            await readLine();
+            const raw = await readUntilPrompt();
+            return new TextDecoder().decode(raw).trim();
+        }
+
+        function renderRgb565(rawPixels) {
+            const imageData = ctx.createImageData(SCREEN_WIDTH, SCREEN_HEIGHT);
+            const rgba = imageData.data;
+
+            for (let src = 0, dst = 0; src < rawPixels.length; src += 2, dst += 4) {
+                const word = (rawPixels[src] << 8) | rawPixels[src + 1];
+                const r = (word >> 11) & 0x1f;
+                const g = (word >> 5) & 0x3f;
+                const b = word & 0x1f;
+                rgba[dst] = (r << 3) | (r >> 2);
+                rgba[dst + 1] = (g << 2) | (g >> 4);
+                rgba[dst + 2] = (b << 3) | (b >> 2);
+                rgba[dst + 3] = 255;
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        async function refreshScreen() {
+            if (!port || refreshInFlight) {
+                return;
+            }
+
+            refreshInFlight = true;
+            try {
+                await enqueueIo(async () => {
+                    await writeCommand('capture');
+                    await readLine();
+                    const pixels = await readExact(PIXEL_BYTES);
+                    renderRgb565(pixels);
+                });
+                setStatus(`Screen updated at ${new Date().toLocaleTimeString()}`);
+            } catch (error) {
+                setStatus(`Refresh failed: ${error.message}`, true);
+                stopAutoRefresh();
+            } finally {
+                refreshInFlight = false;
+            }
+        }
+
+        function buildTouchCommand(template, x, y) {
+            return template
+                .replaceAll('{x}', String(x))
+                .replaceAll('{y}', String(y))
+                .trim();
+        }
+
+        function getTouchPoint(event) {
+            const rect = canvas.getBoundingClientRect();
+            const relativeX = (event.clientX - rect.left) / rect.width;
+            const relativeY = (event.clientY - rect.top) / rect.height;
+            const x = Math.max(0, Math.min(SCREEN_WIDTH - 1, Math.round(relativeX * (SCREEN_WIDTH - 1))));
+            const y = Math.max(0, Math.min(SCREEN_HEIGHT - 1, Math.round(relativeY * (SCREEN_HEIGHT - 1))));
+            return { x, y };
+        }
+
+        async function sendTouchPress(event) {
+            if (!port) {
+                return;
+            }
+
+            const { x, y } = getTouchPoint(event);
+            const command = buildTouchCommand(touchPressInput.value, x, y);
+            if (!command) {
+                return;
+            }
+
+            await enqueueIo(async () => {
+                await sendConsoleCommand(command);
+            });
+        }
+
+        async function sendTouchRelease() {
+            if (!port) {
+                return;
+            }
+
+            const command = touchReleaseInput.value.trim();
+            if (!command) {
+                return;
+            }
+
+            await enqueueIo(async () => {
+                await sendConsoleCommand(command);
+            });
+        }
+
+        function startAutoRefresh() {
+            const interval = Math.max(200, Number(intervalInput.value) || 1000);
+            intervalInput.value = String(interval);
+            autoTimer = setInterval(() => {
+                void refreshScreen();
+            }, interval);
+            toggleAutoBtn.textContent = 'Stop auto refresh';
+        }
+
+        function stopAutoRefresh() {
+            if (autoTimer) {
+                clearInterval(autoTimer);
+                autoTimer = null;
+            }
+            toggleAutoBtn.textContent = 'Start auto refresh';
+        }
+
+        async function connect() {
+            if (!navigator.serial) {
+                setStatus('WebSerial API is not available in this browser.', true);
+                return;
+            }
+
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                reader = port.readable.getReader();
+                writer = port.writable.getWriter();
+                readBuffer = new Uint8Array(0);
+
+                const info = await enqueueIo(async () => sendConsoleCommand('info'));
+                if (!info.includes('tinySA ULTRA')) {
+                    setStatus('Connected device does not report tinySA ULTRA in info output.', true);
+                } else {
+                    setStatus('Connected to tinySA ULTRA.');
+                }
+
+                setConnectedUi(true);
+                await refreshScreen();
+            } catch (error) {
+                setStatus(`Connect failed: ${error.message}`, true);
+                await disconnect();
+            }
+        }
+
+        async function disconnect() {
+            stopAutoRefresh();
+            setConnectedUi(false);
+
+            try {
+                if (reader) {
+                    await reader.cancel();
+                    reader.releaseLock();
+                }
+            } catch (error) {
+                console.warn(error);
+            }
+
+            try {
+                if (writer) {
+                    writer.releaseLock();
+                }
+            } catch (error) {
+                console.warn(error);
+            }
+
+            try {
+                if (port) {
+                    await port.close();
+                }
+            } catch (error) {
+                console.warn(error);
+            }
+
+            port = null;
+            reader = null;
+            writer = null;
+            readBuffer = new Uint8Array(0);
+            setStatus('WebSerial disconnected.');
+        }
+
+        connectBtn.addEventListener('click', () => {
+            void connect();
+        });
+
+        disconnectBtn.addEventListener('click', () => {
+            void disconnect();
+        });
+
+        refreshBtn.addEventListener('click', () => {
+            void refreshScreen();
+        });
+
+        toggleAutoBtn.addEventListener('click', () => {
+            if (autoTimer) {
+                stopAutoRefresh();
+            } else {
+                startAutoRefresh();
+                void refreshScreen();
+            }
+        });
+
+        canvas.addEventListener('pointerdown', (event) => {
+            canvas.setPointerCapture(event.pointerId);
+            void sendTouchPress(event);
+        });
+
+        canvas.addEventListener('pointermove', (event) => {
+            if (event.buttons !== 1) {
+                return;
+            }
+            void sendTouchPress(event);
+        });
+
+        canvas.addEventListener('pointerup', () => {
+            void sendTouchRelease();
+        });
+
+        canvas.addEventListener('pointercancel', () => {
+            void sendTouchRelease();
+        });
+
+        setConnectedUi(false);
+    </script>
+</body>
+</html>
