@@ -54,6 +54,12 @@
             font-size: 1.5rem;
         }
 
+        .lead {
+            margin: 0 0 16px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
         .panel {
             border: 1px solid var(--surface-border);
             border-radius: 10px;
@@ -131,6 +137,7 @@
 </head>
 <body>
     <h1>tinySA Ultra Remote Control</h1>
+    <p class="lead">Connect via WebSerial, mirror the device screen with auto refresh, and send touch events by clicking or dragging on the mirrored display.</p>
 
     <div class="panel">
         <div class="toolbar">
@@ -146,26 +153,12 @@
 
     <div class="panel">
         <div class="toolbar">
-            <button id="downloadCaptureBtn" disabled>Download screenshot</button>
-            <label>Trace file
-                <input id="traceNameInput" type="text" value="scan.csv" size="18">
+            <label>Touch press command
+                <input id="touchPressInput" type="text" value="touch {x} {y}" size="22">
             </label>
-            <button id="downloadTraceBtn" disabled>Download trace file</button>
-        </div>
-    </div>
-
-    <div class="panel">
-        <div class="toolbar">
-            <label>Start (Hz)
-                <input id="startFreqInput" type="number" min="1" step="1" value="100000000">
+            <label>Touch release command
+                <input id="touchReleaseInput" type="text" value="touch 0 0" size="14">
             </label>
-            <label>Stop (Hz)
-                <input id="stopFreqInput" type="number" min="1" step="1" value="200000000">
-            </label>
-            <label>RBW (Hz)
-                <input id="rbwInput" type="number" min="1" step="1" value="30000">
-            </label>
-            <button id="applySweepBtn" disabled>Apply sweep settings</button>
         </div>
     </div>
 
@@ -191,7 +184,7 @@
         let ioQueueTail = Promise.resolve();
         let autoTimer = null;
         let refreshInFlight = false;
-        let touchMoveInFlight = false;
+        let touchCommandInFlight = false;
         let lastTouchMoveAt = 0;
         let disconnectPromise = null;
 
@@ -200,13 +193,8 @@
         const refreshBtn = document.getElementById('refreshBtn');
         const toggleAutoBtn = document.getElementById('toggleAutoBtn');
         const intervalInput = document.getElementById('intervalInput');
-        const downloadCaptureBtn = document.getElementById('downloadCaptureBtn');
-        const traceNameInput = document.getElementById('traceNameInput');
-        const downloadTraceBtn = document.getElementById('downloadTraceBtn');
-        const startFreqInput = document.getElementById('startFreqInput');
-        const stopFreqInput = document.getElementById('stopFreqInput');
-        const rbwInput = document.getElementById('rbwInput');
-        const applySweepBtn = document.getElementById('applySweepBtn');
+        const touchPressInput = document.getElementById('touchPressInput');
+        const touchReleaseInput = document.getElementById('touchReleaseInput');
         const statusEl = document.getElementById('status');
         const canvas = document.getElementById('screen');
         const ctx = canvas.getContext('2d');
@@ -222,13 +210,8 @@
             refreshBtn.disabled = !connected;
             toggleAutoBtn.disabled = !connected;
             intervalInput.disabled = !connected;
-            downloadCaptureBtn.disabled = !connected;
-            traceNameInput.disabled = !connected;
-            downloadTraceBtn.disabled = !connected;
-            startFreqInput.disabled = !connected;
-            stopFreqInput.disabled = !connected;
-            rbwInput.disabled = !connected;
-            applySweepBtn.disabled = !connected;
+            touchPressInput.disabled = !connected;
+            touchReleaseInput.disabled = !connected;
             toggleAutoBtn.textContent = autoTimer ? 'Stop auto refresh' : 'Start auto refresh';
         }
 
@@ -316,26 +299,10 @@
 
         async function sendConsoleCommand(command) {
             await writeCommand(command);
+            // The first line is command echo/empty line from tinySA console output.
             await readLine();
             const raw = await readUntilPrompt();
             return TEXT_DECODER.decode(raw).trim();
-        }
-
-        async function sendBinaryCommand(command) {
-            await writeCommand(command);
-            await readLine();
-            return readUntilPrompt();
-        }
-
-        function rgb565ToRgba(color) {
-            const r = (color >> 11) & 0x1f;
-            const g = (color >> 5) & 0x3f;
-            const b = color & 0x1f;
-            return [
-                (r << 3) | (r >> 2),
-                (g << 2) | (g >> 4),
-                (b << 3) | (b >> 2)
-            ];
         }
 
         function renderRgb565(rawPixels) {
@@ -343,133 +310,20 @@
             const rgba = imageData.data;
 
             for (let src = 0, dst = 0; src < rawPixels.length; src += 2, dst += 4) {
-                const word = rawPixels[src] | (rawPixels[src + 1] << 8);
-                const [r, g, b] = rgb565ToRgba(word);
-                rgba[dst] = r;
-                rgba[dst + 1] = g;
-                rgba[dst + 2] = b;
+                const word = (rawPixels[src] << 8) | rawPixels[src + 1];
+                const r = (word >> 11) & 0x1f;
+                const g = (word >> 5) & 0x3f;
+                const b = word & 0x1f;
+                rgba[dst] = (r << 3) | (r >> 2);
+                rgba[dst + 1] = (g << 2) | (g >> 4);
+                rgba[dst + 2] = (b << 3) | (b >> 2);
                 rgba[dst + 3] = 255;
             }
 
             ctx.putImageData(imageData, 0, 0);
         }
 
-        function readLe16(buffer, offset) {
-            return buffer[offset] | (buffer[offset + 1] << 8);
-        }
-
-        function renderBulkRegion(x, y, width, height, rawPixels) {
-            if (width <= 0 || height <= 0 || x < 0 || y < 0 || x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) {
-                return;
-            }
-            const clippedWidth = Math.min(width, SCREEN_WIDTH - x);
-            const clippedHeight = Math.min(height, SCREEN_HEIGHT - y);
-            const imageData = ctx.createImageData(clippedWidth, clippedHeight);
-            const rgba = imageData.data;
-
-            for (let row = 0; row < clippedHeight; row++) {
-                for (let col = 0; col < clippedWidth; col++) {
-                    const srcPixelIndex = (row * width + col) * 2;
-                    const dstPixelIndex = (row * clippedWidth + col) * 4;
-                    const word = rawPixels[srcPixelIndex] | (rawPixels[srcPixelIndex + 1] << 8);
-                    const [r, g, b] = rgb565ToRgba(word);
-                    rgba[dstPixelIndex] = r;
-                    rgba[dstPixelIndex + 1] = g;
-                    rgba[dstPixelIndex + 2] = b;
-                    rgba[dstPixelIndex + 3] = 255;
-                }
-            }
-
-            ctx.putImageData(imageData, x, y);
-        }
-
-        function renderFillRegion(x, y, width, height, color) {
-            if (width <= 0 || height <= 0 || x < 0 || y < 0 || x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) {
-                return;
-            }
-            const clippedWidth = Math.min(width, SCREEN_WIDTH - x);
-            const clippedHeight = Math.min(height, SCREEN_HEIGHT - y);
-            const [r, g, b] = rgb565ToRgba(color);
-            ctx.fillStyle = `rgb(${r} ${g} ${b})`;
-            ctx.fillRect(x, y, clippedWidth, clippedHeight);
-        }
-
-        function hasToken(buffer, offset, token) {
-            const tokenBytes = TEXT_ENCODER.encode(token);
-            if (offset + tokenBytes.length > buffer.length) {
-                return false;
-            }
-            for (let i = 0; i < tokenBytes.length; i++) {
-                if (buffer[offset + i] !== tokenBytes[i]) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        function skipSeparators(buffer, offset) {
-            while (offset < buffer.length && (buffer[offset] === 0x0d || buffer[offset] === 0x0a || buffer[offset] === 0x20)) {
-                offset++;
-            }
-            return offset;
-        }
-
-        function applyRefreshPayload(payload) {
-            let offset = 0;
-
-            while (offset < payload.length) {
-                offset = skipSeparators(payload, offset);
-                if (offset >= payload.length) {
-                    break;
-                }
-
-                if (hasToken(payload, offset, 'bulk')) {
-                    offset += 4;
-                    offset = skipSeparators(payload, offset);
-                    if (offset + 8 > payload.length) {
-                        break;
-                    }
-                    const x = readLe16(payload, offset);
-                    const y = readLe16(payload, offset + 2);
-                    const width = readLe16(payload, offset + 4);
-                    const height = readLe16(payload, offset + 6);
-                    offset += 8;
-
-                    const pixelsLength = width * height * 2;
-                    if (pixelsLength <= 0 || offset + pixelsLength > payload.length) {
-                        break;
-                    }
-                    renderBulkRegion(x, y, width, height, payload.slice(offset, offset + pixelsLength));
-                    offset += pixelsLength;
-                    continue;
-                }
-
-                if (hasToken(payload, offset, 'fill')) {
-                    offset += 4;
-                    offset = skipSeparators(payload, offset);
-                    if (offset + 10 > payload.length) {
-                        break;
-                    }
-                    const x = readLe16(payload, offset);
-                    const y = readLe16(payload, offset + 2);
-                    const width = readLe16(payload, offset + 4);
-                    const height = readLe16(payload, offset + 6);
-                    const color = readLe16(payload, offset + 8);
-                    offset += 10;
-                    renderFillRegion(x, y, width, height, color);
-                    continue;
-                }
-
-                while (offset < payload.length && payload[offset] !== 0x0a) {
-                    offset++;
-                }
-                if (offset < payload.length) {
-                    offset++;
-                }
-            }
-        }
-
-        async function requestRefreshUpdate() {
+        async function refreshScreen() {
             if (!port || refreshInFlight) {
                 return;
             }
@@ -477,8 +331,12 @@
             refreshInFlight = true;
             try {
                 await enqueueIo(async () => {
-                    const payload = await sendBinaryCommand('refresh');
-                    applyRefreshPayload(payload);
+                    await writeCommand('capture');
+                    // tinySA Ultra capture response is expected to be one text line followed by raw RGB565 pixels.
+                    await readLine();
+                    const pixels = await readExact(PIXEL_BYTES);
+                    consumeOptionalPromptPrefix();
+                    renderRgb565(pixels);
                 });
                 setStatus(`Screen updated at ${new Date().toLocaleTimeString()}`);
             } catch (error) {
@@ -489,57 +347,11 @@
             }
         }
 
-        async function captureScreenshotPixels() {
-            return enqueueIo(async () => {
-                await writeCommand('capture');
-                await readLine();
-                const pixels = await readExact(PIXEL_BYTES);
-                consumeOptionalPromptPrefix();
-                return pixels;
-            });
-        }
-
-        async function fetchSdFile(filename) {
-            return enqueueIo(async () => {
-                await writeCommand(`sd_read ${filename}`);
-                await readLine();
-
-                const sizeOrError = await readExact(4);
-                if (TEXT_DECODER.decode(sizeOrError) === 'err:') {
-                    const message = TEXT_DECODER.decode(await readUntilPrompt()).trim();
-                    throw new Error(message || `Cannot read ${filename}`);
-                }
-
-                const size = sizeOrError[0] | (sizeOrError[1] << 8) | (sizeOrError[2] << 16) | (sizeOrError[3] << 24);
-                const content = await readExact(size);
-                consumeOptionalPromptPrefix();
-                return content;
-            });
-        }
-
-        function triggerDownload(blob, filename) {
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.click();
-            URL.revokeObjectURL(url);
-        }
-
-        async function withAutoRefreshPaused(action) {
-            const wasAutoRunning = Boolean(autoTimer);
-            if (wasAutoRunning) {
-                stopAutoRefresh();
-            }
-
-            try {
-                return await action();
-            } finally {
-                if (wasAutoRunning && port) {
-                    startAutoRefresh();
-                    void requestRefreshUpdate();
-                }
-            }
+        function buildTouchCommand(template, x, y) {
+            return template
+                .replaceAll('{x}', String(x))
+                .replaceAll('{y}', String(y))
+                .trim();
         }
 
         function getTouchPoint(event) {
@@ -551,17 +363,31 @@
             return { x, y };
         }
 
-        async function sendTouchPress(event) {
+        async function sendTouchPress(event, force = false) {
             if (!port) {
                 return;
             }
+            const now = Date.now();
+            if (!force && (touchCommandInFlight || now - lastTouchMoveAt < TOUCH_MOVE_INTERVAL_MS)) {
+                return;
+            }
+
             const { x, y } = getTouchPoint(event);
+            const command = buildTouchCommand(touchPressInput.value, x, y);
+            if (!command) {
+                return;
+            }
+
+            touchCommandInFlight = true;
+            lastTouchMoveAt = now;
             try {
                 await enqueueIo(async () => {
-                    await sendConsoleCommand(`touch ${x} ${y}`);
+                    await sendConsoleCommand(command);
                 });
             } catch (error) {
                 setStatus(`Touch press failed: ${error.message}`, true);
+            } finally {
+                touchCommandInFlight = false;
             }
         }
 
@@ -570,9 +396,14 @@
                 return;
             }
 
+            const command = touchReleaseInput.value.trim();
+            if (!command) {
+                return;
+            }
+
             try {
                 await enqueueIo(async () => {
-                    await sendConsoleCommand('release');
+                    await sendConsoleCommand(command);
                 });
             } catch (error) {
                 setStatus(`Touch release failed: ${error.message}`, true);
@@ -583,7 +414,7 @@
             const interval = Math.max(200, Number(intervalInput.value) || 1000);
             intervalInput.value = String(interval);
             autoTimer = setInterval(() => {
-                void requestRefreshUpdate();
+                void refreshScreen();
             }, interval);
             toggleAutoBtn.textContent = 'Stop auto refresh';
         }
@@ -618,7 +449,7 @@
                 setStatus('Connected to tinySA ULTRA.');
 
                 setConnectedUi(true);
-                await requestRefreshUpdate();
+                await refreshScreen();
             } catch (error) {
                 setStatus(`Connect failed: ${error.message}`, true);
                 await disconnect(true);
@@ -644,7 +475,7 @@
                 port = null;
                 readBuffer = new Uint8Array(0);
                 ioQueueTail = Promise.resolve();
-                touchMoveInFlight = false;
+                touchCommandInFlight = false;
 
                 try {
                     if (activeReader) {
@@ -692,7 +523,7 @@
         });
 
         refreshBtn.addEventListener('click', () => {
-            void requestRefreshUpdate();
+            void refreshScreen();
         });
 
         toggleAutoBtn.addEventListener('click', () => {
@@ -700,96 +531,20 @@
                 stopAutoRefresh();
             } else {
                 startAutoRefresh();
-                void requestRefreshUpdate();
+                void refreshScreen();
             }
-        });
-
-        downloadCaptureBtn.addEventListener('click', () => {
-            void withAutoRefreshPaused(async () => {
-                const pixels = await captureScreenshotPixels();
-                renderRgb565(pixels);
-
-                const blob = await new Promise((resolve, reject) => {
-                    canvas.toBlob((result) => {
-                        if (result) {
-                            resolve(result);
-                        } else {
-                            reject(new Error('Cannot create screenshot file'));
-                        }
-                    }, 'image/png');
-                });
-
-                triggerDownload(blob, `tinysa-capture-${Date.now()}.png`);
-                setStatus('Screenshot downloaded.');
-            }).catch((error) => {
-                setStatus(`Screenshot download failed: ${error.message}`, true);
-            });
-        });
-
-        downloadTraceBtn.addEventListener('click', () => {
-            void withAutoRefreshPaused(async () => {
-                const filename = traceNameInput.value.trim();
-                if (!filename) {
-                    throw new Error('Trace file name is required');
-                }
-                const content = await fetchSdFile(filename);
-                triggerDownload(new Blob([content], { type: 'application/octet-stream' }), filename);
-                setStatus(`Trace file ${filename} downloaded.`);
-            }).catch((error) => {
-                setStatus(`Trace download failed: ${error.message}`, true);
-            });
-        });
-
-        applySweepBtn.addEventListener('click', () => {
-            void withAutoRefreshPaused(async () => {
-                const start = Math.floor(Number(startFreqInput.value));
-                const stop = Math.floor(Number(stopFreqInput.value));
-                const rbw = Math.floor(Number(rbwInput.value));
-
-                if (!Number.isFinite(start) || !Number.isFinite(stop) || !Number.isFinite(rbw)) {
-                    throw new Error('Sweep settings must be numeric');
-                }
-                if (start <= 0 || stop <= 0 || rbw <= 0) {
-                    throw new Error('Sweep settings must be positive');
-                }
-                if (stop < start) {
-                    throw new Error('Stop frequency must be greater than or equal to start frequency');
-                }
-
-                await enqueueIo(async () => {
-                    await sendConsoleCommand(`frequencies ${start} ${stop}`);
-                    await sendConsoleCommand(`rbw ${rbw}`);
-                });
-
-                setStatus('Sweep settings applied.');
-            }).catch((error) => {
-                setStatus(`Sweep update failed: ${error.message}`, true);
-            });
         });
 
         canvas.addEventListener('pointerdown', (event) => {
-            if (event.button !== 0) {
-                return;
-            }
             canvas.setPointerCapture(event.pointerId);
-            void sendTouchPress(event);
+            void sendTouchPress(event, true);
         });
 
         canvas.addEventListener('pointermove', (event) => {
-            if ((event.buttons & 1) !== 1) {
+            if (event.buttons !== 1) {
                 return;
             }
-
-            const now = Date.now();
-            if (touchMoveInFlight || now - lastTouchMoveAt < TOUCH_MOVE_INTERVAL_MS) {
-                return;
-            }
-
-            touchMoveInFlight = true;
-            lastTouchMoveAt = now;
-            void sendTouchPress(event).finally(() => {
-                touchMoveInFlight = false;
-            });
+            void sendTouchPress(event);
         });
 
         canvas.addEventListener('pointerup', () => {
@@ -797,10 +552,6 @@
         });
 
         canvas.addEventListener('pointercancel', () => {
-            void sendTouchRelease();
-        });
-
-        canvas.addEventListener('pointerleave', () => {
             void sendTouchRelease();
         });
 
