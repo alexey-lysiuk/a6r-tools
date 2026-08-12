@@ -668,6 +668,13 @@
             }
 
             disconnectPromise = (async () => {
+                if (autoRefreshEnabled && port && writer) {
+                    try {
+                        await sendCommand('refresh off');
+                    } catch (error) {
+                        console.warn(error);
+                    }
+                }
                 autoRefreshEnabled = false;
                 autoRefreshBusy = false;
                 setConnectedUi(false);
