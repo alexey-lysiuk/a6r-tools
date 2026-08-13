@@ -136,30 +136,14 @@
         <div class="toolbar">
             <button id="connectBtn">Connect</button>
             <button id="disconnectBtn" disabled>Disconnect</button>
-            <button id="toggleAutoBtn" disabled>Enable auto refresh</button>
-        </div>
-    </div>
-
-    <div class="panel">
-        <div class="toolbar">
-            <button id="downloadScreenshotBtn" disabled>Download screenshot</button>
-            <button id="downloadTracesBtn" disabled>Download traces</button>
-        </div>
-    </div>
-
-    <div class="panel">
-        <div class="toolbar">
-            <label>Start (Hz)
-                <input id="sweepStartInput" type="number" min="0" step="1" size="12">
+            <label>Download
+                <select id="downloadKindSelect">
+                    <option value="capture">Screenshot</option>
+                    <option value="traces">Traces</option>
+                    <option value="both">Screenshot &amp; traces</option>
+                </select>
             </label>
-            <label>Stop (Hz)
-                <input id="sweepStopInput" type="number" min="0" step="1" size="12">
-            </label>
-            <label>RBW (Hz or "auto")
-                <input id="rbwInput" type="text" size="8" value="auto">
-            </label>
-            <button id="readSweepBtn" disabled>Read current</button>
-            <button id="applySweepBtn" disabled>Apply</button>
+            <button id="downloadBtn" disabled>Download</button>
         </div>
     </div>
 
@@ -194,14 +178,8 @@
 
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
-        const toggleAutoBtn = document.getElementById('toggleAutoBtn');
-        const downloadScreenshotBtn = document.getElementById('downloadScreenshotBtn');
-        const downloadTracesBtn = document.getElementById('downloadTracesBtn');
-        const sweepStartInput = document.getElementById('sweepStartInput');
-        const sweepStopInput = document.getElementById('sweepStopInput');
-        const rbwInput = document.getElementById('rbwInput');
-        const readSweepBtn = document.getElementById('readSweepBtn');
-        const applySweepBtn = document.getElementById('applySweepBtn');
+        const downloadKindSelect = document.getElementById('downloadKindSelect');
+        const downloadBtn = document.getElementById('downloadBtn');
         const statusEl = document.getElementById('status');
         const canvas = document.getElementById('screen');
         const ctx = canvas.getContext('2d');
@@ -214,15 +192,8 @@
         function setConnectedUi(connected) {
             connectBtn.disabled = connected;
             disconnectBtn.disabled = !connected;
-            toggleAutoBtn.disabled = !connected || autoRefreshBusy;
-            downloadScreenshotBtn.disabled = !connected || autoRefreshBusy;
-            downloadTracesBtn.disabled = !connected || autoRefreshBusy;
-            sweepStartInput.disabled = !connected;
-            sweepStopInput.disabled = !connected;
-            rbwInput.disabled = !connected;
-            readSweepBtn.disabled = !connected || autoRefreshBusy;
-            applySweepBtn.disabled = !connected || autoRefreshBusy;
-            toggleAutoBtn.textContent = autoRefreshEnabled ? 'Disable auto refresh' : 'Enable auto refresh';
+            downloadKindSelect.disabled = !connected || autoRefreshBusy;
+            downloadBtn.disabled = !connected || autoRefreshBusy;
         }
 
         function appendBuffer(existing, chunk) {
@@ -526,17 +497,10 @@
             }
         }
 
-        async function downloadScreenshot() {
-            try {
-                await withAutoRefreshPaused(async () => {
-                    await captureScreenshot();
-                    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-                    triggerDownload(blob, `tinysa-screenshot-${timestampForFilename()}.png`);
-                });
-                setStatus('Screenshot downloaded.');
-            } catch (error) {
-                setStatus(`Screenshot download failed: ${error.message}`, true);
-            }
+        async function saveScreenshot() {
+            await captureScreenshot();
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+            triggerDownload(blob, `tinysa-screenshot-${timestampForFilename()}.png`);
         }
 
         function parseActiveTraces(traceListText) {
@@ -561,69 +525,42 @@
             return values;
         }
 
-        async function downloadTraces() {
-            try {
-                await withAutoRefreshPaused(async () => {
-                    const frequenciesText = await sendCommand('frequencies');
-                    const frequencies = frequenciesText.split('\n').map((line) => line.trim()).filter(Boolean);
-                    const traceListText = await sendCommand('trace');
-                    const activeTraces = parseActiveTraces(traceListText);
+        async function saveTraces() {
+            const frequenciesText = await sendCommand('frequencies');
+            const frequencies = frequenciesText.split('\n').map((line) => line.trim()).filter(Boolean);
+            const traceListText = await sendCommand('trace');
+            const activeTraces = parseActiveTraces(traceListText);
 
-                    const columns = [];
-                    for (const trace of activeTraces) {
-                        const valueText = await sendCommand(`trace ${trace} value`);
-                        columns.push(parseTraceValues(valueText, frequencies.length));
-                    }
-
-                    const header = ['frequency_hz', ...activeTraces.map((trace) => `trace_${trace}_dbm`)];
-                    const rows = [header.join(',')];
-                    for (let i = 0; i < frequencies.length; i++) {
-                        const row = [frequencies[i], ...columns.map((values) => values[i] ?? '')];
-                        rows.push(row.join(','));
-                    }
-
-                    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-                    triggerDownload(blob, `tinysa-traces-${timestampForFilename()}.csv`);
-                });
-                setStatus('Traces downloaded.');
-            } catch (error) {
-                setStatus(`Traces download failed: ${error.message}`, true);
+            const columns = [];
+            for (const trace of activeTraces) {
+                const valueText = await sendCommand(`trace ${trace} value`);
+                columns.push(parseTraceValues(valueText, frequencies.length));
             }
+
+            const rows = [];
+            for (let i = 0; i < frequencies.length; i++) {
+                const values = columns.map((column) => column[i] ?? '').filter((value) => value !== '');
+                rows.push(`${frequencies[i]},${values.join(' ')}`);
+            }
+
+            const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+            triggerDownload(blob, `tinysa-traces-${timestampForFilename()}.csv`);
         }
 
-        async function readSweepSettings() {
+        async function download() {
+            const kind = downloadKindSelect.value;
             try {
                 await withAutoRefreshPaused(async () => {
-                    const response = await sendCommand('sweep');
-                    const parts = response.trim().split(/\s+/);
-                    if (parts.length >= 2) {
-                        sweepStartInput.value = parts[0];
-                        sweepStopInput.value = parts[1];
+                    if (kind === 'capture' || kind === 'both') {
+                        await saveScreenshot();
+                    }
+                    if (kind === 'traces' || kind === 'both') {
+                        await saveTraces();
                     }
                 });
-                setStatus('Sweep settings read.');
+                setStatus('Download complete.');
             } catch (error) {
-                setStatus(`Reading sweep settings failed: ${error.message}`, true);
-            }
-        }
-
-        async function applySweepSettings() {
-            const start = sweepStartInput.value.trim();
-            const stop = sweepStopInput.value.trim();
-            const rbw = rbwInput.value.trim();
-
-            try {
-                await withAutoRefreshPaused(async () => {
-                    if (start && stop) {
-                        await sendCommand(`sweep ${start} ${stop}`);
-                    }
-                    if (rbw) {
-                        await sendCommand(`rbw ${rbw}`);
-                    }
-                });
-                setStatus('Sweep settings applied.');
-            } catch (error) {
-                setStatus(`Applying sweep settings failed: ${error.message}`, true);
+                setStatus(`Download (${kind}) failed: ${error.message}`, true);
             }
         }
 
@@ -653,7 +590,7 @@
                 }
 
                 setConnectedUi(true);
-                await captureScreenshot();
+                await setAutoRefresh(true);
                 setStatus('Connected to tinySA ULTRA.');
             } catch (error) {
                 setStatus(`Connect failed: ${error.message}`, true);
@@ -742,28 +679,8 @@
             void disconnect();
         });
 
-        toggleAutoBtn.addEventListener('click', async () => {
-            try {
-                await setAutoRefresh(!autoRefreshEnabled);
-            } catch (error) {
-                setStatus(`Toggling auto refresh failed: ${error.message}`, true);
-            }
-        });
-
-        downloadScreenshotBtn.addEventListener('click', () => {
-            void downloadScreenshot();
-        });
-
-        downloadTracesBtn.addEventListener('click', () => {
-            void downloadTraces();
-        });
-
-        readSweepBtn.addEventListener('click', () => {
-            void readSweepSettings();
-        });
-
-        applySweepBtn.addEventListener('click', () => {
-            void applySweepSettings();
+        downloadBtn.addEventListener('click', () => {
+            void download();
         });
 
         canvas.addEventListener('pointerdown', (event) => {
