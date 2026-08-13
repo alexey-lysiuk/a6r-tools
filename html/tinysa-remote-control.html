@@ -176,6 +176,7 @@
         let lastTouchMoveAt = 0;
         let disconnectPromise = null;
         let touchActive = false;
+        let isConnected = false;
 
         const connectBtn = document.getElementById('connectBtn');
         const downloadKindSelect = document.getElementById('downloadKindSelect');
@@ -190,6 +191,7 @@
         }
 
         function setConnectedUi(connected) {
+            isConnected = connected;
             connectBtn.textContent = connected ? 'Disconnect' : 'Connect';
             downloadKindSelect.disabled = !connected || autoRefreshBusy;
             downloadBtn.disabled = !connected || autoRefreshBusy;
@@ -694,7 +696,7 @@
         }
 
         connectBtn.addEventListener('click', () => {
-            if (port) {
+            if (isConnected) {
                 void disconnect();
             } else {
                 void connect();
