@@ -164,6 +164,7 @@
         const FILL_TAG = TEXT_ENCODER.encode('fill\r\n');
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
         const TOUCH_MOVE_INTERVAL_MS = 50;
+        const COMMAND_TIMEOUT_MS = 45000; // covers a full binary screen capture at 115200 baud
 
         let port = null;
         let reader = null;
@@ -284,12 +285,29 @@
                 return Promise.reject(new Error('Not connected'));
             }
             const deferred = {};
+            let timeoutId = null;
             const promise = new Promise((resolve, reject) => {
-                deferred.resolve = resolve;
-                deferred.reject = reject;
+                deferred.resolve = (value) => {
+                    clearTimeout(timeoutId);
+                    resolve(value);
+                };
+                deferred.reject = (error) => {
+                    clearTimeout(timeoutId);
+                    reject(error);
+                };
             });
             deferred.binary = binary;
             pendingQueue.push(deferred);
+
+            timeoutId = setTimeout(() => {
+                const index = pendingQueue.indexOf(deferred);
+                if (index !== -1) {
+                    pendingQueue.splice(index, 1);
+                }
+                deferred.reject(new Error(`No response from device for "${command}"`));
+                void handleConnectionLost(`Connection lost: no response for "${command}".`);
+            }, COMMAND_TIMEOUT_MS);
+
             writeCommand(command).catch((error) => {
                 const index = pendingQueue.indexOf(deferred);
                 if (index !== -1) {
@@ -390,14 +408,19 @@
             }
         }
 
+        async function handleConnectionLost(message) {
+            if (!port) {
+                return;
+            }
+            setStatus(message, true);
+            await disconnect(true);
+        }
+
         async function runPumpLoop() {
             try {
                 await pumpLoop();
             } catch (error) {
-                if (port) {
-                    setStatus(`Connection error: ${error.message}`, true);
-                    await disconnect(true);
-                }
+                await handleConnectionLost(`Connection error: ${error.message}`);
             }
         }
 
@@ -492,7 +515,7 @@
                         setStatus(`Failed to resume auto refresh: ${error.message}`, true);
                     }
                 }
-                setConnectedUi(true);
+                setConnectedUi(!!port);
             }
         }
 
@@ -705,6 +728,14 @@
         canvas.addEventListener('pointerleave', () => {
             void sendTouchRelease();
         });
+
+        if (navigator.serial) {
+            navigator.serial.addEventListener('disconnect', (event) => {
+                if (port && event.target === port) {
+                    void handleConnectionLost('Device disconnected.');
+                }
+            });
+        }
 
         setConnectedUi(false);
     </script>
