@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinySA Ultra Remote Control</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMyIgZmlsbD0iIzFlMWUxZSIvPgogIDxwb2x5bGluZSBmaWxsPSJub25lIiBzdHJva2U9IiNmZmQ3MDAiIHN0cm9rZS13aWR0aD0iMS41IgogICAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgcG9pbnRzPSIxLDI3IDMsMjYgNSwyNCA3LDkgOSwyMyAxMSwyNSAxMywyMCAxNSwxOCAxNywyMiAxOSwyNSAyMSwyNCAyMywxOSAyNSwyMyAyNywyNSAyOSwyNCAzMSwyNiIvPgo8L3N2Zz4=">
+    <style>
+        :root {
+            color-scheme: dark light;
+            --body-bg: #1e1e1e;
+            --surface-bg: #252525;
+            --surface-border: #404040;
+            --text: #e0e0e0;
+            --muted: #b0b0b0;
+            --button-bg: #383838;
+            --button-hover: #484848;
+            --button-text: #f5f5f5;
+            --input-bg: #2f2f2f;
+            --input-border: #505050;
+            --error: #f08080;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --body-bg: #f0f2f5;
+                --surface-bg: #ffffff;
+                --surface-border: #b0bcc8;
+                --text: #303848;
+                --muted: #5d6a7f;
+                --button-bg: #3060a0;
+                --button-hover: #204080;
+                --button-text: #ffffff;
+                --input-bg: #ffffff;
+                --input-border: #b0bcc8;
+                --error: #c02020;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: sans-serif;
+            background: var(--body-bg);
+            color: var(--text);
+        }
+
+        h1 {
+            margin: 0 0 16px;
+            font-size: 1.5rem;
+        }
+
+        .panel {
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            background: var(--surface-bg);
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            border: 1px solid var(--surface-border);
+            border-radius: 6px;
+            background: var(--button-bg);
+            color: var(--button-text);
+            padding: 7px 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--button-hover);
+        }
+
+        input {
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--text);
+            padding: 6px 8px;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .screen-wrap {
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            overflow: hidden;
+            width: min(960px, 100%);
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        #status {
+            margin-top: 8px;
+            min-height: 1.4em;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        #status.error {
+            color: var(--error);
+        }
+    </style>
+</head>
+<body>
+    <h1>tinySA Ultra Remote Control</h1>
+
+    <div class="panel">
+        <div class="toolbar">
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+            <label>Download
+                <select id="downloadKindSelect">
+                    <option value="capture">Screenshot</option>
+                    <option value="traces">Traces</option>
+                    <option value="both">Screenshot &amp; traces</option>
+                </select>
+            </label>
+            <button id="downloadBtn" disabled>Download</button>
+        </div>
+    </div>
+
+    <div class="screen-wrap">
+        <canvas id="screen" width="480" height="320" role="img" aria-label="tinySA Ultra screen"></canvas>
+    </div>
+
+    <div id="status">WebSerial disconnected.</div>
+
+    <script>
+        const SCREEN_WIDTH = 480;
+        const SCREEN_HEIGHT = 320;
+        const PIXEL_BYTES = SCREEN_WIDTH * SCREEN_HEIGHT * 2;
+        const TEXT_ENCODER = new TextEncoder();
+        const TEXT_DECODER = new TextDecoder();
+        const PROMPT = TEXT_ENCODER.encode('ch> ');
+        const BULK_TAG = TEXT_ENCODER.encode('bulk\r\n');
+        const FILL_TAG = TEXT_ENCODER.encode('fill\r\n');
+        const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
+        const TOUCH_MOVE_INTERVAL_MS = 50;
+        const COMMAND_TIMEOUT_MS = 45000; // covers a full binary screen capture at 115200 baud
+
+        let port = null;
+        let reader = null;
+        let writer = null;
+        let readBuffer = new Uint8Array(0);
+        let pendingQueue = [];
+        let pumpPromise = null;
+        let autoRefreshEnabled = false;
+        let autoRefreshBusy = false;
+        let lastTouchMoveAt = 0;
+        let disconnectPromise = null;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const downloadKindSelect = document.getElementById('downloadKindSelect');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statusEl = document.getElementById('status');
+        const canvas = document.getElementById('screen');
+        const ctx = canvas.getContext('2d');
+
+        function setStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.classList.toggle('error', isError);
+        }
+
+        function setConnectedUi(connected) {
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+            downloadKindSelect.disabled = !connected || autoRefreshBusy;
+            downloadBtn.disabled = !connected || autoRefreshBusy;
+        }
+
+        function appendBuffer(existing, chunk) {
+            const merged = new Uint8Array(existing.length + chunk.length);
+            merged.set(existing, 0);
+            merged.set(chunk, existing.length);
+            return merged;
+        }
+
+        function findSequence(buffer, sequence) {
+            outer: for (let i = 0; i <= buffer.length - sequence.length; i++) {
+                for (let j = 0; j < sequence.length; j++) {
+                    if (buffer[i + j] !== sequence[j]) {
+                        continue outer;
+                    }
+                }
+                return i;
+            }
+            return -1;
+        }
+
+        function startsWith(buffer, sequence) {
+            if (buffer.length < sequence.length) {
+                return false;
+            }
+            for (let i = 0; i < sequence.length; i++) {
+                if (buffer[i] !== sequence[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        async function readChunk() {
+            const { value, done } = await reader.read();
+            if (done) {
+                throw new Error('Serial connection closed');
+            }
+            if (value?.length) {
+                readBuffer = appendBuffer(readBuffer, value);
+            }
+        }
+
+        async function ensureBuffered(length) {
+            while (readBuffer.length < length) {
+                await readChunk();
+            }
+        }
+
+        async function readLine() {
+            while (true) {
+                const index = readBuffer.indexOf(0x0A);
+                if (index !== -1) {
+                    const line = readBuffer.slice(0, index + 1);
+                    readBuffer = readBuffer.slice(index + 1);
+                    return line;
+                }
+                await readChunk();
+            }
+        }
+
+        async function readUntilPrompt() {
+            while (true) {
+                const index = findSequence(readBuffer, PROMPT);
+                if (index !== -1) {
+                    const data = readBuffer.slice(0, index);
+                    readBuffer = readBuffer.slice(index + PROMPT.length);
+                    return data;
+                }
+                await readChunk();
+            }
+        }
+
+        async function readExact(length) {
+            await ensureBuffered(length);
+            const data = readBuffer.slice(0, length);
+            readBuffer = readBuffer.slice(length);
+            return data;
+        }
+
+        async function writeCommand(command) {
+            const bytes = TEXT_ENCODER.encode(`${command}\r`);
+            await writer.write(bytes);
+        }
+
+        function sendCommand(command, { binary = false } = {}) {
+            if (!port || !writer) {
+                return Promise.reject(new Error('Not connected'));
+            }
+            const deferred = {};
+            let timeoutId = null;
+            const promise = new Promise((resolve, reject) => {
+                deferred.resolve = (value) => {
+                    clearTimeout(timeoutId);
+                    resolve(value);
+                };
+                deferred.reject = (error) => {
+                    clearTimeout(timeoutId);
+                    reject(error);
+                };
+            });
+            deferred.binary = binary;
+            pendingQueue.push(deferred);
+
+            timeoutId = setTimeout(() => {
+                const index = pendingQueue.indexOf(deferred);
+                if (index !== -1) {
+                    pendingQueue.splice(index, 1);
+                }
+                deferred.reject(new Error(`No response from device for "${command}"`));
+                void handleConnectionLost(`Connection lost: no response for "${command}".`);
+            }, COMMAND_TIMEOUT_MS);
+
+            writeCommand(command).catch((error) => {
+                const index = pendingQueue.indexOf(deferred);
+                if (index !== -1) {
+                    pendingQueue.splice(index, 1);
+                }
+                deferred.reject(error);
+            });
+            return promise;
+        }
+
+        function decodeColor565(hi, lo) {
+            const word = (hi << 8) | lo;
+            const r = (word >> 11) & 0x1f;
+            const g = (word >> 5) & 0x3f;
+            const b = word & 0x1f;
+            return [(r << 3) | (r >> 2), (g << 2) | (g >> 4), (b << 3) | (b >> 2)];
+        }
+
+        function renderRgb565(rawPixels, width, height) {
+            const imageData = ctx.createImageData(width, height);
+            const rgba = imageData.data;
+
+            for (let src = 0, dst = 0; src < rawPixels.length; src += 2, dst += 4) {
+                const [r, g, b] = decodeColor565(rawPixels[src], rawPixels[src + 1]);
+                rgba[dst] = r;
+                rgba[dst + 1] = g;
+                rgba[dst + 2] = b;
+                rgba[dst + 3] = 255;
+            }
+
+            return imageData;
+        }
+
+        function readInt16LE(bytes, offset) {
+            const value = bytes[offset] | (bytes[offset + 1] << 8);
+            return value & 0x8000 ? value - 0x10000 : value;
+        }
+
+        async function handleRegionUpdate(kind) {
+            const header = await readExact(REGION_HEADER_BYTES);
+            const x = readInt16LE(header, 0);
+            const y = readInt16LE(header, 2);
+            const w = readInt16LE(header, 4);
+            const h = readInt16LE(header, 6);
+
+            if (kind === 'bulk') {
+                const payload = await readExact(Math.max(0, w) * Math.max(0, h) * 2);
+                if (w > 0 && h > 0) {
+                    ctx.putImageData(renderRgb565(payload, w, h), x, y);
+                }
+            } else {
+                const payload = await readExact(2);
+                if (w > 0 && h > 0) {
+                    const [r, g, b] = decodeColor565(payload[0], payload[1]);
+                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    ctx.fillRect(x, y, w, h);
+                }
+            }
+
+            // tinySA appends the "ch> " prompt right after each region update.
+            await readExact(PROMPT.length);
+        }
+
+        async function pumpLoop() {
+            while (port) {
+                await ensureBuffered(BULK_TAG.length);
+
+                if (startsWith(readBuffer, BULK_TAG)) {
+                    readBuffer = readBuffer.slice(BULK_TAG.length);
+                    await handleRegionUpdate('bulk');
+                    continue;
+                }
+
+                if (startsWith(readBuffer, FILL_TAG)) {
+                    readBuffer = readBuffer.slice(FILL_TAG.length);
+                    await handleRegionUpdate('fill');
+                    continue;
+                }
+
+                const entry = pendingQueue.shift();
+                try {
+                    if (entry?.binary) {
+                        // The first line is command echo/empty line from tinySA console output.
+                        await readLine();
+                        const pixels = await readExact(PIXEL_BYTES);
+                        await readExact(PROMPT.length);
+                        entry.resolve(pixels);
+                    } else {
+                        await readLine();
+                        const raw = await readUntilPrompt();
+                        const text = TEXT_DECODER.decode(raw).trim();
+                        entry?.resolve(text);
+                    }
+                } catch (error) {
+                    entry?.reject(error);
+                    throw error;
+                }
+            }
+        }
+
+        async function handleConnectionLost(message) {
+            if (!port) {
+                return;
+            }
+            setStatus(message, true);
+            await disconnect(true);
+        }
+
+        async function runPumpLoop() {
+            try {
+                await pumpLoop();
+            } catch (error) {
+                await handleConnectionLost(`Connection error: ${error.message}`);
+            }
+        }
+
+        function buildTouchPoint(event) {
+            const rect = canvas.getBoundingClientRect();
+            const relativeX = (event.clientX - rect.left) / rect.width;
+            const relativeY = (event.clientY - rect.top) / rect.height;
+            const x = Math.max(0, Math.min(SCREEN_WIDTH - 1, Math.round(relativeX * (SCREEN_WIDTH - 1))));
+            const y = Math.max(0, Math.min(SCREEN_HEIGHT - 1, Math.round(relativeY * (SCREEN_HEIGHT - 1))));
+            return { x, y };
+        }
+
+        async function sendTouchPress(event, force = false) {
+            if (!port) {
+                return;
+            }
+            const now = Date.now();
+            if (!force && now - lastTouchMoveAt < TOUCH_MOVE_INTERVAL_MS) {
+                return;
+            }
+            lastTouchMoveAt = now;
+
+            const { x, y } = buildTouchPoint(event);
+            try {
+                await sendCommand(`touch ${x} ${y}`);
+            } catch (error) {
+                setStatus(`Touch failed: ${error.message}`, true);
+            }
+        }
+
+        async function sendTouchRelease() {
+            if (!port) {
+                return;
+            }
+            try {
+                await sendCommand('release');
+            } catch (error) {
+                setStatus(`Release failed: ${error.message}`, true);
+            }
+        }
+
+        async function captureScreenshot() {
+            const pixels = await sendCommand('capture', { binary: true });
+            ctx.putImageData(renderRgb565(pixels, SCREEN_WIDTH, SCREEN_HEIGHT), 0, 0);
+            return pixels;
+        }
+
+        async function setAutoRefresh(enabled) {
+            if (!port) {
+                return;
+            }
+            if (enabled) {
+                await captureScreenshot();
+                await sendCommand('refresh on');
+            } else {
+                await sendCommand('refresh off');
+            }
+            autoRefreshEnabled = enabled;
+            setConnectedUi(true);
+        }
+
+        function triggerDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function timestampForFilename() {
+            return new Date().toISOString().replace(/[:.]/g, '-');
+        }
+
+        async function withAutoRefreshPaused(action) {
+            const wasEnabled = autoRefreshEnabled;
+            autoRefreshBusy = true;
+            setConnectedUi(true);
+            try {
+                if (wasEnabled) {
+                    await setAutoRefresh(false);
+                }
+                return await action();
+            } finally {
+                autoRefreshBusy = false;
+                if (wasEnabled && port) {
+                    try {
+                        await setAutoRefresh(true);
+                    } catch (error) {
+                        setStatus(`Failed to resume auto refresh: ${error.message}`, true);
+                    }
+                }
+                setConnectedUi(!!port);
+            }
+        }
+
+        async function saveScreenshot() {
+            await captureScreenshot();
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+            triggerDownload(blob, `tinysa-screenshot-${timestampForFilename()}.png`);
+        }
+
+        function parseActiveTraces(traceListText) {
+            const traces = [];
+            for (const line of traceListText.split('\n')) {
+                const match = line.trim().match(/^(\d+):/);
+                if (match) {
+                    traces.push(Number(match[1]));
+                }
+            }
+            return traces.length ? traces : [1];
+        }
+
+        function parseTraceValues(valueText, pointCount) {
+            const values = new Array(pointCount).fill('');
+            for (const line of valueText.split('\n')) {
+                const match = line.trim().match(/^trace\s+\d+\s+value\s+(\d+)\s+([-\d.eE]+)/);
+                if (match) {
+                    values[Number(match[1])] = match[2];
+                }
+            }
+            return values;
+        }
+
+        async function saveTraces() {
+            const frequenciesText = await sendCommand('frequencies');
+            const frequencies = frequenciesText.split('\n').map((line) => line.trim()).filter(Boolean);
+            const traceListText = await sendCommand('trace');
+            const activeTraces = parseActiveTraces(traceListText);
+
+            const columns = [];
+            for (const trace of activeTraces) {
+                const valueText = await sendCommand(`trace ${trace} value`);
+                columns.push(parseTraceValues(valueText, frequencies.length));
+            }
+
+            const rows = [];
+            for (let i = 0; i < frequencies.length; i++) {
+                const values = columns.map((column) => column[i] ?? '').filter((value) => value !== '');
+                rows.push(`${frequencies[i]},${values.join(' ')}`);
+            }
+
+            const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+            triggerDownload(blob, `tinysa-traces-${timestampForFilename()}.csv`);
+        }
+
+        async function download() {
+            const kind = downloadKindSelect.value;
+            try {
+                await withAutoRefreshPaused(async () => {
+                    if (kind === 'capture' || kind === 'both') {
+                        await saveScreenshot();
+                    }
+                    if (kind === 'traces' || kind === 'both') {
+                        await saveTraces();
+                    }
+                });
+                setStatus('Download complete.');
+            } catch (error) {
+                setStatus(`Download (${kind}) failed: ${error.message}`, true);
+            }
+        }
+
+        async function connect() {
+            if (!navigator.serial) {
+                setStatus('WebSerial API is not available in this browser.', true);
+                return;
+            }
+
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                reader = port.readable.getReader();
+                writer = port.writable.getWriter();
+                readBuffer = new Uint8Array(0);
+                pendingQueue = [];
+                autoRefreshEnabled = false;
+                autoRefreshBusy = false;
+
+                pumpPromise = runPumpLoop();
+
+                const info = await sendCommand('info');
+                if (!info.toLowerCase().includes('tinysa ultra')) {
+                    setStatus('Connected device does not report tinySA ULTRA in info output.', true);
+                    await disconnect(true);
+                    return;
+                }
+
+                setConnectedUi(true);
+                await setAutoRefresh(true);
+                setStatus('Connected to tinySA ULTRA.');
+            } catch (error) {
+                setStatus(`Connect failed: ${error.message}`, true);
+                await disconnect(true);
+            }
+        }
+
+        async function disconnect(keepStatus = false) {
+            if (disconnectPromise) {
+                await disconnectPromise;
+                return;
+            }
+
+            disconnectPromise = (async () => {
+                if (autoRefreshEnabled && port && writer) {
+                    try {
+                        await sendCommand('refresh off');
+                    } catch (error) {
+                        console.warn(error);
+                    }
+                }
+                autoRefreshEnabled = false;
+                autoRefreshBusy = false;
+                setConnectedUi(false);
+
+                const activeReader = reader;
+                const activeWriter = writer;
+                const activePort = port;
+
+                reader = null;
+                writer = null;
+                port = null;
+                readBuffer = new Uint8Array(0);
+
+                const pending = pendingQueue;
+                pendingQueue = [];
+                pending.forEach((entry) => entry.reject(new Error('Disconnected')));
+
+                try {
+                    if (activeReader) {
+                        await activeReader.cancel();
+                        activeReader.releaseLock();
+                    }
+                } catch (error) {
+                    console.warn(error);
+                }
+
+                try {
+                    if (activeWriter) {
+                        activeWriter.releaseLock();
+                    }
+                } catch (error) {
+                    console.warn(error);
+                }
+
+                try {
+                    if (activePort) {
+                        await activePort.close();
+                    }
+                } catch (error) {
+                    console.warn(error);
+                }
+
+                if (pumpPromise) {
+                    await pumpPromise.catch(() => {});
+                    pumpPromise = null;
+                }
+
+                if (!keepStatus) {
+                    setStatus('WebSerial disconnected.');
+                }
+            })();
+
+            try {
+                await disconnectPromise;
+            } finally {
+                disconnectPromise = null;
+            }
+        }
+
+        connectBtn.addEventListener('click', () => {
+            void connect();
+        });
+
+        disconnectBtn.addEventListener('click', () => {
+            void disconnect();
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            void download();
+        });
+
+        canvas.addEventListener('pointerdown', (event) => {
+            canvas.setPointerCapture(event.pointerId);
+            void sendTouchPress(event, true);
+        });
+
+        canvas.addEventListener('pointermove', (event) => {
+            if (event.buttons !== 1) {
+                return;
+            }
+            void sendTouchPress(event);
+        });
+
+        canvas.addEventListener('pointerup', () => {
+            void sendTouchRelease();
+        });
+
+        canvas.addEventListener('pointercancel', () => {
+            void sendTouchRelease();
+        });
+
+        canvas.addEventListener('pointerleave', () => {
+            void sendTouchRelease();
+        });
+
+        if (navigator.serial) {
+            navigator.serial.addEventListener('disconnect', (event) => {
+                if (port && event.target === port) {
+                    void handleConnectionLost('Device disconnected.');
+                }
+            });
+        }
+
+        setConnectedUi(false);
+    </script>
+</body>
+</html>
