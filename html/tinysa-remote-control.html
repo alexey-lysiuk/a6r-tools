@@ -176,6 +176,7 @@
         let autoRefreshBusy = false;
         let lastTouchMoveAt = 0;
         let disconnectPromise = null;
+        let touchActive = false;
 
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
@@ -446,15 +447,17 @@
             const { x, y } = buildTouchPoint(event);
             try {
                 await sendCommand(`touch ${x} ${y}`);
+                touchActive = true;
             } catch (error) {
                 setStatus(`Touch failed: ${error.message}`, true);
             }
         }
 
         async function sendTouchRelease() {
-            if (!port) {
+            if (!port || !touchActive) {
                 return;
             }
+            touchActive = false;
             try {
                 await sendCommand('release');
             } catch (error) {
@@ -706,6 +709,9 @@
         });
 
         canvas.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) {
+                return;
+            }
             canvas.setPointerCapture(event.pointerId);
             void sendTouchPress(event, true);
         });
