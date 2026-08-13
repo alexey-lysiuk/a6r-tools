@@ -135,7 +135,6 @@
     <div class="panel">
         <div class="toolbar">
             <button id="connectBtn">Connect</button>
-            <button id="disconnectBtn" disabled>Disconnect</button>
             <label>Download
                 <select id="downloadKindSelect">
                     <option value="capture">Screenshot</option>
@@ -179,7 +178,6 @@
         let touchActive = false;
 
         const connectBtn = document.getElementById('connectBtn');
-        const disconnectBtn = document.getElementById('disconnectBtn');
         const downloadKindSelect = document.getElementById('downloadKindSelect');
         const downloadBtn = document.getElementById('downloadBtn');
         const statusEl = document.getElementById('status');
@@ -192,8 +190,7 @@
         }
 
         function setConnectedUi(connected) {
-            connectBtn.disabled = connected;
-            disconnectBtn.disabled = !connected;
+            connectBtn.textContent = connected ? 'Disconnect' : 'Connect';
             downloadKindSelect.disabled = !connected || autoRefreshBusy;
             downloadBtn.disabled = !connected || autoRefreshBusy;
         }
@@ -697,11 +694,11 @@
         }
 
         connectBtn.addEventListener('click', () => {
-            void connect();
-        });
-
-        disconnectBtn.addEventListener('click', () => {
-            void disconnect();
+            if (port) {
+                void disconnect();
+            } else {
+                void connect();
+            }
         });
 
         downloadBtn.addEventListener('click', () => {
