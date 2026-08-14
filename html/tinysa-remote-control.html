@@ -242,7 +242,7 @@
         }
 
         function toggleTheme() {
-            const current = document.documentElement.getAttribute('data-theme');
+            const current = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
             setTheme(current === 'dark' ? 'light' : 'dark');
         }
 
