@@ -118,6 +118,20 @@
             background: var(--button-hover);
         }
 
+        .theme-toggle {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-icon {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            line-height: 1;
+        }
+
         input {
             border: 1px solid var(--input-border);
             border-radius: 6px;
@@ -165,7 +179,6 @@
     <div class="panel">
         <div class="toolbar">
             <button id="connectBtn">Connect</button>
-            <button id="themeToggleBtn" title="Toggle color theme">Theme</button>
             <label>Download
                 <select id="downloadKindSelect">
                     <option value="capture">Screenshot</option>
@@ -174,6 +187,10 @@
                 </select>
             </label>
             <button id="downloadBtn" disabled>Download</button>
+            <button id="themeToggleBtn" class="theme-toggle" title="Toggle color theme">
+                <span id="themeToggleIcon" class="theme-icon" aria-hidden="true"></span>
+                <span id="themeToggleLabel">Theme</span>
+            </button>
         </div>
     </div>
 
@@ -212,6 +229,8 @@
 
         const connectBtn = document.getElementById('connectBtn');
         const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const themeToggleIcon = document.getElementById('themeToggleIcon');
+        const themeToggleLabel = document.getElementById('themeToggleLabel');
         const downloadKindSelect = document.getElementById('downloadKindSelect');
         const downloadBtn = document.getElementById('downloadBtn');
         const statusEl = document.getElementById('status');
@@ -233,7 +252,9 @@
 
         function applyTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
-            themeToggleBtn.textContent = theme === 'dark' ? 'Light theme' : 'Dark theme';
+            // Icon reflects the currently selected theme; label describes the action the button performs.
+            themeToggleIcon.textContent = theme === 'dark' ? '\ud83c\udf19' : '\u2600\ufe0f';
+            themeToggleLabel.textContent = theme === 'dark' ? 'Light theme' : 'Dark theme';
         }
 
         function setTheme(theme) {
@@ -312,15 +333,46 @@
             }
         }
 
+        // Reads response text up to the next "ch> " prompt, transparently handling
+        // unsolicited screen "bulk"/"fill" push updates that the device may interleave
+        // with a command's own response (e.g. a touch triggering an immediate redraw).
+        // Text before whichever marker (prompt or push tag) appears earliest is kept as
+        // response text; push tags are always resolved first so their binary payload is
+        // never mistakenly scanned for a "ch> " byte sequence.
         async function readUntilPrompt() {
+            let result = new Uint8Array(0);
             while (true) {
-                const index = findSequence(readBuffer, PROMPT);
-                if (index !== -1) {
-                    const data = readBuffer.slice(0, index);
-                    readBuffer = readBuffer.slice(index + PROMPT.length);
-                    return data;
+                await ensureBuffered(Math.max(BULK_TAG.length, FILL_TAG.length, PROMPT.length));
+
+                const promptIndex = findSequence(readBuffer, PROMPT);
+                const bulkIndex = findSequence(readBuffer, BULK_TAG);
+                const fillIndex = findSequence(readBuffer, FILL_TAG);
+                const indexes = [promptIndex, bulkIndex, fillIndex].filter((index) => index !== -1);
+
+                if (!indexes.length) {
+                    await readChunk();
+                    continue;
                 }
-                await readChunk();
+
+                const earliest = Math.min(...indexes);
+
+                if (earliest === bulkIndex) {
+                    result = appendBuffer(result, readBuffer.slice(0, bulkIndex));
+                    readBuffer = readBuffer.slice(bulkIndex + BULK_TAG.length);
+                    await handleRegionUpdate('bulk');
+                    continue;
+                }
+
+                if (earliest === fillIndex) {
+                    result = appendBuffer(result, readBuffer.slice(0, fillIndex));
+                    readBuffer = readBuffer.slice(fillIndex + FILL_TAG.length);
+                    await handleRegionUpdate('fill');
+                    continue;
+                }
+
+                result = appendBuffer(result, readBuffer.slice(0, promptIndex));
+                readBuffer = readBuffer.slice(promptIndex + PROMPT.length);
+                return result;
             }
         }
 
@@ -685,13 +737,10 @@
             }
 
             disconnectPromise = (async () => {
-                if (autoRefreshEnabled && port && writer) {
-                    try {
-                        await sendCommand('refresh off');
-                    } catch (error) {
-                        console.warn(error);
-                    }
-                }
+                const shouldSendRefreshOff = autoRefreshEnabled && port && writer;
+
+                // Reflect the disconnected state immediately so the UI doesn't appear to
+                // ignore the click while the best-effort "refresh off" below is pending.
                 autoRefreshEnabled = false;
                 autoRefreshBusy = false;
                 setConnectedUi(false);
@@ -708,6 +757,17 @@
                 const pending = pendingQueue;
                 pendingQueue = [];
                 pending.forEach((entry) => entry.reject(new Error('Disconnected')));
+
+                if (shouldSendRefreshOff) {
+                    try {
+                        await Promise.race([
+                            activeWriter.write(TEXT_ENCODER.encode('refresh off\r')),
+                            new Promise((resolve) => setTimeout(resolve, 1000)),
+                        ]);
+                    } catch (error) {
+                        console.warn(error);
+                    }
+                }
 
                 try {
                     if (activeReader) {
