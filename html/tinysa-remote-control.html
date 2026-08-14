@@ -552,9 +552,15 @@
             lastTouchMoveAt = now;
 
             const { x, y } = buildTouchPoint(event);
+            // Mark the touch as active synchronously, before awaiting the command's
+            // response. A quick click dispatches pointerup (and thus sendTouchRelease)
+            // well before this async "touch" command round-trip completes; if
+            // touchActive were only set after the await, that release would see a
+            // stale "false" and be silently dropped, leaving the device stuck with a
+            // phantom touch down until further clicks happened to resync state.
+            touchActive = true;
             try {
                 await sendCommand(`touch ${x} ${y}`);
-                touchActive = true;
             } catch (error) {
                 setStatus(`Touch failed: ${error.message}`, true);
             }
