@@ -37,6 +37,36 @@
             }
         }
 
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --body-bg: #1e1e1e;
+            --surface-bg: #252525;
+            --surface-border: #404040;
+            --text: #e0e0e0;
+            --muted: #b0b0b0;
+            --button-bg: #383838;
+            --button-hover: #484848;
+            --button-text: #f5f5f5;
+            --input-bg: #2f2f2f;
+            --input-border: #505050;
+            --error: #f08080;
+        }
+
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --body-bg: #f0f2f5;
+            --surface-bg: #ffffff;
+            --surface-border: #b0bcc8;
+            --text: #303848;
+            --muted: #5d6a7f;
+            --button-bg: #3060a0;
+            --button-hover: #204080;
+            --button-text: #ffffff;
+            --input-bg: #ffffff;
+            --input-border: #b0bcc8;
+            --error: #c02020;
+        }
+
         * {
             box-sizing: border-box;
         }
@@ -135,6 +165,7 @@
     <div class="panel">
         <div class="toolbar">
             <button id="connectBtn">Connect</button>
+            <button id="themeToggleBtn" title="Toggle color theme">Theme</button>
             <label>Download
                 <select id="downloadKindSelect">
                     <option value="capture">Screenshot</option>
@@ -164,6 +195,7 @@
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
         const TOUCH_MOVE_INTERVAL_MS = 50;
         const COMMAND_TIMEOUT_MS = 45000; // covers a full binary screen capture at 115200 baud
+        const THEME_STORAGE_KEY = 'tinysa-remote-control-theme';
 
         let port = null;
         let reader = null;
@@ -179,6 +211,7 @@
         let isConnected = false;
 
         const connectBtn = document.getElementById('connectBtn');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
         const downloadKindSelect = document.getElementById('downloadKindSelect');
         const downloadBtn = document.getElementById('downloadBtn');
         const statusEl = document.getElementById('status');
@@ -188,6 +221,29 @@
         function setStatus(message, isError = false) {
             statusEl.textContent = message;
             statusEl.classList.toggle('error', isError);
+        }
+
+        function getPreferredTheme() {
+            const stored = localStorage.getItem(THEME_STORAGE_KEY);
+            if (stored === 'dark' || stored === 'light') {
+                return stored;
+            }
+            return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            themeToggleBtn.textContent = theme === 'dark' ? 'Light theme' : 'Dark theme';
+        }
+
+        function setTheme(theme) {
+            localStorage.setItem(THEME_STORAGE_KEY, theme);
+            applyTheme(theme);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            setTheme(current === 'dark' ? 'light' : 'dark');
         }
 
         function setConnectedUi(connected) {
@@ -703,6 +759,10 @@
             }
         });
 
+        themeToggleBtn.addEventListener('click', () => {
+            toggleTheme();
+        });
+
         downloadBtn.addEventListener('click', () => {
             void download();
         });
@@ -742,6 +802,7 @@
             });
         }
 
+        applyTheme(getPreferredTheme());
         setConnectedUi(false);
     </script>
 </body>
