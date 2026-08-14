@@ -37,6 +37,36 @@
             }
         }
 
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --body-bg: #1e1e1e;
+            --surface-bg: #252525;
+            --surface-border: #404040;
+            --text: #e0e0e0;
+            --muted: #b0b0b0;
+            --button-bg: #383838;
+            --button-hover: #484848;
+            --button-text: #f5f5f5;
+            --input-bg: #2f2f2f;
+            --input-border: #505050;
+            --error: #f08080;
+        }
+
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --body-bg: #f0f2f5;
+            --surface-bg: #ffffff;
+            --surface-border: #b0bcc8;
+            --text: #303848;
+            --muted: #5d6a7f;
+            --button-bg: #3060a0;
+            --button-hover: #204080;
+            --button-text: #ffffff;
+            --input-bg: #ffffff;
+            --input-border: #b0bcc8;
+            --error: #c02020;
+        }
+
         * {
             box-sizing: border-box;
         }
@@ -88,6 +118,20 @@
             background: var(--button-hover);
         }
 
+        .theme-toggle {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-icon {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            line-height: 1;
+        }
+
         input {
             border: 1px solid var(--input-border);
             border-radius: 6px;
@@ -135,7 +179,6 @@
     <div class="panel">
         <div class="toolbar">
             <button id="connectBtn">Connect</button>
-            <button id="disconnectBtn" disabled>Disconnect</button>
             <label>Download
                 <select id="downloadKindSelect">
                     <option value="capture">Screenshot</option>
@@ -144,6 +187,10 @@
                 </select>
             </label>
             <button id="downloadBtn" disabled>Download</button>
+            <button id="themeToggleBtn" class="theme-toggle" title="Toggle color theme">
+                <span id="themeToggleIcon" class="theme-icon" aria-hidden="true"></span>
+                <span id="themeToggleLabel">Theme</span>
+            </button>
         </div>
     </div>
 
@@ -165,6 +212,7 @@
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
         const TOUCH_MOVE_INTERVAL_MS = 50;
         const COMMAND_TIMEOUT_MS = 45000; // covers a full binary screen capture at 115200 baud
+        const THEME_STORAGE_KEY = 'tinysa-remote-control-theme';
 
         let port = null;
         let reader = null;
@@ -176,9 +224,13 @@
         let autoRefreshBusy = false;
         let lastTouchMoveAt = 0;
         let disconnectPromise = null;
+        let touchActive = false;
+        let isConnected = false;
 
         const connectBtn = document.getElementById('connectBtn');
-        const disconnectBtn = document.getElementById('disconnectBtn');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const themeToggleIcon = document.getElementById('themeToggleIcon');
+        const themeToggleLabel = document.getElementById('themeToggleLabel');
         const downloadKindSelect = document.getElementById('downloadKindSelect');
         const downloadBtn = document.getElementById('downloadBtn');
         const statusEl = document.getElementById('status');
@@ -190,9 +242,34 @@
             statusEl.classList.toggle('error', isError);
         }
 
+        function getPreferredTheme() {
+            const stored = localStorage.getItem(THEME_STORAGE_KEY);
+            if (stored === 'dark' || stored === 'light') {
+                return stored;
+            }
+            return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            // Icon reflects the currently selected theme; label spells out the action the button performs.
+            themeToggleIcon.textContent = theme === 'dark' ? '\ud83c\udf19' : '\u2600\ufe0f';
+            themeToggleLabel.textContent = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+        }
+
+        function setTheme(theme) {
+            localStorage.setItem(THEME_STORAGE_KEY, theme);
+            applyTheme(theme);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || getPreferredTheme();
+            setTheme(current === 'dark' ? 'light' : 'dark');
+        }
+
         function setConnectedUi(connected) {
-            connectBtn.disabled = connected;
-            disconnectBtn.disabled = !connected;
+            isConnected = connected;
+            connectBtn.textContent = connected ? 'Disconnect' : 'Connect';
             downloadKindSelect.disabled = !connected || autoRefreshBusy;
             downloadBtn.disabled = !connected || autoRefreshBusy;
         }
@@ -256,15 +333,46 @@
             }
         }
 
+        // Reads response text up to the next "ch> " prompt, transparently handling
+        // unsolicited screen "bulk"/"fill" push updates that the device may interleave
+        // with a command's own response (e.g. a touch triggering an immediate redraw).
+        // Text before whichever marker (prompt or push tag) appears earliest is kept as
+        // response text; push tags are always resolved first so their binary payload is
+        // never mistakenly scanned for a "ch> " byte sequence.
         async function readUntilPrompt() {
+            let result = new Uint8Array(0);
             while (true) {
-                const index = findSequence(readBuffer, PROMPT);
-                if (index !== -1) {
-                    const data = readBuffer.slice(0, index);
-                    readBuffer = readBuffer.slice(index + PROMPT.length);
-                    return data;
+                await ensureBuffered(Math.max(BULK_TAG.length, FILL_TAG.length, PROMPT.length));
+
+                const promptIndex = findSequence(readBuffer, PROMPT);
+                const bulkIndex = findSequence(readBuffer, BULK_TAG);
+                const fillIndex = findSequence(readBuffer, FILL_TAG);
+                const indexes = [promptIndex, bulkIndex, fillIndex].filter((index) => index !== -1);
+
+                if (!indexes.length) {
+                    await readChunk();
+                    continue;
                 }
-                await readChunk();
+
+                const earliest = Math.min(...indexes);
+
+                if (bulkIndex !== -1 && bulkIndex === earliest) {
+                    result = appendBuffer(result, readBuffer.slice(0, bulkIndex));
+                    readBuffer = readBuffer.slice(bulkIndex + BULK_TAG.length);
+                    await handleRegionUpdate('bulk');
+                    continue;
+                }
+
+                if (fillIndex !== -1 && fillIndex === earliest) {
+                    result = appendBuffer(result, readBuffer.slice(0, fillIndex));
+                    readBuffer = readBuffer.slice(fillIndex + FILL_TAG.length);
+                    await handleRegionUpdate('fill');
+                    continue;
+                }
+
+                result = appendBuffer(result, readBuffer.slice(0, promptIndex));
+                readBuffer = readBuffer.slice(promptIndex + PROMPT.length);
+                return result;
             }
         }
 
@@ -280,33 +388,74 @@
             await writer.write(bytes);
         }
 
-        function sendCommand(command, { binary = false } = {}) {
-            if (!port || !writer) {
-                return Promise.reject(new Error('Not connected'));
-            }
-            const deferred = {};
-            let timeoutId = null;
-            const promise = new Promise((resolve, reject) => {
-                deferred.resolve = (value) => {
-                    clearTimeout(timeoutId);
-                    resolve(value);
-                };
-                deferred.reject = (error) => {
-                    clearTimeout(timeoutId);
-                    reject(error);
-                };
-            });
-            deferred.binary = binary;
-            pendingQueue.push(deferred);
-
-            timeoutId = setTimeout(() => {
+        // Background/hidden tabs are heavily throttled (and can be fully frozen) by
+        // browsers, which stalls JS execution for far longer than COMMAND_TIMEOUT_MS
+        // even though the device keeps working normally. Arming a command's timeout
+        // while hidden, or letting one keep ticking down through a freeze, causes
+        // spurious "no response" disconnects (e.g. a queued "release" timing out)
+        // purely because of tab backgrounding rather than a real connection loss.
+        // To avoid that, timeouts are only ever armed while the document is visible,
+        // and are (re)armed with a fresh window once the tab becomes visible again.
+        function armCommandTimeout(deferred) {
+            deferred.timeoutId = setTimeout(() => {
                 const index = pendingQueue.indexOf(deferred);
                 if (index !== -1) {
                     pendingQueue.splice(index, 1);
                 }
-                deferred.reject(new Error(`No response from device for "${command}"`));
-                void handleConnectionLost(`Connection lost: no response for "${command}".`);
+                deferred.reject(new Error(`No response from device for "${deferred.command}"`));
+                void handleConnectionLost(`Connection lost: no response for "${deferred.command}".`);
             }, COMMAND_TIMEOUT_MS);
+        }
+
+        function disarmCommandTimeout(deferred) {
+            if (deferred.timeoutId !== null) {
+                clearTimeout(deferred.timeoutId);
+                deferred.timeoutId = null;
+            }
+        }
+
+        function pauseCommandTimeouts() {
+            pendingQueue.forEach(disarmCommandTimeout);
+        }
+
+        function resumeCommandTimeouts() {
+            pendingQueue.forEach((entry) => {
+                if (entry.timeoutId === null) {
+                    armCommandTimeout(entry);
+                }
+            });
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                pauseCommandTimeouts();
+            } else {
+                resumeCommandTimeouts();
+            }
+        });
+
+        function sendCommand(command, { binary = false } = {}) {
+            if (!port || !writer) {
+                return Promise.reject(new Error('Not connected'));
+            }
+            const deferred = { command, binary, timeoutId: null };
+            const promise = new Promise((resolve, reject) => {
+                deferred.resolve = (value) => {
+                    disarmCommandTimeout(deferred);
+                    resolve(value);
+                };
+                deferred.reject = (error) => {
+                    disarmCommandTimeout(deferred);
+                    reject(error);
+                };
+            });
+            pendingQueue.push(deferred);
+
+            // Don't start the timeout while the tab is hidden; the visibilitychange
+            // handler above will arm it once the tab becomes visible again.
+            if (!document.hidden) {
+                armCommandTimeout(deferred);
+            }
 
             writeCommand(command).catch((error) => {
                 const index = pendingQueue.indexOf(deferred);
@@ -444,17 +593,28 @@
             lastTouchMoveAt = now;
 
             const { x, y } = buildTouchPoint(event);
+            // Mark the touch as active synchronously, before awaiting the command's
+            // response. A quick click dispatches pointerup (and thus sendTouchRelease)
+            // well before this async "touch" command round-trip completes; if
+            // touchActive were only set after the await, that release would see a
+            // stale "false" and be silently dropped, leaving the device stuck with a
+            // phantom touch down until further clicks happened to resync state.
+            touchActive = true;
             try {
                 await sendCommand(`touch ${x} ${y}`);
             } catch (error) {
+                // The press was never established on the device, so a subsequent
+                // release has nothing to release.
+                touchActive = false;
                 setStatus(`Touch failed: ${error.message}`, true);
             }
         }
 
         async function sendTouchRelease() {
-            if (!port) {
+            if (!port || !touchActive) {
                 return;
             }
+            touchActive = false;
             try {
                 await sendCommand('release');
             } catch (error) {
@@ -627,13 +787,10 @@
             }
 
             disconnectPromise = (async () => {
-                if (autoRefreshEnabled && port && writer) {
-                    try {
-                        await sendCommand('refresh off');
-                    } catch (error) {
-                        console.warn(error);
-                    }
-                }
+                const shouldSendRefreshOff = autoRefreshEnabled && port && writer;
+
+                // Reflect the disconnected state immediately so the UI doesn't appear to
+                // ignore the click while the best-effort "refresh off" below is pending.
                 autoRefreshEnabled = false;
                 autoRefreshBusy = false;
                 setConnectedUi(false);
@@ -650,6 +807,17 @@
                 const pending = pendingQueue;
                 pendingQueue = [];
                 pending.forEach((entry) => entry.reject(new Error('Disconnected')));
+
+                if (shouldSendRefreshOff) {
+                    try {
+                        await Promise.race([
+                            activeWriter.write(TEXT_ENCODER.encode('refresh off\r')),
+                            new Promise((resolve) => setTimeout(resolve, 1000)),
+                        ]);
+                    } catch (error) {
+                        console.warn(error);
+                    }
+                }
 
                 try {
                     if (activeReader) {
@@ -694,11 +862,15 @@
         }
 
         connectBtn.addEventListener('click', () => {
-            void connect();
+            if (isConnected) {
+                void disconnect();
+            } else {
+                void connect();
+            }
         });
 
-        disconnectBtn.addEventListener('click', () => {
-            void disconnect();
+        themeToggleBtn.addEventListener('click', () => {
+            toggleTheme();
         });
 
         downloadBtn.addEventListener('click', () => {
@@ -706,6 +878,9 @@
         });
 
         canvas.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) {
+                return;
+            }
             canvas.setPointerCapture(event.pointerId);
             void sendTouchPress(event, true);
         });
@@ -737,6 +912,7 @@
             });
         }
 
+        applyTheme(getPreferredTheme());
         setConnectedUi(false);
     </script>
 </body>
