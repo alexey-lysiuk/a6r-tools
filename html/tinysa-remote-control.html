@@ -562,6 +562,9 @@
             try {
                 await sendCommand(`touch ${x} ${y}`);
             } catch (error) {
+                // The press was never established on the device, so a subsequent
+                // release has nothing to release.
+                touchActive = false;
                 setStatus(`Touch failed: ${error.message}`, true);
             }
         }
