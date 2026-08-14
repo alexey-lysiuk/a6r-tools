@@ -252,9 +252,9 @@
 
         function applyTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
-            // Icon reflects the currently selected theme; label describes the action the button performs.
+            // Icon reflects the currently selected theme; label spells out the action the button performs.
             themeToggleIcon.textContent = theme === 'dark' ? '\ud83c\udf19' : '\u2600\ufe0f';
-            themeToggleLabel.textContent = theme === 'dark' ? 'Light theme' : 'Dark theme';
+            themeToggleLabel.textContent = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
         }
 
         function setTheme(theme) {
@@ -356,14 +356,14 @@
 
                 const earliest = Math.min(...indexes);
 
-                if (earliest === bulkIndex) {
+                if (bulkIndex !== -1 && bulkIndex === earliest) {
                     result = appendBuffer(result, readBuffer.slice(0, bulkIndex));
                     readBuffer = readBuffer.slice(bulkIndex + BULK_TAG.length);
                     await handleRegionUpdate('bulk');
                     continue;
                 }
 
-                if (earliest === fillIndex) {
+                if (fillIndex !== -1 && fillIndex === earliest) {
                     result = appendBuffer(result, readBuffer.slice(0, fillIndex));
                     readBuffer = readBuffer.slice(fillIndex + FILL_TAG.length);
                     await handleRegionUpdate('fill');
