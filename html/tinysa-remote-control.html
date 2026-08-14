@@ -388,33 +388,74 @@
             await writer.write(bytes);
         }
 
-        function sendCommand(command, { binary = false } = {}) {
-            if (!port || !writer) {
-                return Promise.reject(new Error('Not connected'));
-            }
-            const deferred = {};
-            let timeoutId = null;
-            const promise = new Promise((resolve, reject) => {
-                deferred.resolve = (value) => {
-                    clearTimeout(timeoutId);
-                    resolve(value);
-                };
-                deferred.reject = (error) => {
-                    clearTimeout(timeoutId);
-                    reject(error);
-                };
-            });
-            deferred.binary = binary;
-            pendingQueue.push(deferred);
-
-            timeoutId = setTimeout(() => {
+        // Background/hidden tabs are heavily throttled (and can be fully frozen) by
+        // browsers, which stalls JS execution for far longer than COMMAND_TIMEOUT_MS
+        // even though the device keeps working normally. Arming a command's timeout
+        // while hidden, or letting one keep ticking down through a freeze, causes
+        // spurious "no response" disconnects (e.g. a queued "release" timing out)
+        // purely because of tab backgrounding rather than a real connection loss.
+        // To avoid that, timeouts are only ever armed while the document is visible,
+        // and are (re)armed with a fresh window once the tab becomes visible again.
+        function armCommandTimeout(deferred) {
+            deferred.timeoutId = setTimeout(() => {
                 const index = pendingQueue.indexOf(deferred);
                 if (index !== -1) {
                     pendingQueue.splice(index, 1);
                 }
-                deferred.reject(new Error(`No response from device for "${command}"`));
-                void handleConnectionLost(`Connection lost: no response for "${command}".`);
+                deferred.reject(new Error(`No response from device for "${deferred.command}"`));
+                void handleConnectionLost(`Connection lost: no response for "${deferred.command}".`);
             }, COMMAND_TIMEOUT_MS);
+        }
+
+        function disarmCommandTimeout(deferred) {
+            if (deferred.timeoutId !== null) {
+                clearTimeout(deferred.timeoutId);
+                deferred.timeoutId = null;
+            }
+        }
+
+        function pauseCommandTimeouts() {
+            pendingQueue.forEach(disarmCommandTimeout);
+        }
+
+        function resumeCommandTimeouts() {
+            pendingQueue.forEach((entry) => {
+                if (entry.timeoutId === null) {
+                    armCommandTimeout(entry);
+                }
+            });
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                pauseCommandTimeouts();
+            } else {
+                resumeCommandTimeouts();
+            }
+        });
+
+        function sendCommand(command, { binary = false } = {}) {
+            if (!port || !writer) {
+                return Promise.reject(new Error('Not connected'));
+            }
+            const deferred = { command, binary, timeoutId: null };
+            const promise = new Promise((resolve, reject) => {
+                deferred.resolve = (value) => {
+                    disarmCommandTimeout(deferred);
+                    resolve(value);
+                };
+                deferred.reject = (error) => {
+                    disarmCommandTimeout(deferred);
+                    reject(error);
+                };
+            });
+            pendingQueue.push(deferred);
+
+            // Don't start the timeout while the tab is hidden; the visibilitychange
+            // handler above will arm it once the tab becomes visible again.
+            if (!document.hidden) {
+                armCommandTimeout(deferred);
+            }
 
             writeCommand(command).catch((error) => {
                 const index = pendingQueue.indexOf(deferred);
