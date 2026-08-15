@@ -466,6 +466,9 @@
             // promise (rather than just its write) means the next write always
             // waits for the full read cycle to finish, not just the write call.
             const previousChain = writeChain;
+            // previousChain is always the *previous* command's own promise wrapped in
+            // a no-op .catch(), so it never rejects itself; failures are handled by
+            // the .catch() below, which always settles this command's own deferred.
             writeChain = promise.catch(() => {});
             previousChain
                 .then(() => writeCommand(command))
