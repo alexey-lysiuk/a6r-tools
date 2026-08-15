@@ -219,6 +219,7 @@
         let writer = null;
         let readBuffer = new Uint8Array(0);
         let pendingQueue = [];
+        let writeChain = Promise.resolve();
         let pumpPromise = null;
         let autoRefreshEnabled = false;
         let autoRefreshBusy = false;
@@ -457,6 +458,24 @@
                 armCommandTimeout(deferred);
             }
 
+            // Serialize writes so that a command is only sent once the previous
+            // command's whole response (including any embedded bulk/fill screen
+            // updates) has been fully read. Without this, a command written while
+            // the pump loop is still reading a prior response can race the device's
+            // reply, corrupting the stream. Chaining off the previous command's own
+            // promise (rather than just its write) means the next write always
+            // waits for the full read cycle to finish, not just the write call.
+            const previousChain = writeChain;
+            writeChain = promise.catch(() => {});
+            previousChain
+                .then(() => writeCommand(command))
+                .catch((error) => {
+                    const index = pendingQueue.indexOf(deferred);
+                    if (index !== -1) {
+                        pendingQueue.splice(index, 1);
+                    }
+                    deferred.reject(error);
+                });
             return promise;
         }
 
@@ -515,52 +534,51 @@
 
         async function pumpLoop() {
             while (port) {
-                // Drain any complete unsolicited screen updates before issuing a command.
-                // Only write a command when the receive buffer is fully clear so that no
-                // command bytes are ever sent while bulk/fill data is being streamed in.
-                if (readBuffer.length >= Math.max(BULK_TAG.length, FILL_TAG.length)) {
-                    if (startsWith(readBuffer, BULK_TAG)) {
-                        readBuffer = readBuffer.slice(BULK_TAG.length);
-                        await handleRegionUpdate('bulk');
-                        continue;
-                    }
+                await ensureBuffered(BULK_TAG.length);
 
-                    if (startsWith(readBuffer, FILL_TAG)) {
-                        readBuffer = readBuffer.slice(FILL_TAG.length);
-                        await handleRegionUpdate('fill');
-                        continue;
-                    }
-                }
-
-                if (readBuffer.length === 0 && pendingQueue.length > 0) {
-                    const entry = pendingQueue.shift();
-                    try {
-                        await writeCommand(entry.command);
-                    } catch (error) {
-                        entry.reject(error);
-                        continue;
-                    }
-                    try {
-                        if (entry.binary) {
-                            // The first line is command echo/empty line from tinySA console output.
-                            await readLine();
-                            const pixels = await readExact(PIXEL_BYTES);
-                            await readExact(PROMPT.length);
-                            entry.resolve(pixels);
-                        } else {
-                            await readLine();
-                            const raw = await readUntilPrompt();
-                            entry.resolve(TEXT_DECODER.decode(raw).trim());
-                        }
-                    } catch (error) {
-                        entry.reject(error);
-                        throw error;
-                    }
+                if (startsWith(readBuffer, BULK_TAG)) {
+                    readBuffer = readBuffer.slice(BULK_TAG.length);
+                    await handleRegionUpdate('bulk');
                     continue;
                 }
 
-                // Nothing actionable yet; wait for data to arrive.
-                await readChunk();
+                if (startsWith(readBuffer, FILL_TAG)) {
+                    readBuffer = readBuffer.slice(FILL_TAG.length);
+                    await handleRegionUpdate('fill');
+                    continue;
+                }
+
+                if (pendingQueue.length === 0) {
+                    // No command is outstanding, so any bytes left in the buffer at
+                    // this point aren't a bulk/fill tag and don't belong to any
+                    // response we're waiting for. Previously this branch was always
+                    // taken, silently consuming those bytes as if they were the next
+                    // command's response; when a real command was queued right after,
+                    // its actual reply had already been swallowed and the command
+                    // hung until its timeout fired, disconnecting the device. Just
+                    // wait for more data instead of guessing at a response to parse.
+                    await readChunk();
+                    continue;
+                }
+
+                const entry = pendingQueue.shift();
+                try {
+                    if (entry.binary) {
+                        // The first line is command echo/empty line from tinySA console output.
+                        await readLine();
+                        const pixels = await readExact(PIXEL_BYTES);
+                        await readExact(PROMPT.length);
+                        entry.resolve(pixels);
+                    } else {
+                        await readLine();
+                        const raw = await readUntilPrompt();
+                        const text = TEXT_DECODER.decode(raw).trim();
+                        entry.resolve(text);
+                    }
+                } catch (error) {
+                    entry.reject(error);
+                    throw error;
+                }
             }
         }
 
@@ -625,6 +643,9 @@
             try {
                 await sendCommand('release');
             } catch (error) {
+                // If the port is already gone, disconnect()/handleConnectionLost()
+                // has already set the real error message; don't overwrite it with a
+                // misleading "Release failed: Disconnected" status.
                 if (port) {
                     setStatus(`Release failed: ${error.message}`, true);
                 }
@@ -768,6 +789,7 @@
                 writer = port.writable.getWriter();
                 readBuffer = new Uint8Array(0);
                 pendingQueue = [];
+                writeChain = Promise.resolve();
                 autoRefreshEnabled = false;
                 autoRefreshBusy = false;
 
