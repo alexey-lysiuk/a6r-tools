@@ -457,13 +457,6 @@
                 armCommandTimeout(deferred);
             }
 
-            writeCommand(command).catch((error) => {
-                const index = pendingQueue.indexOf(deferred);
-                if (index !== -1) {
-                    pendingQueue.splice(index, 1);
-                }
-                deferred.reject(error);
-            });
             return promise;
         }
 
@@ -522,38 +515,52 @@
 
         async function pumpLoop() {
             while (port) {
-                await ensureBuffered(BULK_TAG.length);
-
-                if (startsWith(readBuffer, BULK_TAG)) {
-                    readBuffer = readBuffer.slice(BULK_TAG.length);
-                    await handleRegionUpdate('bulk');
-                    continue;
-                }
-
-                if (startsWith(readBuffer, FILL_TAG)) {
-                    readBuffer = readBuffer.slice(FILL_TAG.length);
-                    await handleRegionUpdate('fill');
-                    continue;
-                }
-
-                const entry = pendingQueue.shift();
-                try {
-                    if (entry?.binary) {
-                        // The first line is command echo/empty line from tinySA console output.
-                        await readLine();
-                        const pixels = await readExact(PIXEL_BYTES);
-                        await readExact(PROMPT.length);
-                        entry.resolve(pixels);
-                    } else {
-                        await readLine();
-                        const raw = await readUntilPrompt();
-                        const text = TEXT_DECODER.decode(raw).trim();
-                        entry?.resolve(text);
+                // Drain any complete unsolicited screen updates before issuing a command.
+                // Only write a command when the receive buffer is fully clear so that no
+                // command bytes are ever sent while bulk/fill data is being streamed in.
+                if (readBuffer.length >= Math.max(BULK_TAG.length, FILL_TAG.length)) {
+                    if (startsWith(readBuffer, BULK_TAG)) {
+                        readBuffer = readBuffer.slice(BULK_TAG.length);
+                        await handleRegionUpdate('bulk');
+                        continue;
                     }
-                } catch (error) {
-                    entry?.reject(error);
-                    throw error;
+
+                    if (startsWith(readBuffer, FILL_TAG)) {
+                        readBuffer = readBuffer.slice(FILL_TAG.length);
+                        await handleRegionUpdate('fill');
+                        continue;
+                    }
                 }
+
+                if (readBuffer.length === 0 && pendingQueue.length > 0) {
+                    const entry = pendingQueue.shift();
+                    try {
+                        await writeCommand(entry.command);
+                    } catch (error) {
+                        entry.reject(error);
+                        continue;
+                    }
+                    try {
+                        if (entry.binary) {
+                            // The first line is command echo/empty line from tinySA console output.
+                            await readLine();
+                            const pixels = await readExact(PIXEL_BYTES);
+                            await readExact(PROMPT.length);
+                            entry.resolve(pixels);
+                        } else {
+                            await readLine();
+                            const raw = await readUntilPrompt();
+                            entry.resolve(TEXT_DECODER.decode(raw).trim());
+                        }
+                    } catch (error) {
+                        entry.reject(error);
+                        throw error;
+                    }
+                    continue;
+                }
+
+                // Nothing actionable yet; wait for data to arrive.
+                await readChunk();
             }
         }
 
@@ -618,7 +625,9 @@
             try {
                 await sendCommand('release');
             } catch (error) {
-                setStatus(`Release failed: ${error.message}`, true);
+                if (port) {
+                    setStatus(`Release failed: ${error.message}`, true);
+                }
             }
         }
 
