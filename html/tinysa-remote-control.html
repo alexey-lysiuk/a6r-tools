@@ -457,6 +457,18 @@
                 armCommandTimeout(deferred);
             }
 
+            // Write immediately; the WritableStreamDefaultWriter already serializes
+            // writes in call order, so there's no need to wait for anything here.
+            // (A previous version of this code gated each write on the *previous*
+            // command's full response having been read, to avoid supposedly racing
+            // with the pump loop. But serial is full-duplex: writing to the device
+            // never affects bytes it is simultaneously sending back, so there was
+            // nothing to protect against. Worse, gating on the full round trip meant
+            // that a response delayed by interleaved auto-refresh screen pushes -
+            // e.g. after a touch/click - stalled every subsequent command's write
+            // forever, freezing the UI in a way that neither more clicks nor
+            // reconnecting could recover from, since the next connection's writes
+            // would wait on a promise chain rooted in the never-resolving prior one.)
             writeCommand(command).catch((error) => {
                 const index = pendingQueue.indexOf(deferred);
                 if (index !== -1) {
@@ -536,9 +548,22 @@
                     continue;
                 }
 
+                if (pendingQueue.length === 0) {
+                    // No command is outstanding, so any bytes left in the buffer at
+                    // this point aren't a bulk/fill tag and don't belong to any
+                    // response we're waiting for. Previously this branch was always
+                    // taken, silently consuming those bytes as if they were the next
+                    // command's response; when a real command was queued right after,
+                    // its actual reply had already been swallowed and the command
+                    // hung until its timeout fired, disconnecting the device. Just
+                    // wait for more data instead of guessing at a response to parse.
+                    await readChunk();
+                    continue;
+                }
+
                 const entry = pendingQueue.shift();
                 try {
-                    if (entry?.binary) {
+                    if (entry.binary) {
                         // The first line is command echo/empty line from tinySA console output.
                         await readLine();
                         const pixels = await readExact(PIXEL_BYTES);
@@ -548,10 +573,10 @@
                         await readLine();
                         const raw = await readUntilPrompt();
                         const text = TEXT_DECODER.decode(raw).trim();
-                        entry?.resolve(text);
+                        entry.resolve(text);
                     }
                 } catch (error) {
-                    entry?.reject(error);
+                    entry.reject(error);
                     throw error;
                 }
             }
@@ -618,7 +643,12 @@
             try {
                 await sendCommand('release');
             } catch (error) {
-                setStatus(`Release failed: ${error.message}`, true);
+                // If the port is already gone, disconnect()/handleConnectionLost()
+                // has already set the real error message; don't overwrite it with a
+                // misleading "Release failed: Disconnected" status.
+                if (port) {
+                    setStatus(`Release failed: ${error.message}`, true);
+                }
             }
         }
 
