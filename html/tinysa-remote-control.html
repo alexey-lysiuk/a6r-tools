@@ -219,7 +219,6 @@
         let writer = null;
         let readBuffer = new Uint8Array(0);
         let pendingQueue = [];
-        let writeChain = Promise.resolve();
         let pumpPromise = null;
         let autoRefreshEnabled = false;
         let autoRefreshBusy = false;
@@ -458,27 +457,25 @@
                 armCommandTimeout(deferred);
             }
 
-            // Serialize writes so that a command is only sent once the previous
-            // command's whole response (including any embedded bulk/fill screen
-            // updates) has been fully read. Without this, a command written while
-            // the pump loop is still reading a prior response can race the device's
-            // reply, corrupting the stream. Chaining off the previous command's own
-            // promise (rather than just its write) means the next write always
-            // waits for the full read cycle to finish, not just the write call.
-            const previousChain = writeChain;
-            // previousChain is always the *previous* command's own promise wrapped in
-            // a no-op .catch(), so it never rejects itself; failures are handled by
-            // the .catch() below, which always settles this command's own deferred.
-            writeChain = promise.catch(() => {});
-            previousChain
-                .then(() => writeCommand(command))
-                .catch((error) => {
-                    const index = pendingQueue.indexOf(deferred);
-                    if (index !== -1) {
-                        pendingQueue.splice(index, 1);
-                    }
-                    deferred.reject(error);
-                });
+            // Write immediately; the WritableStreamDefaultWriter already serializes
+            // writes in call order, so there's no need to wait for anything here.
+            // (A previous version of this code gated each write on the *previous*
+            // command's full response having been read, to avoid supposedly racing
+            // with the pump loop. But serial is full-duplex: writing to the device
+            // never affects bytes it is simultaneously sending back, so there was
+            // nothing to protect against. Worse, gating on the full round trip meant
+            // that a response delayed by interleaved auto-refresh screen pushes -
+            // e.g. after a touch/click - stalled every subsequent command's write
+            // forever, freezing the UI in a way that neither more clicks nor
+            // reconnecting could recover from, since the next connection's writes
+            // would wait on a promise chain rooted in the never-resolving prior one.)
+            writeCommand(command).catch((error) => {
+                const index = pendingQueue.indexOf(deferred);
+                if (index !== -1) {
+                    pendingQueue.splice(index, 1);
+                }
+                deferred.reject(error);
+            });
             return promise;
         }
 
@@ -792,7 +789,6 @@
                 writer = port.writable.getWriter();
                 readBuffer = new Uint8Array(0);
                 pendingQueue = [];
-                writeChain = Promise.resolve();
                 autoRefreshEnabled = false;
                 autoRefreshBusy = false;
 
