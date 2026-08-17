@@ -1,6 +1,14 @@
 name: Test Python
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - data/**
+      - python/**
+  pull_request:
+    paths:
+      - data/**
+      - python/**
 
 jobs:
   build:
