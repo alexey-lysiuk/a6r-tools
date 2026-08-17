@@ -776,6 +776,26 @@
             }
         }
 
+        async function setDateTime() {
+            function pad(value) {
+                return value.toString().padStart(2, '0');
+            }
+
+            try {
+                const now = new Date();
+                const year = pad(now.getFullYear() - 2000);
+                const month = pad(now.getMonth() + 1);
+                const day = pad(now.getDate());
+                const hours = pad(now.getHours());
+                const minutes = pad(now.getMinutes());
+                const seconds = pad(now.getSeconds());
+                await sendCommand(`time b 0x${year}${month}${day} 0x${hours}${minutes}${seconds}`);
+            }
+            catch (error) {
+                setStatus(`Set data/time failed: ${error.message}`, true);
+            }
+        }
+
         async function connect() {
             if (!navigator.serial) {
                 setStatus('WebSerial API is not available in this browser.', true);
@@ -800,6 +820,8 @@
                     await disconnect(true);
                     return;
                 }
+
+                setDateTime();
 
                 setConnectedUi(true);
                 await setAutoRefresh(true);
