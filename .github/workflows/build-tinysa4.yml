@@ -15,6 +15,13 @@ jobs:
         run: |
           wget --quiet https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi.tar.xz
           sudo tar --directory /usr/local --strip-components 1 --extract --file *.xz
+          rm *.xz
+
+      - name: Install hex2dfu
+        run: |
+          wget --quiet https://github.com/encedo/hex2dfu/raw/refs/heads/master/hex2dfu.c
+          gcc -DED25519_SUPPORT=0 hex2dfu.c -o hex2dfu
+          sudo mv hex2dfu /usr/local/bin
 
       - name: Fetch source code
         run: |
@@ -24,18 +31,18 @@ jobs:
           echo "TINYSA_VERSION=$(git -C tinySA describe --tags --long)" >> $GITHUB_ENV
 
       - name: Get number of CPU cores
-        uses: SimenB/github-actions-cpu-cores@v2
+        uses: SimenB/github-actions-cpu-cores@v3
         id: cpu-cores
 
       - name: Build firmware
         run: |
           echo "Building $TINYSA_VERSION with GCC $GCC_VERSION"
           cd tinySA
-          make --jobs ${{ steps.cpu-cores.outputs.count }} --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1
+          make --jobs ${{ steps.cpu-cores.outputs.count }} --keep-going TARGET=F303 all dfu
           rm -r build/lst build/obj
 
       - name: Upload firmware
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}
           path: tinySA/build
