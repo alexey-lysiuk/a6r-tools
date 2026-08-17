@@ -816,7 +816,7 @@
 
                 const info = await sendCommand('info');
                 if (!info.toLowerCase().includes('tinysa ultra')) {
-                    setStatus('Connected device does not report tinySA ULTRA in info output.', true);
+                    setStatus('Connected device does not report tinySA Ultra in info output.', true);
                     await disconnect(true);
                     return;
                 }
@@ -825,7 +825,7 @@
 
                 setConnectedUi(true);
                 await setAutoRefresh(true);
-                setStatus('Connected to tinySA ULTRA.');
+                setStatus('Connected to tinySA Ultra.');
             } catch (error) {
                 setStatus(`Connect failed: ${error.message}`, true);
                 await disconnect(true);
