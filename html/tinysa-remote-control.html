@@ -814,6 +814,8 @@
 
                 pumpPromise = runPumpLoop();
 
+                setAutoRefresh(false);
+
                 const info = await sendCommand('info');
                 if (!info.toLowerCase().includes('tinysa ultra')) {
                     setStatus('Connected device does not report tinySA Ultra in info output.', true);
