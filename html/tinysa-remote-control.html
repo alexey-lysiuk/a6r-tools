@@ -693,14 +693,14 @@
             setConnectedUi(true);
             try {
                 if (wasEnabled) {
-                    await setAutoRefresh(false);
+                    setAutoRefresh(false);
                 }
                 return await action();
             } finally {
                 autoRefreshBusy = false;
                 if (wasEnabled && port) {
                     try {
-                        await setAutoRefresh(true);
+                        setAutoRefresh(true);
                     } catch (error) {
                         setStatus(`Failed to resume auto refresh: ${error.message}`, true);
                     }
