@@ -237,6 +237,11 @@
         const canvas = document.getElementById('screen');
         const ctx = canvas.getContext('2d');
 
+        function log(...args) {
+            const now = new Date().toISOString();
+            console.log(`[${now}]`, ...args);
+        }
+
         function setStatus(message, isError = false) {
             statusEl.textContent = message;
             statusEl.classList.toggle('error', isError);
@@ -384,6 +389,7 @@
         }
 
         async function writeCommand(command) {
+            log(`ch> ${command}`)
             const bytes = TEXT_ENCODER.encode(`${command}\r`);
             await writer.write(bytes);
         }
@@ -814,6 +820,7 @@
 
                 pumpPromise = runPumpLoop();
 
+                log('Connected')
                 setAutoRefresh(false);
 
                 const info = await sendCommand('info');
@@ -968,6 +975,8 @@
 
         applyTheme(getPreferredTheme());
         setConnectedUi(false);
+
+        log('Initialized')
     </script>
 </body>
 </html>
