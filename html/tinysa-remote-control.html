@@ -409,7 +409,7 @@
                     pendingQueue.splice(index, 1);
                 }
                 deferred.reject(new Error(`No response from device for "${deferred.command}"`));
-                void handleConnectionLost(`Connection lost: no response for "${deferred.command}".`);
+                log(`No response for "${deferred.command}".`);
             }, COMMAND_TIMEOUT_MS);
         }
 
@@ -600,7 +600,7 @@
             try {
                 await pumpLoop();
             } catch (error) {
-                await handleConnectionLost(`Connection error: ${error.message}`);
+                log(error.message);
             }
         }
 
