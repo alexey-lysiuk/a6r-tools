@@ -211,7 +211,6 @@
         const FILL_TAG = TEXT_ENCODER.encode('fill\r\n');
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
         const TOUCH_MOVE_INTERVAL_MS = 50;
-        const COMMAND_TIMEOUT_MS = 45000; // covers a full binary screen capture at 115200 baud
         const THEME_STORAGE_KEY = 'tinysa-remote-control-theme';
 
         let port = null;
@@ -394,74 +393,20 @@
             await writer.write(bytes);
         }
 
-        // Background/hidden tabs are heavily throttled (and can be fully frozen) by
-        // browsers, which stalls JS execution for far longer than COMMAND_TIMEOUT_MS
-        // even though the device keeps working normally. Arming a command's timeout
-        // while hidden, or letting one keep ticking down through a freeze, causes
-        // spurious "no response" disconnects (e.g. a queued "release" timing out)
-        // purely because of tab backgrounding rather than a real connection loss.
-        // To avoid that, timeouts are only ever armed while the document is visible,
-        // and are (re)armed with a fresh window once the tab becomes visible again.
-        function armCommandTimeout(deferred) {
-            deferred.timeoutId = setTimeout(() => {
-                const index = pendingQueue.indexOf(deferred);
-                if (index !== -1) {
-                    pendingQueue.splice(index, 1);
-                }
-                deferred.reject(new Error(`No response from device for "${deferred.command}"`));
-                log(`No response for "${deferred.command}".`);
-            }, COMMAND_TIMEOUT_MS);
-        }
-
-        function disarmCommandTimeout(deferred) {
-            if (deferred.timeoutId !== null) {
-                clearTimeout(deferred.timeoutId);
-                deferred.timeoutId = null;
-            }
-        }
-
-        function pauseCommandTimeouts() {
-            pendingQueue.forEach(disarmCommandTimeout);
-        }
-
-        function resumeCommandTimeouts() {
-            pendingQueue.forEach((entry) => {
-                if (entry.timeoutId === null) {
-                    armCommandTimeout(entry);
-                }
-            });
-        }
-
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                pauseCommandTimeouts();
-            } else {
-                resumeCommandTimeouts();
-            }
-        });
-
         function sendCommand(command, { binary = false } = {}) {
             if (!port || !writer) {
                 return Promise.reject(new Error('Not connected'));
             }
-            const deferred = { command, binary, timeoutId: null };
+            const deferred = { command, binary };
             const promise = new Promise((resolve, reject) => {
                 deferred.resolve = (value) => {
-                    disarmCommandTimeout(deferred);
                     resolve(value);
                 };
                 deferred.reject = (error) => {
-                    disarmCommandTimeout(deferred);
                     reject(error);
                 };
             });
             pendingQueue.push(deferred);
-
-            // Don't start the timeout while the tab is hidden; the visibilitychange
-            // handler above will arm it once the tab becomes visible again.
-            if (!document.hidden) {
-                armCommandTimeout(deferred);
-            }
 
             // Write immediately; the WritableStreamDefaultWriter already serializes
             // writes in call order, so there's no need to wait for anything here.
