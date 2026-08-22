@@ -928,6 +928,29 @@
             }
         }
 
+        async function handleKeyUp(event) {
+            if (!port) {
+                return;
+            }
+
+            key = event.key.toLowerCase()
+
+            switch (key) {
+                case 'c': // center frequency
+                    await sendCommand('menu 3 3')
+                    break;
+                case 'r': // resolution bandwidth
+                    await sendCommand('menu 3 7')
+                    break;
+                case 'w': // waterfall
+                    await sendCommand('menu 6 2')
+                    break;
+                default:
+                    log(`No shortcut for '${key}'`)
+                    break;
+            }
+        }
+
         connectBtn.addEventListener('click', () => {
             if (isConnected) {
                 void disconnect();
@@ -969,6 +992,10 @@
 
         canvas.addEventListener('pointerleave', () => {
             void sendTouchRelease();
+        });
+
+        document.addEventListener('keyup', (event) => {
+            handleKeyUp(event);
         });
 
         if (navigator.serial) {
