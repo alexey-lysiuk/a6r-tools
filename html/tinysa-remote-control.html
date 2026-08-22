@@ -198,7 +198,7 @@
         <canvas id="screen" width="480" height="320" role="img" aria-label="tinySA Ultra screen"></canvas>
     </div>
 
-    <div id="status">WebSerial disconnected.</div>
+    <div id="status">Disconnected.</div>
 
     <script>
         const SCREEN_WIDTH = 480;
@@ -820,11 +820,11 @@
 
                 pumpPromise = runPumpLoop();
 
-                log('Connected')
+                log('Connecting...')
                 setAutoRefresh(false);
 
                 const info = await sendCommand('info');
-                if (!info.toLowerCase().includes('tinysa ultra')) {
+                if (!info.includes('tinySA ULTRA')) {
                     setStatus('Connected device does not report tinySA Ultra in info output.', true);
                     await disconnect(true);
                     return;
@@ -834,7 +834,11 @@
 
                 setConnectedUi(true);
                 await setAutoRefresh(true);
-                setStatus('Connected to tinySA Ultra.');
+
+                model = info.split('\r\n')[0]
+                message = `Connected to ${model}`
+                setStatus(message);
+                log(message)
             } catch (error) {
                 setStatus(`Connect failed: ${error.message}`, true);
                 await disconnect(true);
@@ -910,8 +914,10 @@
                     pumpPromise = null;
                 }
 
+                ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
                 if (!keepStatus) {
-                    setStatus('WebSerial disconnected.');
+                    setStatus('Disconnected.');
                 }
             })();
 
