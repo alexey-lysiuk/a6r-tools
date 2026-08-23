@@ -237,7 +237,13 @@
         const ctx = canvas.getContext('2d');
 
         function log(...args) {
-            const now = new Date().toISOString();
+            const now = new Date().toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                fractionalSecondDigits: 3,
+            })
             console.log(`[${now}]`, ...args);
         }
 
