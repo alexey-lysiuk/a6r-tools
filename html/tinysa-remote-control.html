@@ -198,7 +198,7 @@
         <canvas id="screen" width="480" height="320" role="img" aria-label="tinySA Ultra screen"></canvas>
     </div>
 
-    <div id="status">WebSerial disconnected.</div>
+    <div id="status">Disconnected.</div>
 
     <script>
         const SCREEN_WIDTH = 480;
@@ -854,7 +854,7 @@
                 ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
                 if (!keepStatus) {
-                    setStatus('WebSerial disconnected.');
+                    setStatus('Disconnected.');
                 }
             })();
 
