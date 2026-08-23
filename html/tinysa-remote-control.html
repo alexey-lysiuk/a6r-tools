@@ -781,16 +781,17 @@
                     return;
                 }
 
+                log(info)
                 setDateTime();
 
                 setConnectedUi(true);
                 await setAutoRefresh(true);
 
                 model = info.split('\r\n')[0]
-                message = `Connected to ${model}`
-                setStatus(message);
-                log(message)
+                setStatus(`Connected to ${model}`);
             } catch (error) {
+                log(error.message)
+
                 setStatus(`Connect failed: ${error.message}`, true);
                 await disconnect(true);
             }
