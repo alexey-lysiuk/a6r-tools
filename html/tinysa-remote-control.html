@@ -851,6 +851,8 @@
                     pumpPromise = null;
                 }
 
+                ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
                 if (!keepStatus) {
                     setStatus('WebSerial disconnected.');
                 }
