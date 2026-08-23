@@ -236,6 +236,10 @@
         const canvas = document.getElementById('screen');
         const ctx = canvas.getContext('2d');
 
+        function sleep(ms) {
+            new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
         function log(...args) {
             const now = new Date().toLocaleTimeString('en-US', {
                 hour12: false,
@@ -405,12 +409,14 @@
             }
             const deferred = { command, binary };
             const promise = new Promise((resolve, reject) => {
-                deferred.resolve = (value) => {
-                    resolve(value);
-                };
-                deferred.reject = (error) => {
-                    reject(error);
-                };
+                // deferred.resolve = (value) => {
+                //     resolve(value);
+                // };
+                // deferred.reject = (error) => {
+                //     reject(error);
+                // };
+                deferred.resolve = resolve;
+                deferred.reject = reject;
             });
             pendingQueue.push(deferred);
 
@@ -624,6 +630,7 @@
                 await sendCommand('refresh on');
             } else {
                 await sendCommand('refresh off');
+                //await sleep(500);
             }
             autoRefreshEnabled = enabled;
             setConnectedUi(true);
@@ -644,27 +651,28 @@
             return new Date().toISOString().replace(/[:.]/g, '-');
         }
 
-        async function withAutoRefreshPaused(action) {
-            const wasEnabled = autoRefreshEnabled;
-            autoRefreshBusy = true;
-            setConnectedUi(true);
-            try {
-                if (wasEnabled) {
-                    setAutoRefresh(false);
-                }
-                return await action();
-            } finally {
-                autoRefreshBusy = false;
-                if (wasEnabled && port) {
-                    try {
-                        setAutoRefresh(true);
-                    } catch (error) {
-                        setStatus(`Failed to resume auto refresh: ${error.message}`, true);
-                    }
-                }
-                setConnectedUi(!!port);
-            }
-        }
+        // async function withAutoRefreshPaused(action) {
+        //     const wasEnabled = autoRefreshEnabled;
+        //     autoRefreshBusy = true;
+        //     setConnectedUi(true);
+        //     try {
+        //         if (wasEnabled) {
+        //             setAutoRefresh(false);
+        //             sleep(500);
+        //         }
+        //         return await action();
+        //     } finally {
+        //         autoRefreshBusy = false;
+        //         if (wasEnabled && port) {
+        //             try {
+        //                 setAutoRefresh(true);
+        //             } catch (error) {
+        //                 setStatus(`Failed to resume auto refresh: ${error.message}`, true);
+        //             }
+        //         }
+        //         setConnectedUi(!!port);
+        //     }
+        // }
 
         async function saveScreenshot() {
             await captureScreenshot();
@@ -719,14 +727,19 @@
         async function download() {
             const kind = downloadKindSelect.value;
             try {
-                await withAutoRefreshPaused(async () => {
+                //await withAutoRefreshPaused(async () => {
+                setAutoRefresh(false);
+                //sleep(500);
                     if (kind === 'capture' || kind === 'both') {
-                        await saveScreenshot();
+                        //await 
+                        saveScreenshot();
                     }
                     if (kind === 'traces' || kind === 'both') {
-                        await saveTraces();
+                        //await 
+                        saveTraces();
                     }
-                });
+                    setAutoRefresh(true);
+                //});
                 setStatus('Download complete.');
             } catch (error) {
                 setStatus(`Download (${kind}) failed: ${error.message}`, true);
@@ -772,7 +785,8 @@
                 pumpPromise = runPumpLoop();
 
                 log('Connecting...')
-                setAutoRefresh(false);
+                //await setAutoRefresh(false);
+                //await sendCommand('refresh off');
 
                 const info = await sendCommand('info');
                 if (!info.includes('tinySA ULTRA')) {
@@ -781,10 +795,12 @@
                     return;
                 }
 
-                log(info)
-                setDateTime();
-
                 setConnectedUi(true);
+                log(info)
+
+                //await setAutoRefresh(false);
+                await sendCommand('refresh off');
+                await setDateTime();
                 await setAutoRefresh(true);
 
                 model = info.split('\r\n')[0]
