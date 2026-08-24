@@ -343,40 +343,25 @@
             }
         }
 
-        // Reads response text up to the next "ch> " prompt, transparently handling
-        // unsolicited screen "bulk"/"fill" push updates that the device may interleave
-        // with a command's own response (e.g. a touch triggering an immediate redraw).
-        // Text before whichever marker (prompt or push tag) appears earliest is kept as
-        // response text; push tags are always resolved first so their binary payload is
-        // never mistakenly scanned for a "ch> " byte sequence.
         async function readUntilPrompt() {
             let result = new Uint8Array(0);
             while (true) {
-                await ensureBuffered(Math.max(BULK_TAG.length, FILL_TAG.length, PROMPT.length));
+                await ensureBuffered(PROMPT.length);
 
                 const promptIndex = findSequence(readBuffer, PROMPT);
-                const bulkIndex = findSequence(readBuffer, BULK_TAG);
+
+                if (readBuffer.length >= 6)
+            {
+                                const bulkIndex = findSequence(readBuffer, BULK_TAG);
                 const fillIndex = findSequence(readBuffer, FILL_TAG);
-                const indexes = [promptIndex, bulkIndex, fillIndex].filter((index) => index !== -1);
+                if (bulkIndex !== -11)
+                    log('!!! bulk in readUntilPrompt()');
+                if (fillIndex !== -1)
+                    log('!!! fill in readUntilPrompt()');
+            }
 
-                if (!indexes.length) {
+                if (promptIndex === -1) {
                     await readChunk();
-                    continue;
-                }
-
-                const earliest = Math.min(...indexes);
-
-                if (bulkIndex !== -1 && bulkIndex === earliest) {
-                    result = appendBuffer(result, readBuffer.slice(0, bulkIndex));
-                    readBuffer = readBuffer.slice(bulkIndex + BULK_TAG.length);
-                    await handleRegionUpdate('bulk');
-                    continue;
-                }
-
-                if (fillIndex !== -1 && fillIndex === earliest) {
-                    result = appendBuffer(result, readBuffer.slice(0, fillIndex));
-                    readBuffer = readBuffer.slice(fillIndex + FILL_TAG.length);
-                    await handleRegionUpdate('fill');
                     continue;
                 }
 
@@ -622,7 +607,6 @@
                 await sendCommand('refresh off');
             }
             autoRefreshEnabled = enabled;
-            setConnectedUi(true);
         }
 
         function triggerDownload(blob, filename) {
@@ -640,30 +624,7 @@
             return new Date().toISOString().replace(/[:.]/g, '-');
         }
 
-        async function withAutoRefreshPaused(action) {
-            const wasEnabled = autoRefreshEnabled;
-            autoRefreshBusy = true;
-            setConnectedUi(true);
-            try {
-                if (wasEnabled) {
-                    setAutoRefresh(false);
-                }
-                return await action();
-            } finally {
-                autoRefreshBusy = false;
-                if (wasEnabled && port) {
-                    try {
-                        setAutoRefresh(true);
-                    } catch (error) {
-                        setStatus(`Failed to resume auto refresh: ${error.message}`, true);
-                    }
-                }
-                setConnectedUi(!!port);
-            }
-        }
-
         async function saveScreenshot() {
-            await captureScreenshot();
             const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
             triggerDownload(blob, `tinysa-screenshot-${timestampForFilename()}.png`);
         }
@@ -691,6 +652,8 @@
         }
 
         async function saveTraces() {
+            await setAutoRefresh(false);
+
             const frequenciesText = await sendCommand('frequencies');
             const frequencies = frequenciesText.split('\n').map((line) => line.trim()).filter(Boolean);
             const traceListText = await sendCommand('trace');
@@ -701,6 +664,8 @@
                 const valueText = await sendCommand(`trace ${trace} value`);
                 columns.push(parseTraceValues(valueText, frequencies.length));
             }
+
+            await setAutoRefresh(true);
 
             const rows = [];
             for (let i = 0; i < frequencies.length; i++) {
@@ -715,14 +680,12 @@
         async function download() {
             const kind = downloadKindSelect.value;
             try {
-                await withAutoRefreshPaused(async () => {
-                    if (kind === 'capture' || kind === 'both') {
-                        await saveScreenshot();
-                    }
-                    if (kind === 'traces' || kind === 'both') {
-                        await saveTraces();
-                    }
-                });
+                if (kind === 'capture' || kind === 'both') {
+                    await saveScreenshot();
+                }
+                if (kind === 'traces' || kind === 'both') {
+                    await saveTraces();
+                }
                 setStatus('Download complete.');
             } catch (error) {
                 setStatus(`Download (${kind}) failed: ${error.message}`, true);
@@ -764,26 +727,31 @@
                 pendingQueue = [];
                 autoRefreshEnabled = false;
                 autoRefreshBusy = false;
-
                 pumpPromise = runPumpLoop();
 
-                log('Connected')
-                setAutoRefresh(false);
+                log('Connecting...');
+
+                await setAutoRefresh(false);
 
                 const info = await sendCommand('info');
-                if (!info.toLowerCase().includes('tinysa ultra')) {
+
+                if (!info.includes('tinySA ULTRA')) {
                     setStatus('Connected device does not report tinySA Ultra in info output.', true);
                     await disconnect(true);
                     return;
                 }
 
-                setDateTime();
+                log(info);
 
-                setConnectedUi(true);
+                await setDateTime();
                 await setAutoRefresh(true);
-                setStatus('Connected to tinySA Ultra.');
+
+                model = info.split('\r\n')[0]
+                setStatus(`Connected to ${model}`);
+                setConnectedUi(true);
             } catch (error) {
                 setStatus(`Connect failed: ${error.message}`, true);
+
                 await disconnect(true);
             }
         }
