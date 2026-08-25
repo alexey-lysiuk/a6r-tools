@@ -348,20 +348,36 @@
             while (true) {
                 await ensureBuffered(PROMPT.length);
 
+                if (readBuffer.length === 4 && findSequence(readBuffer, PROMPT) === 0) {
+                    readBuffer.length = 0;
+                    return result;
+                }
+
+                await ensureBuffered(Math.max(BULK_TAG.length, FILL_TAG.length, PROMPT.length));
+
                 const promptIndex = findSequence(readBuffer, PROMPT);
-
-                if (readBuffer.length >= 6)
-            {
-                                const bulkIndex = findSequence(readBuffer, BULK_TAG);
+                const bulkIndex = findSequence(readBuffer, BULK_TAG);
                 const fillIndex = findSequence(readBuffer, FILL_TAG);
-                if (bulkIndex !== -11)
-                    log('!!! bulk in readUntilPrompt()');
-                if (fillIndex !== -1)
-                    log('!!! fill in readUntilPrompt()');
-            }
+                const indexes = [promptIndex, bulkIndex, fillIndex].filter((index) => index !== -1);
 
-                if (promptIndex === -1) {
+                if (!indexes.length) {
                     await readChunk();
+                    continue;
+                }
+
+                const earliest = Math.min(...indexes);
+
+                if (bulkIndex !== -1 && bulkIndex === earliest) {
+                    result = appendBuffer(result, readBuffer.slice(0, bulkIndex));
+                    readBuffer = readBuffer.slice(bulkIndex + BULK_TAG.length);
+                    await handleRegionUpdate('bulk');
+                    continue;
+                }
+
+                if (fillIndex !== -1 && fillIndex === earliest) {
+                    result = appendBuffer(result, readBuffer.slice(0, fillIndex));
+                    readBuffer = readBuffer.slice(fillIndex + FILL_TAG.length);
+                    await handleRegionUpdate('fill');
                     continue;
                 }
 
@@ -719,7 +735,7 @@
             }
 
             try {
-                port = await navigator.serial.requestPort();
+                port = await navigator.serial.requestPort({ filters: [ { usbVendorId: 0x0483, usbProductId: 0x5740 } ] });
                 await port.open({ baudRate: 115200 });
                 reader = port.readable.getReader();
                 writer = port.writable.getWriter();
@@ -730,6 +746,17 @@
                 pumpPromise = runPumpLoop();
 
                 log('Connecting...');
+
+                //
+                // writeCommand('refresh on')
+                // while (true) {
+                //     const { value, done } = await reader.read();
+                //     if (done) {
+                //         break;
+                //     }
+                //     log(value)
+                // }
+                //
 
                 await setAutoRefresh(false);
 
