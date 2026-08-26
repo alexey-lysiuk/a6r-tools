@@ -356,6 +356,15 @@
         async function readUntilPrompt() {
             let result = new Uint8Array(0);
             while (true) {
+                // Handle command without any response when auto-refresh is disabled
+                await ensureBuffered(PROMPT.length);
+
+                if (readBuffer.length === 4 && findSequence(readBuffer, PROMPT) === 0) {
+                    readBuffer = new Uint8Array(0);
+                    return result;
+                }
+
+                // Handle command with response or when auto-refresh is enabled
                 await ensureBuffered(Math.max(BULK_TAG.length, FILL_TAG.length, PROMPT.length));
 
                 const promptIndex = findSequence(readBuffer, PROMPT);
