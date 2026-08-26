@@ -676,7 +676,6 @@
         }
 
         async function saveScreenshot() {
-            await captureScreenshot();
             const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
             triggerDownload(blob, `tinysa-screenshot-${timestampForFilename()}.png`);
         }
