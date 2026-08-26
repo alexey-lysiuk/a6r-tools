@@ -757,24 +757,27 @@
                 pendingQueue = [];
                 autoRefreshEnabled = false;
                 autoRefreshBusy = false;
-
                 pumpPromise = runPumpLoop();
 
-                log('Connected')
-                setAutoRefresh(false);
+                log('Connecting...');
 
+                await setAutoRefresh(false);
                 const info = await sendCommand('info');
-                if (!info.toLowerCase().includes('tinysa ultra')) {
+
+                if (!info.includes('tinySA ULTRA')) {
                     setStatus('Connected device does not report tinySA Ultra in info output.', true);
                     await disconnect(true);
                     return;
                 }
 
-                setDateTime();
-
                 setConnectedUi(true);
+
+                model = info.split('\r\n')[0]
+                setStatus(`Connected to ${model}`);
+                log(info);
+
+                await setDateTime();
                 await setAutoRefresh(true);
-                setStatus('Connected to tinySA Ultra.');
             } catch (error) {
                 setStatus(`Connect failed: ${error.message}`, true);
                 await disconnect(true);
