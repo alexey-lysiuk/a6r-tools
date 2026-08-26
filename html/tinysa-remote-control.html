@@ -653,28 +653,6 @@
             return new Date().toISOString().replace(/[:.]/g, '-');
         }
 
-        async function withAutoRefreshPaused(action) {
-            const wasEnabled = autoRefreshEnabled;
-            autoRefreshBusy = true;
-            setConnectedUi(true);
-            try {
-                if (wasEnabled) {
-                    setAutoRefresh(false);
-                }
-                return await action();
-            } finally {
-                autoRefreshBusy = false;
-                if (wasEnabled && port) {
-                    try {
-                        setAutoRefresh(true);
-                    } catch (error) {
-                        setStatus(`Failed to resume auto refresh: ${error.message}`, true);
-                    }
-                }
-                setConnectedUi(!!port);
-            }
-        }
-
         async function saveScreenshot() {
             const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
             triggerDownload(blob, `tinysa-screenshot-${timestampForFilename()}.png`);
@@ -703,6 +681,8 @@
         }
 
         async function saveTraces() {
+            await setAutoRefresh(false);
+
             const frequenciesText = await sendCommand('frequencies');
             const frequencies = frequenciesText.split('\n').map((line) => line.trim()).filter(Boolean);
             const traceListText = await sendCommand('trace');
@@ -713,6 +693,8 @@
                 const valueText = await sendCommand(`trace ${trace} value`);
                 columns.push(parseTraceValues(valueText, frequencies.length));
             }
+
+            await setAutoRefresh(true);
 
             const rows = [];
             for (let i = 0; i < frequencies.length; i++) {
@@ -727,14 +709,12 @@
         async function download() {
             const kind = downloadKindSelect.value;
             try {
-                await withAutoRefreshPaused(async () => {
-                    if (kind === 'capture' || kind === 'both') {
-                        await saveScreenshot();
-                    }
-                    if (kind === 'traces' || kind === 'both') {
-                        await saveTraces();
-                    }
-                });
+                if (kind === 'capture' || kind === 'both') {
+                    await saveScreenshot();
+                }
+                if (kind === 'traces' || kind === 'both') {
+                    await saveTraces();
+                }
                 setStatus('Download complete.');
             } catch (error) {
                 setStatus(`Download (${kind}) failed: ${error.message}`, true);
