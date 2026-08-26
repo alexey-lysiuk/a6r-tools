@@ -349,7 +349,7 @@
                 await ensureBuffered(PROMPT.length);
 
                 if (readBuffer.length === 4 && findSequence(readBuffer, PROMPT) === 0) {
-                    readBuffer.length = 0;
+                    readBuffer = new Uint8Array(0);
                     return result;
                 }
 
