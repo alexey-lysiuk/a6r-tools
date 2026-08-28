@@ -635,7 +635,6 @@
                 await sendCommand('refresh off');
             }
             autoRefreshEnabled = enabled;
-            setConnectedUi(true);
         }
 
         function triggerDownload(blob, filename) {
@@ -715,7 +714,6 @@
                 if (kind === 'traces' || kind === 'both') {
                     await saveTraces();
                 }
-                setStatus('Download complete.');
             } catch (error) {
                 setStatus(`Download (${kind}) failed: ${error.message}`, true);
             }
