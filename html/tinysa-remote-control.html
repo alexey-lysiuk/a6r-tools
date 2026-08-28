@@ -80,8 +80,10 @@
         }
 
         h1 {
-            margin: 0 0 16px;
-            font-size: 1.5rem;
+            margin: 0 0;
+            font-size: 1.25rem;
+            text-align: center;
+            flex: auto;
         }
 
         .panel {
@@ -182,8 +184,6 @@
     </style>
 </head>
 <body>
-    <h1>tinySA Ultra Remote Control</h1>
-
     <div class="panel">
         <div class="toolbar">
             <button id="connectBtn">Connect</button>
@@ -194,6 +194,7 @@
                 <option value="both">Both</option>
             </select>
             <button id="downloadBtn" disabled>Download</button>
+            <h1>tinySA Ultra Remote Control</h1>
             <button id="themeToggleBtn" class="theme-toggle" title="Toggle color theme">
                 <span id="themeToggleIcon" class="theme-icon" aria-hidden="true"></span>
                 <span id="themeToggleLabel">Theme</span>
