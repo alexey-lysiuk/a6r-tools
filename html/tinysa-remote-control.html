@@ -99,6 +99,13 @@
             align-items: center;
         }
 
+        .toolbar-sep {
+            width: 1px;
+            height: 24px;
+            background: var(--input-border);
+            flex-shrink: 0;
+        }
+
         button {
             border: 1px solid var(--surface-border);
             border-radius: 6px;
@@ -179,13 +186,12 @@
     <div class="panel">
         <div class="toolbar">
             <button id="connectBtn">Connect</button>
-            <label>Download
-                <select id="downloadKindSelect">
-                    <option value="capture">Screenshot</option>
-                    <option value="traces">Traces</option>
-                    <option value="both">Screenshot &amp; traces</option>
-                </select>
-            </label>
+            <div class="toolbar-sep"></div>
+            <select id="downloadKindSelect">
+                <option value="capture">Capture</option>
+                <option value="traces">Traces</option>
+                <option value="both">Both</option>
+            </select>
             <button id="downloadBtn" disabled>Download</button>
             <button id="themeToggleBtn" class="theme-toggle" title="Toggle color theme">
                 <span id="themeToggleIcon" class="theme-icon" aria-hidden="true"></span>
@@ -268,7 +274,7 @@
             document.documentElement.setAttribute('data-theme', theme);
             // Icon reflects the currently selected theme; label spells out the action the button performs.
             themeToggleIcon.textContent = theme === 'dark' ? '\ud83c\udf19' : '\u2600\ufe0f';
-            themeToggleLabel.textContent = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+            themeToggleLabel.textContent = theme === 'dark' ? 'Light theme' : 'Dark theme';
         }
 
         function setTheme(theme) {
