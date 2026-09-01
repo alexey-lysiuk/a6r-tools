@@ -248,6 +248,8 @@
         const canvas = document.getElementById('screen');
         const ctx = canvas.getContext('2d');
 
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
         function log(...args) {
             const now = new Date().toLocaleTimeString('en-US', {
                 hour12: false,
@@ -613,6 +615,14 @@
             if (!port || !touchActive) {
                 return;
             }
+
+            const threshold = TOUCH_MOVE_INTERVAL_MS * 2;
+            const delta = Date.now() - lastTouchMoveAt;
+
+            if (delta < threshold) {
+                await sleep(threshold - delta);
+            }
+
             touchActive = false;
             try {
                 await sendCommand('release');
