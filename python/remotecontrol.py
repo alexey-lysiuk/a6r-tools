@@ -27,7 +27,7 @@ import serial
 from serial.tools import list_ports
 
 
-_DeviceType = enum.Enum('DeviceType', 'TINYSA4 NANOVNA_FVX TINYGTC')
+_DeviceType = enum.Enum('DeviceType', 'NANOVNA_FVX NANOVNA_H4 TINYGTC TINYSA4')
 
 _BMP_HEADER1 = b'BMz\xb0\x04\x00\x00\x00\x00\x00z\x00\x00\x00l\x00\x00\x00'
 _BMP_HEADER2 = b'\x01'\
@@ -89,8 +89,13 @@ class SMTVirtualCOMPort:
                 self._device_type = _DeviceType.TINYSA4
             elif device_info.find('NanoVNA-F_V') != -1:
                 self._device_type = _DeviceType.NANOVNA_FVX
+            elif device_info.find('NanoVNA-H 4') != -1:
+                self._device_type = _DeviceType.NANOVNA_H4
             else:
                 raise RuntimeError('No supported devices found')
+
+    def is_nanovna_h4(self):
+        return self._device_type == _DeviceType.NANOVNA_H4
 
     def is_tinysa_ultra(self):
         return self._device_type == _DeviceType.TINYSA4
@@ -99,7 +104,7 @@ class SMTVirtualCOMPort:
         return self._device_type == _DeviceType.TINYGTC
 
     def is_tinydevice(self):
-        return self.is_tinysa_ultra() or self.is_tinygtc()
+        return self.is_tinysa_ultra() or self.is_tinygtc() or self.is_nanovna_h4()
 
     def is_nanovna_fvx(self):
         return self._device_type == _DeviceType.NANOVNA_FVX
@@ -306,7 +311,7 @@ class SMTVirtualCOMPort:
     def _filename_prefix(self):
         if self.is_tinysa_ultra():
             return 'sa'
-        if self.is_nanovna_fvx():
+        if self.is_nanovna_fvx() or self.is_nanovna_h4():
             return 'vna'
         if self.is_tinygtc():
             return 'gtc'
