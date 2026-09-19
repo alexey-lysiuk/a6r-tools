@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinySA Ultra Config Viewer</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMyIgZmlsbD0iIzFlMWUxZSIvPgogIDxwb2x5bGluZSBmaWxsPSJub25lIiBzdHJva2U9IiNmZmQ3MDAiIHN0cm9rZS13aWR0aD0iMS41IgogICAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgcG9pbnRzPSIxLDI3IDMsMjYgNSwyNCA3LDkgOSwyMyAxMSwyNSAxMywyMCAxNSwxOCAxNywyMiAxOSwyNSAyMSwyNCAyMywxOSAyNSwyMyAyNywyNSAyOSwyNCAzMSwyNiIvPgo8L3N2Zz4=">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        /* ── Theme variables ────────────────────────────────────────────────── */
+        :root {
+            --body-bg:        #1e1e1e;
+            --text:           #e0e0e0;
+            --heading:        #c0c0c0;
+            --label:          #a0a0a0;
+            --input-bg:       #252525;
+            --input-border:   #404040;
+            --input-text:     #e0e0e0;
+            --btn-bg:         #383838;
+            --btn-text:       #d0d0d0;
+            --btn-hover:      #484848;
+            --error:          #f08080;
+            --ok:             #90d090;
+            --section-bg:     #252525;
+            --section-border: #404040;
+            --section-title:  #bbb;
+            --muted:          #888;
+            --row-hover:      rgba(255,255,255,0.05);
+        }
+
+        body.light {
+            --body-bg:        #f0f2f5;
+            --text:           #303848;
+            --heading:        #1a3a6e;
+            --label:          #404860;
+            --input-bg:       #ffffff;
+            --input-border:   #b0bcc8;
+            --input-text:     #303848;
+            --btn-bg:         #3060a0;
+            --btn-text:       #ffffff;
+            --btn-hover:      #204080;
+            --error:          #c02020;
+            --ok:             #208020;
+            --section-bg:     #ffffff;
+            --section-border: #b0bcc8;
+            --section-title:  #2a4a80;
+            --muted:          #606878;
+            --row-hover:      rgba(0,0,0,0.04);
+        }
+
+        body {
+            font-family: sans-serif;
+            background: var(--body-bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            margin: 0 0 16px;
+            color: var(--heading);
+        }
+
+        /* ── Toolbar ────────────────────────────────────────────────────────── */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-sep {
+            width: 1px;
+            height: 24px;
+            background: var(--input-border);
+            flex-shrink: 0;
+        }
+
+        #sourceToggleBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #sourceToggleBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        .source-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .source-group.hidden {
+            display: none;
+        }
+
+        input[type="file"] {
+            font-size: 0.85rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        input[type="file"]::-webkit-file-upload-button,
+        input[type="file"]::file-selector-button {
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: none;
+            border-radius: 3px;
+            padding: 4px 10px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+
+        input[type="file"]::-webkit-file-upload-button:hover,
+        input[type="file"]::file-selector-button:hover {
+            background: var(--btn-hover);
+        }
+
+        #urlInput {
+            font-size: 0.85rem;
+            color: var(--input-text);
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 8px;
+            width: 260px;
+            min-width: 80px;
+        }
+
+        #loadUrlBtn {
+            font-size: 0.85rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #loadUrlBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        #message {
+            font-size: 0.85rem;
+            color: var(--error);
+            min-height: 1.2em;
+        }
+
+        .toolbar-right {
+            margin-left: auto;
+        }
+
+        #themeBtn {
+            font-size: 0.82rem;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            padding: 4px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        #themeBtn:hover {
+            background: var(--btn-hover);
+        }
+
+        /* ── Drop zone ──────────────────────────────────────────────────────── */
+        #dropZone {
+            display: none;
+            border: 2px dashed var(--input-border);
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        #dropZone.visible {
+            display: block;
+        }
+
+        #dropZone.drag-over {
+            border-color: #ffd700;
+            color: var(--text);
+        }
+
+        /* ── Content area ───────────────────────────────────────────────────── */
+        #content {
+            display: none;
+        }
+
+        #content.visible {
+            display: block;
+        }
+
+        /* ── File header ────────────────────────────────────────────────────── */
+        .file-header {
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--section-border);
+        }
+
+        .file-header h2 {
+            margin: 0 0 4px;
+            font-size: 1.15em;
+            font-weight: 600;
+            color: var(--heading);
+        }
+
+        .file-header .subtitle {
+            font-size: 0.85em;
+            color: var(--muted);
+        }
+
+        .file-header .subtitle .ok {
+            color: var(--ok);
+        }
+
+        .file-header .subtitle .bad {
+            color: var(--error);
+        }
+
+        /* ── Collapsible sections ───────────────────────────────────────────── */
+        details {
+            margin-bottom: 8px;
+            background: var(--section-bg);
+            border: 1px solid var(--section-border);
+            border-radius: 6px;
+        }
+
+        details > summary {
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            user-select: none;
+        }
+
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        details > summary::before {
+            content: '▶';
+            font-size: 0.65em;
+            color: var(--muted);
+            transition: transform 0.15s;
+            display: inline-block;
+            width: 1em;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        details[open] > summary::before {
+            transform: rotate(90deg);
+        }
+
+        .section-title {
+            font-weight: 600;
+            font-size: 0.82em;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--section-title);
+        }
+
+        .section-content {
+            padding: 4px 14px 12px 32px;
+        }
+
+        /* ── Tables ─────────────────────────────────────────────────────────── */
+        p {
+            margin: 0 0 8px;
+        }
+
+        p.empty {
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-bottom: 6px;
+            font-size: 0.9em;
+        }
+
+        table th, table td {
+            padding: 3px 14px 3px 0;
+            text-align: left;
+            vertical-align: top;
+            white-space: nowrap;
+        }
+
+        table tbody tr:hover td,
+        table tbody tr:hover th {
+            background: var(--row-hover);
+        }
+
+        /* Key-value table */
+        table.kv th {
+            color: var(--muted);
+            font-weight: normal;
+            min-width: 220px;
+        }
+
+        /* Data table (correction points) */
+        table:not(.kv) thead th {
+            border-bottom: 1px solid var(--section-border);
+            color: var(--muted);
+            font-weight: 600;
+            padding-bottom: 4px;
+        }
+
+        .swatch {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 1px solid var(--input-border);
+            border-radius: 2px;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <h1>tinySA Ultra Config Viewer</h1>
+
+    <div class="toolbar">
+        <button id="sourceToggleBtn" title="Switch to URL loading">URL</button>
+        <div class="source-group" id="fileGroup">
+            <input type="file" id="fileInput" accept=".bin,.cfg" autocomplete="off">
+        </div>
+        <div class="source-group hidden" id="urlGroup">
+            <label for="urlInput">URL:</label>
+            <input type="text" id="urlInput" placeholder="https://…/config.bin">
+            <button id="loadUrlBtn">Load</button>
+        </div>
+        <span id="message"></span>
+        <div class="toolbar-right">
+            <button id="themeBtn" title="Toggle light/dark theme">☀ Light</button>
+        </div>
+    </div>
+
+    <div id="dropZone" class="visible">Drop a tinySA Ultra <code>config_t</code> binary file here, or use the toolbar above.</div>
+
+    <div id="content"></div>
+
+    <script>
+        'use strict';
+
+        // ── Constants (tinySA Ultra / TINYSA4 config_t layout) ─────────────────
+
+        const CONFIG_MAGIC       = 0x434f4e6e;
+        const MAX_PALETTE        = 32;
+        const CORRECTION_SIZE    = 12;
+        const CORRECTION_POINTS  = 20;
+        const CONFIG_SIZE        = 3176;   // sizeof(config_t)
+        const CHECKSUM_BYTES     = CONFIG_SIZE - 8; // sizeof(config_t) - sizeof(config_t.checksum)
+
+        const CORRECTION_NAMES = [
+            'Low, input',
+            'Low, LNA',
+            'Low, Ultra',
+            'Low, LNA + Ultra',
+            'Direct',
+            'Direct, LNA',
+            'Harmonic',
+            'Harmonic, LNA',
+            'Low, output',
+            'Low, output, direct',
+            'Low, output, ADF4351',
+            'Low, output, mixer',
+        ];
+
+        const MODE_FLAGS = [
+            [0x04, 'Serial'],
+            [0x08, "Don't save state"],
+            [0x10, 'Auto filename'],
+            [0x20, 'MHz CSV'],
+        ];
+
+        const SDIS_FLAGS = [
+            [0x01, 'Capture'],
+            [0x02, 'Traces'],
+        ];
+        const SDIS_VALID_MASK = 0x80;
+
+        // ── Binary reader ──────────────────────────────────────────────────────
+
+        class BinaryReader {
+            constructor(data) {
+                this.view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+                this.offset = 0;
+            }
+
+            readUint8()   { return this.view.getUint8(this.offset++); }
+            readInt8()    { return this.view.getInt8(this.offset++); }
+            readUint16()  { const v = this.view.getUint16(this.offset, true); this.offset += 2; return v; }
+            readInt16()   { const v = this.view.getInt16(this.offset, true); this.offset += 2; return v; }
+            readUint32()  { const v = this.view.getUint32(this.offset, true); this.offset += 4; return v; }
+            readInt32()   { const v = this.view.getInt32(this.offset, true); this.offset += 4; return v; }
+            readFloat32() { const v = this.view.getFloat32(this.offset, true); this.offset += 4; return v; }
+
+            readUint64() {
+                // Frequencies are at most ~12 GHz, well within Number.MAX_SAFE_INTEGER
+                const lo = this.view.getUint32(this.offset, true);
+                const hi = this.view.getUint32(this.offset + 4, true);
+                this.offset += 8;
+                return hi * 0x100000000 + lo;
+            }
+
+            skip(n) { this.offset += n; }
+        }
+
+        // ── Checksum ───────────────────────────────────────────────────────────
+        // Mirrors flash.c checksum(): 32-bit words, rotate-left-1 then add.
+
+        function calculateChecksum(data) {
+            const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+            const count = CHECKSUM_BYTES / 4;
+            let checksum = 0;
+            for (let i = 0; i < count; i++) {
+                const n = view.getUint32(i * 4, true);
+                checksum = ((checksum << 1) | (checksum >>> 31)) >>> 0;  // 32-bit left rotation by 1
+                checksum = (checksum + n) >>> 0;                          // add with uint32 wrap
+            }
+            return checksum;
+        }
+
+        // ── Main config parser ─────────────────────────────────────────────────
+        // Field layout follows config_t in nanovna.h (#pragma pack(push, 4)),
+        // built for TINYSA4 (Ultra) with __ULTRA__, __NOISE_FIGURE__,
+        // __NEW_SWITCHES__ and __USE_SD_CARD__ enabled.
+
+        function parseConfig(data) {
+            if (data.length !== CONFIG_SIZE) {
+                throw new Error(`Unexpected file size: got ${data.length} bytes, expected ${CONFIG_SIZE} bytes`);
+            }
+
+            const reader = new BinaryReader(data);
+            const c = {};
+
+            c.magic = reader.readInt32();
+            if ((c.magic >>> 0) !== CONFIG_MAGIC) {
+                throw new Error(`Invalid config file: wrong magic 0x${(c.magic >>> 0).toString(16).padStart(8, '0')}`);
+            }
+
+            c.deviceid = reader.readUint32();
+
+            c.lcd_palette = [];
+            for (let i = 0; i < MAX_PALETTE; i++) c.lcd_palette.push(reader.readUint16());
+
+            c.touch_cal = [reader.readInt16(), reader.readInt16(), reader.readInt16(), reader.readInt16()];
+
+            c._serial_speed = reader.readUint32();
+            c.dac_value     = reader.readUint16();
+            c.vbat_offset   = reader.readUint16();
+            c.cor_am        = reader.readInt16();
+            reader.skip(2);
+
+            c.low_level_offset               = reader.readFloat32();
+            c.high_level_offset              = reader.readFloat32();
+            c.low_level_output_offset        = reader.readFloat32();
+            c.high_level_output_offset       = reader.readFloat32();
+            c.receive_switch_offset          = reader.readFloat32();
+            c.out_switch_offset              = reader.readFloat32();
+            c.lna_level_offset               = reader.readFloat32();
+            c.harmonic_level_offset          = reader.readFloat32();
+            c.harmonic_lna_level_offset      = reader.readFloat32();
+            c.shift_level_offset             = reader.readFloat32();
+            c.shift1_level_offset            = reader.readFloat32();
+            c.shift2_level_offset            = reader.readFloat32();
+            c.shift3_level_offset            = reader.readFloat32();
+            c.shift4_level_offset            = reader.readFloat32();
+            c.drive1_level_offset            = reader.readFloat32();
+            c.drive2_level_offset            = reader.readFloat32();
+            c.drive3_level_offset            = reader.readFloat32();
+            c.direct_level_offset            = reader.readFloat32();
+            c.ultra_level_offset             = reader.readFloat32();
+            c.direct_lna_level_offset        = reader.readFloat32();
+            c.ultra_lna_level_offset         = reader.readFloat32();
+            c.adf_level_offset               = reader.readFloat32();
+            c.direct_level_output_offset     = reader.readFloat32();
+            c.noise_figure                   = reader.readFloat32();
+
+            // Calibration/correction tables: [CORRECTION_SIZE][CORRECTION_POINTS]
+            c.correction_value = [];
+            for (let i = 0; i < CORRECTION_SIZE; i++) {
+                const row = [];
+                for (let j = 0; j < CORRECTION_POINTS; j++) row.push(reader.readFloat32());
+                c.correction_value.push(row);
+            }
+            c.correction_frequency = [];
+            for (let i = 0; i < CORRECTION_SIZE; i++) {
+                const row = [];
+                for (let j = 0; j < CORRECTION_POINTS; j++) row.push(reader.readUint64());
+                c.correction_frequency.push(row);
+            }
+
+            c.setting_frequency_30mhz = reader.readUint64();
+
+            c.gridlines = reader.readUint16();
+            c.hambands  = reader.readUint16();
+
+            c.frequency_IF1   = reader.readUint64();
+            c.frequency_IF2   = reader.readUint64();
+            c.ultra_start     = reader.readUint64();
+            c.harmonic_start  = reader.readUint64();
+            c.direct_start    = reader.readUint64();
+            c.direct_stop     = reader.readUint64();
+            c.overclock       = reader.readUint64();
+            c.ultra           = reader.readInt8();
+
+            c.input_is_calibrated  = reader.readUint8();
+            c.output_is_calibrated = reader.readUint8();
+            c._mode                = reader.readUint8();
+            c.cor_wfm              = reader.readInt8();
+            c.cor_nfm              = reader.readInt8();
+            c.cor_nfm2             = reader.readInt8();
+            c.cor_nfm3             = reader.readInt8();
+            c._brightness          = reader.readUint8();
+            c.flip                 = reader.readUint8();
+            c.direct               = reader.readUint8();
+            c.hide_21MHz           = reader.readUint8();
+            c.no_audio_agc         = reader.readUint8();
+            c.wfm_1khz_harmonic    = reader.readUint8();
+            c.sd_icon_save         = reader.readUint8();
+            reader.skip(1);
+
+            c.sweep_voltage  = reader.readFloat32();
+            c.switch_offset  = reader.readFloat32();
+            c.ext_zero_level = reader.readInt16();
+            reader.skip(2);
+            c.dummy = reader.readUint32();
+
+            c.checksum = reader.readUint64();
+
+            c.calculatedChecksum = calculateChecksum(data);
+            c.checksumOk = (c.checksum >>> 0) === c.calculatedChecksum;
+
+            return c;
+        }
+
+        // ── Format helpers ─────────────────────────────────────────────────────
+
+        function trimDecimals(s) {
+            return s.indexOf('.') !== -1 ? s.replace(/\.?0+$/, '') : s;
+        }
+
+        function formatFreq(hz) {
+            if (hz === 0) return '0 Hz';
+            if (hz < 1000) return `${hz} Hz`;
+            if (hz < 1000000) return `${trimDecimals((hz / 1000).toFixed(3))} kHz`;
+            if (hz < 1000000000) return `${trimDecimals((hz / 1000000).toFixed(6))} MHz`;
+            return `${trimDecimals((hz / 1000000000).toFixed(9))} GHz`;
+        }
+
+        function esc(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function flagList(value, table) {
+            const flags = table.filter(([bit]) => (value & bit) !== 0).map(([, name]) => name);
+            return flags.length > 0 ? flags.join(', ') : 'None';
+        }
+
+        // ── HTML generation helpers ────────────────────────────────────────────
+
+        function kvTable(rows) {
+            const rowsHtml = rows.map(([k, v]) =>
+                `<tr><th>${esc(k)}</th><td>${esc(String(v))}</td></tr>`
+            ).join('\n');
+            return `<table class="kv">\n${rowsHtml}\n</table>`;
+        }
+
+        function section(title, content, collapsed = false) {
+            const openAttr = collapsed ? '' : ' open';
+            return `<details${openAttr}>
+<summary><span class="section-title">${esc(title)}</span></summary>
+<div class="section-content">${content}</div>
+</details>`;
+        }
+
+        // ── Config renderer ────────────────────────────────────────────────────
+
+        function renderConfig(config, filename) {
+            // Device
+            const deviceRows = [
+                ['Device ID',      config.deviceid],
+                ['Serial speed',   config._serial_speed],
+                ['DAC value',      config.dac_value],
+                ['Vbat offset',    `${config.vbat_offset} mV`],
+                ['Ext zero level', config.ext_zero_level],
+                ['Brightness',     config._brightness],
+                ['Flip display',   config.flip ? 'Yes' : 'No'],
+                ['Gridlines',      config.gridlines ? 'On' : 'Off'],
+                ['Ham bands',      config.hambands  ? 'On' : 'Off'],
+                ['Mode flags',     flagList(config._mode, MODE_FLAGS)],
+                ['SD icon save',   `${flagList(config.sd_icon_save, SDIS_FLAGS)} (valid: ${(config.sd_icon_save & SDIS_VALID_MASK) ? 'Yes' : 'No'})`],
+            ];
+
+            // Touch calibration
+            const touchRows = [
+                ['X1', config.touch_cal[0]],
+                ['Y1', config.touch_cal[1]],
+                ['X2', config.touch_cal[2]],
+                ['Y2', config.touch_cal[3]],
+            ];
+
+            // LCD palette
+            let paletteHtml = '<div>';
+            for (let i = 0; i < config.lcd_palette.length; i++) {
+                const c565 = config.lcd_palette[i];
+                const r = (c565 >> 11) & 0x1f;
+                const g = (c565 >> 5)  & 0x3f;
+                const b = c565 & 0x1f;
+                const hex = `#${Math.round(r * 255 / 31).toString(16).padStart(2, '0')}${Math.round(g * 255 / 63).toString(16).padStart(2, '0')}${Math.round(b * 255 / 31).toString(16).padStart(2, '0')}`;
+                paletteHtml += `<span class="swatch" style="background:${hex}" title="${i}: 0x${c565.toString(16).padStart(4, '0')}"></span>`;
+            }
+            paletteHtml += '</div>';
+
+            // Calibration status
+            const calibRows = [
+                ['Input calibrated',  config.input_is_calibrated  ? 'Yes' : 'No'],
+                ['Output calibrated', config.output_is_calibrated ? 'Yes' : 'No'],
+                ['AM correction',     config.cor_am],
+                ['WFM correction',    config.cor_wfm],
+                ['NFM correction',    config.cor_nfm],
+                ['NFM2 correction',   config.cor_nfm2],
+                ['NFM3 correction',   config.cor_nfm3],
+                ['Noise figure',      `${config.noise_figure.toFixed(2)} dB`],
+            ];
+
+            // Level offsets
+            const levelRows = [
+                ['Low level offset',            `${config.low_level_offset.toFixed(3)} dB`],
+                ['High level offset',           `${config.high_level_offset.toFixed(3)} dB`],
+                ['Low level output offset',     `${config.low_level_output_offset.toFixed(3)} dB`],
+                ['High level output offset',    `${config.high_level_output_offset.toFixed(3)} dB`],
+                ['Receive switch offset',       `${config.receive_switch_offset.toFixed(3)} dB`],
+                ['Out switch offset',           `${config.out_switch_offset.toFixed(3)} dB`],
+                ['LNA level offset',            `${config.lna_level_offset.toFixed(3)} dB`],
+                ['Harmonic level offset',       `${config.harmonic_level_offset.toFixed(3)} dB`],
+                ['Harmonic LNA level offset',   `${config.harmonic_lna_level_offset.toFixed(3)} dB`],
+                ['Shift level offset',          `${config.shift_level_offset.toFixed(3)} dB`],
+                ['Shift1 level offset',         `${config.shift1_level_offset.toFixed(3)} dB`],
+                ['Shift2 level offset',         `${config.shift2_level_offset.toFixed(3)} dB`],
+                ['Shift3 level offset',         `${config.shift3_level_offset.toFixed(3)} dB`],
+                ['Shift4 level offset',         `${config.shift4_level_offset.toFixed(3)} dB`],
+                ['Drive1 level offset',         `${config.drive1_level_offset.toFixed(3)} dB`],
+                ['Drive2 level offset',         `${config.drive2_level_offset.toFixed(3)} dB`],
+                ['Drive3 level offset',         `${config.drive3_level_offset.toFixed(3)} dB`],
+                ['Direct level offset',         `${config.direct_level_offset.toFixed(3)} dB`],
+                ['Ultra level offset',          `${config.ultra_level_offset.toFixed(3)} dB`],
+                ['Direct LNA level offset',     `${config.direct_lna_level_offset.toFixed(3)} dB`],
+                ['Ultra LNA level offset',      `${config.ultra_lna_level_offset.toFixed(3)} dB`],
+                ['ADF level offset',            `${config.adf_level_offset.toFixed(3)} dB`],
+                ['Direct level output offset',  `${config.direct_level_output_offset.toFixed(3)} dB`],
+                ['Sweep voltage',               `${config.sweep_voltage.toFixed(3)} V`],
+                ['Switch offset',                `${config.switch_offset.toFixed(3)} dB`],
+            ];
+
+            // Frequency / hardware boundaries
+            const freqRows = [
+                ['30 MHz reference', formatFreq(config.setting_frequency_30mhz)],
+                ['IF1 frequency',    formatFreq(config.frequency_IF1)],
+                ['IF2 frequency',    formatFreq(config.frequency_IF2)],
+                ['Ultra start',      formatFreq(config.ultra_start)],
+                ['Harmonic start',   formatFreq(config.harmonic_start)],
+                ['Direct start',     formatFreq(config.direct_start)],
+                ['Direct stop',      formatFreq(config.direct_stop)],
+                ['Overclock',        formatFreq(config.overclock)],
+                ['Ultra enabled',    config.ultra  ? 'Yes' : 'No'],
+                ['Direct enabled',   config.direct ? 'Yes' : 'No'],
+                ['Hide 21 MHz',      config.hide_21MHz ? 'Yes' : 'No'],
+                ['No audio AGC',     config.no_audio_agc ? 'Yes' : 'No'],
+                ['WFM 1 kHz harmonic', config.wfm_1khz_harmonic],
+            ];
+
+            // Correction / calibration tables
+            let correctionHtml = '';
+            for (let i = 0; i < CORRECTION_SIZE; i++) {
+                const freqs  = config.correction_frequency[i];
+                const values = config.correction_value[i];
+                const hasData = freqs.some(f => f !== 0) || values.some(v => v !== 0);
+
+                let rows = '<thead><tr><th>#</th><th>Frequency</th><th>Correction</th></tr></thead><tbody>';
+                for (let j = 0; j < CORRECTION_POINTS; j++) {
+                    rows += `<tr>
+<td>${j + 1}</td>
+<td>${esc(formatFreq(freqs[j]))}</td>
+<td>${esc(values[j].toFixed(3))} dB</td>
+</tr>`;
+                }
+                rows += '</tbody>';
+                const tableHtml = hasData
+                    ? `<table>${rows}</table>`
+                    : `<p class="empty">No calibration data</p><table style="display:none">${rows}</table>`;
+                correctionHtml += section(
+                    `${i}: ${CORRECTION_NAMES[i]}`,
+                    tableHtml,
+                    !hasData
+                );
+            }
+
+            const checksumClass = config.checksumOk ? 'ok' : 'bad';
+            const checksumText  = config.checksumOk ? 'valid' : 'MISMATCH';
+
+            const html = `
+<div class="file-header">
+  <h2>tinySA Ultra Config</h2>
+  <div class="subtitle">${esc(filename)} — magic 0x${(config.magic >>> 0).toString(16).padStart(8, '0')}, checksum
+    <span class="${checksumClass}">${checksumText}</span>
+    (file 0x${(config.checksum >>> 0).toString(16).padStart(8, '0')}, calculated 0x${config.calculatedChecksum.toString(16).padStart(8, '0')})
+  </div>
+</div>
+
+${section('Device',           kvTable(deviceRows))}
+${section('Calibration',      kvTable(calibRows))}
+${section('Level Offsets',    kvTable(levelRows))}
+${section('Frequency',        kvTable(freqRows))}
+${section('Touch Calibration', kvTable(touchRows), true)}
+${section('LCD Palette',      paletteHtml, true)}
+<details open>
+<summary><span class="section-title">Correction / Calibration Tables</span></summary>
+<div class="section-content">
+${correctionHtml}
+</div>
+</details>
+`;
+            contentEl.innerHTML = html;
+            contentEl.classList.add('visible');
+            dropZone.classList.remove('visible');
+        }
+
+        function showError(message, filename) {
+            const html = `
+<div class="file-header">
+  <h2>Failed to parse config file</h2>
+  <div class="subtitle">${esc(filename)}</div>
+</div>
+<p style="color:var(--error);white-space:pre-wrap;word-break:break-word;">${esc(message)}</p>
+`;
+            contentEl.innerHTML = html;
+            contentEl.classList.add('visible');
+            dropZone.classList.remove('visible');
+        }
+
+        function loadBytes(buffer, filename) {
+            messageEl.textContent = '';
+            try {
+                const data = new Uint8Array(buffer);
+                const config = parseConfig(data);
+                renderConfig(config, filename);
+            } catch (e) {
+                showError(e.message, filename);
+            }
+        }
+
+        // ── DOM references ─────────────────────────────────────────────────────
+
+        const fileInput       = document.getElementById('fileInput');
+        const urlInput        = document.getElementById('urlInput');
+        const loadUrlBtn      = document.getElementById('loadUrlBtn');
+        const sourceToggleBtn = document.getElementById('sourceToggleBtn');
+        const fileGroup       = document.getElementById('fileGroup');
+        const urlGroup        = document.getElementById('urlGroup');
+        const messageEl       = document.getElementById('message');
+        const themeBtn        = document.getElementById('themeBtn');
+        const dropZone        = document.getElementById('dropZone');
+        const contentEl       = document.getElementById('content');
+
+        // ── File loading ───────────────────────────────────────────────────────
+
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => loadBytes(e.target.result, file.name);
+            reader.readAsArrayBuffer(file);
+        });
+
+        // ── URL loading ────────────────────────────────────────────────────────
+
+        function loadUrl(url) {
+            if (!url) return;
+            messageEl.textContent = 'Loading…';
+            fetch(url)
+                .then(r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+                    return r.arrayBuffer();
+                })
+                .then(buf => {
+                    // Extract bare filename: strip path, then strip query string
+                    const filename = url.split('/').pop().split('?')[0] || 'config.bin';
+                    loadBytes(buf, filename);
+                })
+                .catch(e => {
+                    messageEl.textContent = `Error: ${e.message}`;
+                });
+        }
+
+        loadUrlBtn.addEventListener('click', () => loadUrl(urlInput.value.trim()));
+        urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadUrl(urlInput.value.trim()); });
+
+        // ── Source toggle ──────────────────────────────────────────────────────
+
+        let sourceIsUrl = false;
+
+        sourceToggleBtn.addEventListener('click', () => {
+            sourceIsUrl = !sourceIsUrl;
+            if (sourceIsUrl) {
+                fileGroup.classList.add('hidden');
+                urlGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'File';
+                sourceToggleBtn.title = 'Switch to file loading';
+            } else {
+                urlGroup.classList.add('hidden');
+                fileGroup.classList.remove('hidden');
+                sourceToggleBtn.textContent = 'URL';
+                sourceToggleBtn.title = 'Switch to URL loading';
+            }
+        });
+
+        // ── Drag and drop ──────────────────────────────────────────────────────
+
+        function onDragOver(e) {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        }
+
+        function onDragLeave() {
+            dropZone.classList.remove('drag-over');
+        }
+
+        function onDrop(e) {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (!file) return;
+            try {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                fileInput.files = dt.files;
+            } catch (_) { /* DataTransfer not supported */ }
+            const reader = new FileReader();
+            reader.onload = ev => loadBytes(ev.target.result, file.name);
+            reader.readAsArrayBuffer(file);
+        }
+
+        document.body.addEventListener('dragover', onDragOver);
+        document.body.addEventListener('dragleave', onDragLeave);
+        document.body.addEventListener('drop', onDrop);
+
+        // ── Theme toggle ───────────────────────────────────────────────────────
+
+        function applyTheme(light) {
+            document.body.classList.toggle('light', light);
+            themeBtn.textContent = light ? '🌙 Dark' : '☀ Light';
+        }
+
+        themeBtn.addEventListener('click', () => {
+            applyTheme(!document.body.classList.contains('light'));
+        });
+
+        applyTheme(window.matchMedia('(prefers-color-scheme: light)').matches);
+
+        // ── URL parameter auto-load ────────────────────────────────────────────
+
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const url = params.get('url');
+            if (url) {
+                sourceToggleBtn.click();
+                urlInput.value = url;
+                loadUrl(url);
+            }
+        })();
+    </script>
+</body>
+</html>
