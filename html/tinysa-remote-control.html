@@ -674,8 +674,19 @@
                 return;
             }
             if (enabled) {
-                await captureScreenshot();
+                // Send "refresh on" before the confirming capture, not after. The
+                // device's own screen content is unaffected by the refresh flag (it
+                // only gates whether live "bulk"/"fill" pushes are streamed to us),
+                // so "capture" always reflects the true, current screen either way.
+                // But by capturing *last*, this full, authoritative frame is the
+                // final thing drawn - any push that happens to arrive while
+                // "refresh on" is taking effect (e.g. a stray one left over from a
+                // still-draining previous auto-refresh session, such as right after
+                // a page reload) gets applied first and is then guaranteed to be
+                // superseded by the capture, instead of possibly being applied
+                // afterwards and corrupting an otherwise-correct picture.
                 await sendCommand('refresh on');
+                await captureScreenshot();
             } else {
                 await sendCommand('refresh off');
             }
