@@ -134,6 +134,11 @@
             gap: 6px;
         }
 
+        #recordBtn.recording {
+            background: var(--error);
+            color: #fff;
+        }
+
         .theme-icon {
             display: inline-block;
             width: 1em;
@@ -194,6 +199,8 @@
                 <option value="both">Both</option>
             </select>
             <button id="downloadBtn" disabled>Download</button>
+            <div class="toolbar-sep"></div>
+            <button id="recordBtn" disabled>Record</button>
             <h1>tinySA Ultra Remote Control</h1>
             <button id="themeToggleBtn" class="theme-toggle" title="Toggle color theme">
                 <span id="themeToggleIcon" class="theme-icon" aria-hidden="true"></span>
@@ -224,6 +231,8 @@
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
         const TOUCH_MOVE_INTERVAL_MS = 50;
         const THEME_STORAGE_KEY = 'tinysa-remote-control-theme';
+        const RECORD_FRAME_INTERVAL_MS = 200; // ~5 fps, keeps memory/CPU use reasonable
+        const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
         let port = null;
         let reader = null;
@@ -237,6 +246,9 @@
         let disconnectPromise = null;
         let touchActive = false;
         let isConnected = false;
+        let recording = false;
+        let recordFrames = [];
+        let recordTimerId = null;
 
         const connectBtn = document.getElementById('connectBtn');
         const themeToggleBtn = document.getElementById('themeToggleBtn');
@@ -244,6 +256,7 @@
         const themeToggleLabel = document.getElementById('themeToggleLabel');
         const downloadKindSelect = document.getElementById('downloadKindSelect');
         const downloadBtn = document.getElementById('downloadBtn');
+        const recordBtn = document.getElementById('recordBtn');
         const statusEl = document.getElementById('status');
         const canvas = document.getElementById('screen');
         const ctx = canvas.getContext('2d');
@@ -294,8 +307,9 @@
         function setConnectedUi(connected) {
             isConnected = connected;
             connectBtn.textContent = connected ? 'Disconnect' : 'Connect';
-            downloadKindSelect.disabled = !connected || autoRefreshBusy;
-            downloadBtn.disabled = !connected || autoRefreshBusy;
+            downloadKindSelect.disabled = !connected || autoRefreshBusy || recording;
+            downloadBtn.disabled = !connected || autoRefreshBusy || recording;
+            recordBtn.disabled = !connected || autoRefreshBusy;
         }
 
         function appendBuffer(existing, chunk) {
@@ -671,6 +685,176 @@
             return `${date}_${time}`
         }
 
+        // --- Animated PNG (APNG) encoding -----------------------------------------
+        // Builds a self-contained APNG file (no external libraries) so continuous
+        // screen recordings can be saved as a single animated PNG. Frame data is
+        // deflate-compressed via the browser's built-in CompressionStream, which
+        // produces the zlib-wrapped stream the PNG format requires for IDAT/fdAT.
+
+        let crcTable = null;
+
+        function getCrcTable() {
+            if (!crcTable) {
+                crcTable = new Uint32Array(256);
+                for (let n = 0; n < 256; n++) {
+                    let c = n;
+                    for (let k = 0; k < 8; k++) {
+                        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                    }
+                    crcTable[n] = c >>> 0;
+                }
+            }
+            return crcTable;
+        }
+
+        function crc32(bytes) {
+            const table = getCrcTable();
+            let c = 0xFFFFFFFF;
+            for (let i = 0; i < bytes.length; i++) {
+                c = table[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+            }
+            return (c ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        function u32be(value) {
+            return new Uint8Array([(value >>> 24) & 0xFF, (value >>> 16) & 0xFF, (value >>> 8) & 0xFF, value & 0xFF]);
+        }
+
+        function u16be(value) {
+            return new Uint8Array([(value >>> 8) & 0xFF, value & 0xFF]);
+        }
+
+        function concatBytes(arrays) {
+            let total = 0;
+            for (const array of arrays) {
+                total += array.length;
+            }
+            const result = new Uint8Array(total);
+            let offset = 0;
+            for (const array of arrays) {
+                result.set(array, offset);
+                offset += array.length;
+            }
+            return result;
+        }
+
+        function pngChunk(type, data) {
+            const body = concatBytes([TEXT_ENCODER.encode(type), data]);
+            return concatBytes([u32be(data.length), body, u32be(crc32(body))]);
+        }
+
+        async function deflateZlib(bytes) {
+            const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate'));
+            return new Uint8Array(await new Response(stream).arrayBuffer());
+        }
+
+        // Drops the (always opaque) alpha channel and prefixes each scanline with
+        // the "None" filter-type byte, producing the raw image data PNG expects.
+        function rgbaToFilteredRgbRows(rgba, width, height) {
+            const stride = width * 3 + 1;
+            const raw = new Uint8Array(stride * height);
+            let src = 0;
+            let dst = 0;
+            for (let y = 0; y < height; y++) {
+                raw[dst++] = 0; // filter type: None
+                for (let x = 0; x < width; x++) {
+                    raw[dst++] = rgba[src];
+                    raw[dst++] = rgba[src + 1];
+                    raw[dst++] = rgba[src + 2];
+                    src += 4;
+                }
+            }
+            return raw;
+        }
+
+        async function buildApng(frames, width, height) {
+            const ihdr = pngChunk('IHDR', concatBytes([
+                u32be(width), u32be(height), new Uint8Array([8, 2, 0, 0, 0]),
+            ]));
+            const actl = pngChunk('acTL', concatBytes([u32be(frames.length), u32be(0)]));
+
+            const chunks = [PNG_SIGNATURE, ihdr, actl];
+            let seq = 0;
+
+            for (let i = 0; i < frames.length; i++) {
+                const frame = frames[i];
+                const nextTimestamp = i + 1 < frames.length
+                    ? frames[i + 1].timestamp
+                    : frame.timestamp + RECORD_FRAME_INTERVAL_MS;
+                const delayMs = Math.min(65535, Math.max(1, Math.round(nextTimestamp - frame.timestamp)));
+
+                const compressed = await deflateZlib(rgbaToFilteredRgbRows(frame.data, width, height));
+
+                const fcTL = pngChunk('fcTL', concatBytes([
+                    u32be(seq++), u32be(width), u32be(height), u32be(0), u32be(0),
+                    u16be(delayMs), u16be(1000), new Uint8Array([0, 0]),
+                ]));
+                chunks.push(fcTL);
+
+                if (i === 0) {
+                    chunks.push(pngChunk('IDAT', compressed));
+                } else {
+                    chunks.push(pngChunk('fdAT', concatBytes([u32be(seq++), compressed])));
+                }
+            }
+
+            chunks.push(pngChunk('IEND', new Uint8Array(0)));
+            return concatBytes(chunks);
+        }
+
+        // --- Continuous screen recording -------------------------------------------
+
+        function updateRecordUi() {
+            recordBtn.textContent = recording ? 'Stop Recording' : 'Record';
+            recordBtn.classList.toggle('recording', recording);
+            setConnectedUi(isConnected);
+        }
+
+        function captureRecordingFrame() {
+            const imageData = ctx.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+            recordFrames.push({ data: imageData.data, timestamp: performance.now() });
+        }
+
+        function startRecording() {
+            if (!isConnected || recording) {
+                return;
+            }
+            recording = true;
+            recordFrames = [];
+            captureRecordingFrame();
+            recordTimerId = setInterval(captureRecordingFrame, RECORD_FRAME_INTERVAL_MS);
+            updateRecordUi();
+            setStatus('Recording screen...');
+        }
+
+        async function stopRecording() {
+            if (!recording) {
+                return;
+            }
+            recording = false;
+            clearInterval(recordTimerId);
+            recordTimerId = null;
+            updateRecordUi();
+
+            const frames = recordFrames;
+            recordFrames = [];
+
+            if (frames.length < 2) {
+                setStatus('Recording too short to save.', true);
+                return;
+            }
+
+            try {
+                setStatus(`Encoding ${frames.length} frame(s)...`);
+                const apngBytes = await buildApng(frames, SCREEN_WIDTH, SCREEN_HEIGHT);
+                const blob = new Blob([apngBytes], { type: 'image/png' });
+                triggerDownload(blob, `sa_${timestampForFilename()}.png`);
+                setStatus(`Recording saved (${frames.length} frames).`);
+            } catch (error) {
+                setStatus(`Recording failed: ${error.message}`, true);
+            }
+        }
+
         async function saveScreenshot() {
             const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
             triggerDownload(blob, `sa_${timestampForFilename()}.png`);
@@ -818,6 +1002,10 @@
             }
 
             disconnectPromise = (async () => {
+                if (recording) {
+                    await stopRecording();
+                }
+
                 const shouldSendRefreshOff = autoRefreshEnabled && port && writer;
 
                 // Reflect the disconnected state immediately so the UI doesn't appear to
@@ -908,6 +1096,14 @@
 
         downloadBtn.addEventListener('click', () => {
             void download();
+        });
+
+        recordBtn.addEventListener('click', () => {
+            if (recording) {
+                void stopRecording();
+            } else {
+                startRecording();
+            }
         });
 
         canvas.addEventListener('pointerdown', (event) => {
