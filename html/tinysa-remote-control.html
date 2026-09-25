@@ -231,7 +231,7 @@
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
         const TOUCH_MOVE_INTERVAL_MS = 50;
         const THEME_STORAGE_KEY = 'tinysa-remote-control-theme';
-        const RECORD_FRAME_INTERVAL_MS = 200; // ~5 fps, keeps memory/CPU use reasonable
+        const RECORD_LAST_FRAME_HOLD_MS = 200; // how long to hold the final frame of a saved recording
         const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
         let port = null;
@@ -248,7 +248,6 @@
         let isConnected = false;
         let recording = false;
         let recordFrames = [];
-        let recordTimerId = null;
 
         const connectBtn = document.getElementById('connectBtn');
         const themeToggleBtn = document.getElementById('themeToggleBtn');
@@ -508,6 +507,7 @@
                 const payload = await readExact(Math.max(0, w) * Math.max(0, h) * 2);
                 if (w > 0 && h > 0) {
                     ctx.putImageData(renderRgb565(payload, w, h), x, y);
+                    recordFrameOnRegionUpdate();
                 }
             } else {
                 const payload = await readExact(2);
@@ -515,6 +515,7 @@
                     const [r, g, b] = decodeColor565(payload[0], payload[1]);
                     ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                     ctx.fillRect(x, y, w, h);
+                    recordFrameOnRegionUpdate();
                 }
             }
 
@@ -780,7 +781,7 @@
                 const frame = frames[i];
                 const nextTimestamp = i + 1 < frames.length
                     ? frames[i + 1].timestamp
-                    : frame.timestamp + RECORD_FRAME_INTERVAL_MS;
+                    : frame.timestamp + RECORD_LAST_FRAME_HOLD_MS;
                 const delayMs = Math.min(65535, Math.max(1, Math.round(nextTimestamp - frame.timestamp)));
 
                 const compressed = await deflateZlib(rgbaToFilteredRgbRows(frame.data, width, height));
@@ -803,6 +804,13 @@
         }
 
         // --- Continuous screen recording -------------------------------------------
+        // Frames are captured directly from the "bulk"/"fill" region updates the
+        // device pushes whenever its screen actually changes (see
+        // recordFrameOnRegionUpdate), rather than by polling the canvas on a fixed
+        // timer. This means a frame only ever appears when the device screen was
+        // really updated, and its displayed duration - computed in buildApng from
+        // the real time elapsed between consecutive captures - naturally matches
+        // the device's own screen refresh cadence instead of an arbitrary poll rate.
 
         function updateRecordUi() {
             recordBtn.textContent = recording ? 'Stop Recording' : 'Record';
@@ -815,6 +823,15 @@
             recordFrames.push({ data: imageData.data, timestamp: performance.now() });
         }
 
+        // Called after every region update handleRegionUpdate() draws to the
+        // canvas; captures a new frame whenever a recording is in progress.
+        function recordFrameOnRegionUpdate() {
+            if (!recording) {
+                return;
+            }
+            captureRecordingFrame();
+        }
+
         function startRecording() {
             if (!isConnected || recording) {
                 return;
@@ -822,7 +839,6 @@
             recording = true;
             recordFrames = [];
             captureRecordingFrame();
-            recordTimerId = setInterval(captureRecordingFrame, RECORD_FRAME_INTERVAL_MS);
             updateRecordUi();
             setStatus('Recording screen...');
         }
@@ -832,8 +848,6 @@
                 return;
             }
             recording = false;
-            clearInterval(recordTimerId);
-            recordTimerId = null;
             updateRecordUi();
 
             const frames = recordFrames;
