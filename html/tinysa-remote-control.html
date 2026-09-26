@@ -231,7 +231,6 @@
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
         const TOUCH_MOVE_INTERVAL_MS = 50;
         const THEME_STORAGE_KEY = 'tinysa-remote-control-theme';
-        const RECORD_FRAME_INTERVAL_MS = 200; // ~5 fps, keeps memory/CPU use reasonable
         const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
         let port = null;
@@ -248,7 +247,6 @@
         let isConnected = false;
         let recording = false;
         let recordFrames = [];
-        let recordTimerId = null;
 
         const connectBtn = document.getElementById('connectBtn');
         const themeToggleBtn = document.getElementById('themeToggleBtn');
@@ -507,7 +505,11 @@
             if (kind === 'bulk') {
                 const payload = await readExact(Math.max(0, w) * Math.max(0, h) * 2);
                 if (w > 0 && h > 0) {
-                    ctx.putImageData(renderRgb565(payload, w, h), x, y);
+                    const imageData = renderRgb565(payload, w, h);
+                    ctx.putImageData(imageData, x, y);
+                    if (recording) {
+                        recordFrame(x, y, w, h, imageData.data);
+                    }
                 }
             } else {
                 const payload = await readExact(2);
@@ -515,6 +517,9 @@
                     const [r, g, b] = decodeColor565(payload[0], payload[1]);
                     ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                     ctx.fillRect(x, y, w, h);
+                    if (recording) {
+                        recordFrame(x, y, w, h, solidColorRgba(w, h, r, g, b));
+                    }
                 }
             }
 
@@ -767,7 +772,13 @@
             return raw;
         }
 
-        async function buildApng(frames, width, height) {
+        // Each frame carries only the pixel data for the sub-rectangle of the
+        // canvas covered by a single device screen update (frame 0 always
+        // covers the full canvas, captured when recording starts). Every
+        // fcTL uses dispose_op "none" and blend_op "source" so unaffected
+        // areas keep showing the prior frame's pixels while the changed
+        // rectangle is written over them.
+        async function buildApng(frames, width, height, finalTimestamp) {
             const ihdr = pngChunk('IHDR', concatBytes([
                 u32be(width), u32be(height), new Uint8Array([8, 2, 0, 0, 0]),
             ]));
@@ -780,13 +791,13 @@
                 const frame = frames[i];
                 const nextTimestamp = i + 1 < frames.length
                     ? frames[i + 1].timestamp
-                    : frame.timestamp + RECORD_FRAME_INTERVAL_MS;
+                    : Math.max(finalTimestamp, frame.timestamp);
                 const delayMs = Math.min(65535, Math.max(1, Math.round(nextTimestamp - frame.timestamp)));
 
-                const compressed = await deflateZlib(rgbaToFilteredRgbRows(frame.data, width, height));
+                const compressed = await deflateZlib(rgbaToFilteredRgbRows(frame.data, frame.w, frame.h));
 
                 const fcTL = pngChunk('fcTL', concatBytes([
-                    u32be(seq++), u32be(width), u32be(height), u32be(0), u32be(0),
+                    u32be(seq++), u32be(frame.w), u32be(frame.h), u32be(frame.x), u32be(frame.y),
                     u16be(delayMs), u16be(1000), new Uint8Array([0, 0]),
                 ]));
                 chunks.push(fcTL);
@@ -810,9 +821,24 @@
             setConnectedUi(isConnected);
         }
 
-        function captureRecordingFrame() {
-            const imageData = ctx.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-            recordFrames.push({ data: imageData.data, timestamp: performance.now() });
+        // Builds a solid-color RGBA buffer for a "fill" region update.
+        function solidColorRgba(w, h, r, g, b) {
+            const data = new Uint8ClampedArray(w * h * 4);
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = r;
+                data[i + 1] = g;
+                data[i + 2] = b;
+                data[i + 3] = 255;
+            }
+            return data;
+        }
+
+        // Appends a new recording frame for a region that was just written to
+        // the canvas. There's no need to diff whole screens: every bulk/fill
+        // update from the device already carries the exact region that
+        // changed, so each one becomes its own frame timestamped at receipt.
+        function recordFrame(x, y, w, h, data) {
+            recordFrames.push({ x, y, w, h, data, timestamp: performance.now() });
         }
 
         function startRecording() {
@@ -821,8 +847,8 @@
             }
             recording = true;
             recordFrames = [];
-            captureRecordingFrame();
-            recordTimerId = setInterval(captureRecordingFrame, RECORD_FRAME_INTERVAL_MS);
+            const imageData = ctx.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+            recordFrame(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, imageData.data);
             updateRecordUi();
             setStatus('Recording screen...');
         }
@@ -832,11 +858,10 @@
                 return;
             }
             recording = false;
-            clearInterval(recordTimerId);
-            recordTimerId = null;
             updateRecordUi();
 
             const frames = recordFrames;
+            const finalTimestamp = performance.now();
             recordFrames = [];
 
             if (frames.length < 2) {
@@ -846,7 +871,7 @@
 
             try {
                 setStatus(`Encoding ${frames.length} frame(s)...`);
-                const apngBytes = await buildApng(frames, SCREEN_WIDTH, SCREEN_HEIGHT);
+                const apngBytes = await buildApng(frames, SCREEN_WIDTH, SCREEN_HEIGHT, finalTimestamp);
                 const blob = new Blob([apngBytes], { type: 'image/png' });
                 triggerDownload(blob, `sa_${timestampForFilename()}.png`);
                 setStatus(`Recording saved (${frames.length} frames).`);
