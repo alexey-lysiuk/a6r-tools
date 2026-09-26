@@ -231,7 +231,6 @@
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
         const TOUCH_MOVE_INTERVAL_MS = 50;
         const THEME_STORAGE_KEY = 'tinysa-remote-control-theme';
-        const RECORD_FRAME_INTERVAL_MS = 200; // ~5 fps, keeps memory/CPU use reasonable
         const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
         let port = null;
@@ -248,10 +247,6 @@
         let isConnected = false;
         let recording = false;
         let recordFrames = [];
-        let recordTimerId = null;
-        let lastFrameBuffer = null;
-        let recordTickCount = 0;
-        let lastCaptureTimestamp = 0;
 
         const connectBtn = document.getElementById('connectBtn');
         const themeToggleBtn = document.getElementById('themeToggleBtn');
@@ -510,7 +505,11 @@
             if (kind === 'bulk') {
                 const payload = await readExact(Math.max(0, w) * Math.max(0, h) * 2);
                 if (w > 0 && h > 0) {
-                    ctx.putImageData(renderRgb565(payload, w, h), x, y);
+                    const imageData = renderRgb565(payload, w, h);
+                    ctx.putImageData(imageData, x, y);
+                    if (recording) {
+                        recordFrame(x, y, w, h, imageData.data);
+                    }
                 }
             } else {
                 const payload = await readExact(2);
@@ -518,6 +517,9 @@
                     const [r, g, b] = decodeColor565(payload[0], payload[1]);
                     ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                     ctx.fillRect(x, y, w, h);
+                    if (recording) {
+                        recordFrame(x, y, w, h, solidColorRgba(w, h, r, g, b));
+                    }
                 }
             }
 
@@ -770,11 +772,12 @@
             return raw;
         }
 
-        // Each frame only carries the pixel data for the sub-rectangle of the
-        // canvas that changed since the previous frame (frame 0 always covers
-        // the full canvas). Every fcTL uses dispose_op "none" and blend_op
-        // "source" so unaffected areas keep showing the prior frame's pixels
-        // while the changed rectangle is written over them.
+        // Each frame carries only the pixel data for the sub-rectangle of the
+        // canvas covered by a single device screen update (frame 0 always
+        // covers the full canvas, captured when recording starts). Every
+        // fcTL uses dispose_op "none" and blend_op "source" so unaffected
+        // areas keep showing the prior frame's pixels while the changed
+        // rectangle is written over them.
         async function buildApng(frames, width, height, finalTimestamp) {
             const ihdr = pngChunk('IHDR', concatBytes([
                 u32be(width), u32be(height), new Uint8Array([8, 2, 0, 0, 0]),
@@ -788,7 +791,7 @@
                 const frame = frames[i];
                 const nextTimestamp = i + 1 < frames.length
                     ? frames[i + 1].timestamp
-                    : Math.max(finalTimestamp, frame.timestamp) + RECORD_FRAME_INTERVAL_MS;
+                    : Math.max(finalTimestamp, frame.timestamp);
                 const delayMs = Math.min(65535, Math.max(1, Math.round(nextTimestamp - frame.timestamp)));
 
                 const compressed = await deflateZlib(rgbaToFilteredRgbRows(frame.data, frame.w, frame.h));
@@ -818,71 +821,24 @@
             setConnectedUi(isConnected);
         }
 
-        // Computes the smallest rectangle covering every pixel that differs
-        // between two RGBA buffers, or null when they are identical.
-        function computeChangedRegion(current, previous, width, height) {
-            if (!previous) {
-                return { x: 0, y: 0, w: width, h: height };
+        // Builds a solid-color RGBA buffer for a "fill" region update.
+        function solidColorRgba(w, h, r, g, b) {
+            const data = new Uint8ClampedArray(w * h * 4);
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = r;
+                data[i + 1] = g;
+                data[i + 2] = b;
+                data[i + 3] = 255;
             }
-            let minX = width;
-            let minY = height;
-            let maxX = -1;
-            let maxY = -1;
-            let index = 0;
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++, index += 4) {
-                    if (current[index] !== previous[index]
-                        || current[index + 1] !== previous[index + 1]
-                        || current[index + 2] !== previous[index + 2]
-                        || current[index + 3] !== previous[index + 3]) {
-                        if (x < minX) minX = x;
-                        if (x > maxX) maxX = x;
-                        if (y < minY) minY = y;
-                        if (y > maxY) maxY = y;
-                    }
-                }
-            }
-            if (maxX < minX) {
-                return null;
-            }
-            return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+            return data;
         }
 
-        // Extracts the pixels within `region` out of a full-canvas RGBA buffer.
-        function extractRegion(rgba, width, region) {
-            const { x, y, w, h } = region;
-            const out = new Uint8ClampedArray(w * h * 4);
-            let dst = 0;
-            for (let row = 0; row < h; row++) {
-                const srcStart = ((y + row) * width + x) * 4;
-                out.set(rgba.subarray(srcStart, srcStart + w * 4), dst);
-                dst += w * 4;
-            }
-            return out;
-        }
-
-        function captureRecordingFrame() {
-            const pixels = ctx.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT).data;
-            recordTickCount++;
-            lastCaptureTimestamp = performance.now();
-
-            const region = computeChangedRegion(pixels, lastFrameBuffer, SCREEN_WIDTH, SCREEN_HEIGHT);
-            lastFrameBuffer = pixels;
-            if (!region) {
-                // Nothing changed since the previous frame: skip storing a
-                // duplicate, the previous frame's on-screen delay will be
-                // extended to cover this tick instead.
-                return;
-            }
-
-            recordFrames.push({
-                x: region.x,
-                y: region.y,
-                w: region.w,
-                h: region.h,
-                data: extractRegion(pixels, SCREEN_WIDTH, region),
-                timestamp: lastCaptureTimestamp,
-            });
+        // Appends a new recording frame for a region that was just written to
+        // the canvas. There's no need to diff whole screens: every bulk/fill
+        // update from the device already carries the exact region that
+        // changed, so each one becomes its own frame timestamped at receipt.
+        function recordFrame(x, y, w, h, data) {
+            recordFrames.push({ x, y, w, h, data, timestamp: performance.now() });
         }
 
         function startRecording() {
@@ -891,10 +847,8 @@
             }
             recording = true;
             recordFrames = [];
-            lastFrameBuffer = null;
-            recordTickCount = 0;
-            captureRecordingFrame();
-            recordTimerId = setInterval(captureRecordingFrame, RECORD_FRAME_INTERVAL_MS);
+            const imageData = ctx.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+            recordFrame(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, imageData.data);
             updateRecordUi();
             setStatus('Recording screen...');
         }
@@ -904,17 +858,13 @@
                 return;
             }
             recording = false;
-            clearInterval(recordTimerId);
-            recordTimerId = null;
             updateRecordUi();
 
             const frames = recordFrames;
-            const tickCount = recordTickCount;
-            const finalTimestamp = lastCaptureTimestamp;
+            const finalTimestamp = performance.now();
             recordFrames = [];
-            lastFrameBuffer = null;
 
-            if (tickCount < 2) {
+            if (frames.length < 2) {
                 setStatus('Recording too short to save.', true);
                 return;
             }
