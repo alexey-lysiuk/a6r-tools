@@ -229,6 +229,16 @@
         const BULK_TAG = TEXT_ENCODER.encode('bulk\r\n');
         const FILL_TAG = TEXT_ENCODER.encode('fill\r\n');
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
+        // "capture rle" (tinySA Ultra firmware >= 1.4252) replies with a
+        // NanoVNA-D style RLE8 bitmap instead of the raw RGB565 dump: a 10-byte
+        // BMP-like header, a palette, then one length-prefixed RLE8 block per
+        // screen row. Firmware without RLE support ignores the unknown "rle"
+        // argument and replies with the plain raw dump instead, so the header
+        // is validated before being trusted.
+        const RLE_HEADER_BYTES = 10; // uint16 magic, uint16 w, uint16 h, uint8 bpp, uint8 compression, uint16 palette size
+        const RLE_MAGIC = 0x4d42; // 'BM'
+        const RLE_BPP = 8;
+        const RLE_COMPRESSION = 1;
         const TOUCH_MOVE_INTERVAL_MS = 50;
         const THEME_STORAGE_KEY = 'tinysa-remote-control-theme';
         const RECORD_FRAME_INTERVAL_MS = 200; // ~5 fps, keeps memory/CPU use reasonable
@@ -497,6 +507,67 @@
             return value & 0x8000 ? value - 0x10000 : value;
         }
 
+        function readUint16LE(bytes, offset) {
+            return bytes[offset] | (bytes[offset + 1] << 8);
+        }
+
+        // Decodes one length-prefixed RLE8 row into `pixels` starting at byte
+        // offset `dptr`, using `palette` (2 bytes per index) to resolve colors.
+        // Returns the new `dptr`. Each block byte is a signed run count: >= 0
+        // means "count + 1" literal palette indices follow; < 0 means a single
+        // palette index follows and is repeated "1 - count" times.
+        async function decodeRleRow(palette, pixels, dptr) {
+            const blockSize = readUint16LE(await readExact(2), 0);
+            const block = await readExact(blockSize);
+            let sptr = 0;
+            while (sptr < block.length) {
+                const count = block[sptr++] << 24 >> 24; // sign-extend int8
+                const repeatCount = count < 0 ? 1 - count : count + 1;
+                for (let i = 0; i < repeatCount; i++) {
+                    const index = count < 0 ? block[sptr] : block[sptr++];
+                    pixels[dptr++] = palette[index * 2];
+                    pixels[dptr++] = palette[index * 2 + 1];
+                }
+                if (count < 0) {
+                    sptr++;
+                }
+            }
+            return dptr;
+        }
+
+        // Reads the response to "capture rle": a header, palette, and one
+        // RLE8-encoded block per row, decoded into the same raw RGB565 byte
+        // layout as a plain "capture". If the header doesn't validate (older
+        // firmware without RLE support ignores the "rle" argument and replies
+        // with a plain raw dump instead), falls back to reading the remaining
+        // raw pixel bytes, treating the header bytes already read as the first
+        // bytes of that dump.
+        async function readRleCapture() {
+            const header = await readExact(RLE_HEADER_BYTES);
+            const magic = readUint16LE(header, 0);
+            const width = readUint16LE(header, 2);
+            const height = readUint16LE(header, 4);
+            const bpp = header[6];
+            const compression = header[7];
+            const paletteSize = readUint16LE(header, 8);
+
+            const isValidRle = magic === RLE_MAGIC && bpp === RLE_BPP && compression === RLE_COMPRESSION
+                && width === SCREEN_WIDTH && height === SCREEN_HEIGHT;
+
+            if (!isValidRle) {
+                const rest = await readExact(PIXEL_BYTES - header.length);
+                return appendBuffer(header, rest);
+            }
+
+            const palette = await readExact(paletteSize);
+            const pixels = new Uint8Array(PIXEL_BYTES);
+            let dptr = 0;
+            for (let row = 0; row < height; row++) {
+                dptr = await decodeRleRow(palette, pixels, dptr);
+            }
+            return pixels;
+        }
+
         async function handleRegionUpdate(kind) {
             const header = await readExact(REGION_HEADER_BYTES);
             const x = readInt16LE(header, 0);
@@ -553,7 +624,13 @@
 
                 const entry = pendingQueue.shift();
                 try {
-                    if (entry.binary) {
+                    if (entry.binary === 'rle') {
+                        // The first line is command echo/empty line from tinySA console output.
+                        await readLine();
+                        const pixels = await readRleCapture();
+                        await readExact(PROMPT.length);
+                        entry.resolve(pixels);
+                    } else if (entry.binary) {
                         // The first line is command echo/empty line from tinySA console output.
                         await readLine();
                         const pixels = await readExact(PIXEL_BYTES);
@@ -651,7 +728,11 @@
         }
 
         async function captureScreenshot() {
-            const pixels = await sendCommand('capture', { binary: true });
+            // "capture rle" (Ultra firmware >= 1.4252) returns the screen
+            // compressed as an RLE8 bitmap: ~10x less data and twice as fast
+            // as the plain "capture" dump. readRleCapture() falls back to the
+            // plain raw dump if the connected firmware doesn't support it.
+            const pixels = await sendCommand('capture rle', { binary: 'rle' });
             ctx.putImageData(renderRgb565(pixels, SCREEN_WIDTH, SCREEN_HEIGHT), 0, 0);
             return pixels;
         }
