@@ -343,6 +343,25 @@
             return true;
         }
 
+        // Finds the earliest "bulk"/"fill" push tag occurring anywhere in the
+        // buffer - not just at the very front - or null if neither is present in
+        // the currently buffered bytes. tinySA emits these pushes from its UI
+        // thread, entirely independent of (and concurrent with) the shell thread
+        // that echoes back a command we just sent; the two threads share the same
+        // serial output, so a push can land in the middle of the echo text rather
+        // than cleanly before or after it.
+        function findNextPushTag(buffer) {
+            const bulkIndex = findSequence(buffer, BULK_TAG);
+            const fillIndex = findSequence(buffer, FILL_TAG);
+            if (bulkIndex === -1 && fillIndex === -1) {
+                return null;
+            }
+            if (fillIndex === -1 || (bulkIndex !== -1 && bulkIndex < fillIndex)) {
+                return { kind: 'bulk', index: bulkIndex, tag: BULK_TAG };
+            }
+            return { kind: 'fill', index: fillIndex, tag: FILL_TAG };
+        }
+
         async function readChunk() {
             const { value, done } = await reader.read();
             if (done) {
@@ -361,17 +380,28 @@
 
         async function readLine() {
             while (true) {
-                // A "bulk"/"fill" push can start arriving at any time - including
-                // right as we're waiting for a command's echo line - since it's an
-                // unsolicited, asynchronous event from the device (e.g. mid
-                // auto-refresh). Drain it first so its tag/header/payload is never
-                // mistaken for line text, which would desync the whole read stream.
-                await drainLeadingPushes();
+                // A "bulk"/"fill" push can start arriving at any time, including
+                // in the middle of a command's echo line: the push comes from the
+                // device's UI thread while the echo comes from its shell thread,
+                // two independent threads writing to the same serial output, so
+                // draining only a push that sits at the very front of the buffer
+                // (as a naive check would) misses one that lands mid-echo. Search
+                // for a push tag anywhere in the buffered bytes and drain it
+                // whenever it occurs before the line's terminating newline, so it's
+                // never mistaken for - or allowed to split - the echo text, which
+                // would otherwise desync the whole read stream.
+                const push = findNextPushTag(readBuffer);
+                const newlineIndex = readBuffer.indexOf(0x0A);
 
-                const index = readBuffer.indexOf(0x0A);
-                if (index !== -1) {
-                    const line = readBuffer.slice(0, index + 1);
-                    readBuffer = readBuffer.slice(index + 1);
+                if (push && (newlineIndex === -1 || push.index < newlineIndex)) {
+                    readBuffer = readBuffer.slice(push.index + push.tag.length);
+                    await handleRegionUpdate(push.kind);
+                    continue;
+                }
+
+                if (newlineIndex !== -1) {
+                    const line = readBuffer.slice(0, newlineIndex + 1);
+                    readBuffer = readBuffer.slice(newlineIndex + 1);
                     return line;
                 }
                 await readChunk();
