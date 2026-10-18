@@ -19,7 +19,9 @@
 
 """Read and write LiteVNA 64 and LiteVNA 67 calibration files (*.cal).
 
-File layout (little endian), reverse engineered from files saved by firmware 260713:
+File layout (little endian), reverse engineered from files saved by firmware 260713 and matched
+with properties_t of NanoVNA-H, see
+https://github.com/hugen79/NanoVNA-H/blob/816495ebc8ca022149787ec2f9e058d6ce3bcb3b/nanovna.h#L1029-L1058
 
     offset  size  contents
     0x000   4     magic, 0x80081248
@@ -27,11 +29,26 @@ File layout (little endian), reverse engineered from files saved by firmware 260
     0x010   8     sweep stop frequency, Hz
     0x018   8     calibration start frequency, Hz
     0x020   8     calibration stop frequency, Hz
+    0x028   8     frequency step by leveler, Hz (0 for auto)
+    0x030   2     mode flags
+    0x032   2     number of sweep points
+    0x034   1     current trace
+    0x035   1     active marker
+    0x036   1     previous marker (0xFF if none)
+    0x037   1     output power
     0x038   2     number of calibration points (1024)
     0x03a   2     calibration status bit mask
-    0x03c   48    4 traces, 12 bytes each (flags, scale, reference position)
-    0x070   128   8 markers, 16 bytes each (enabled, index, frequency)
-    0x0f0   ...   other settings, preserved as is
+    0x03c   48    4 traces, 12 bytes each (enabled, type, channel, smith format, scale, reference)
+    0x06c   4     unknown, zero in all known files
+    0x070   128   8 markers, 16 bytes each (enabled, reserved, index, frequency)
+    0x0f0   8     unknown flags (00 02 03 01 00 00 00 00 in all known files)
+    0x0f8   4     float, velocity factor in percents (70.0)
+    0x0fc   8     float[2], electrical delay of S11 and S21, seconds
+    0x104   4     float, electrical delay step by leveler
+    0x108   4     float, S21 offset, dB
+    0x10c   4     float, port impedance (50.0)
+    0x110   4     float, calibration LOAD resistance, expected to be 50.0 but is 0
+    0x114   120   unknown, contains 50.0 floats at 0x130, 0x14c, 0x168, 0x174 and 0x180
     0x18c   49152 calibration data, 6 terms * 1024 points * (float32 real, float32 imag)
     0xc18c  4     checksum
 
@@ -75,7 +92,7 @@ class Trace(typing.NamedTuple):
     enabled: int
     type: int
     channel: int
-    reserved: int
+    smith_format: int
     scale: float
     reference: float
 
@@ -133,6 +150,46 @@ class CalFile:
     @cal_stop.setter
     def cal_stop(self, value: int):
         self._set('<Q', 0x20, value)
+
+    @property
+    def sweep_points(self) -> int:
+        return self._get('<H', 0x32)[0]
+
+    @property
+    def mode(self) -> int:
+        return self._get('<H', 0x30)[0]
+
+    @property
+    def current_trace(self) -> int:
+        return self._get('<b', 0x34)[0]
+
+    @property
+    def active_marker(self) -> int:
+        return self._get('<b', 0x35)[0]
+
+    @property
+    def previous_marker(self) -> int:
+        return self._get('<b', 0x36)[0]
+
+    @property
+    def power(self) -> int:
+        return self._get('<B', 0x37)[0]
+
+    @property
+    def velocity_factor(self) -> float:
+        return self._get('<f', 0xf8)[0]
+
+    @property
+    def electrical_delay(self) -> typing.Tuple[float, float]:
+        return self._get('<2f', 0xfc)
+
+    @property
+    def s21_offset(self) -> float:
+        return self._get('<f', 0x108)[0]
+
+    @property
+    def port_impedance(self) -> float:
+        return self._get('<f', 0x10c)[0]
 
     @property
     def cal_points(self) -> int:
