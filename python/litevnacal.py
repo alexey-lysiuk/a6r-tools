@@ -41,14 +41,21 @@ https://github.com/hugen79/NanoVNA-H/blob/816495ebc8ca022149787ec2f9e058d6ce3bcb
     0x03c   48    4 traces, 12 bytes each (enabled, type, channel, smith format, scale, reference)
     0x06c   4     unknown, zero in all known files
     0x070   128   8 markers, 16 bytes each (enabled, reserved, index, frequency)
-    0x0f0   8     unknown flags (00 02 03 01 00 00 00 00 in all known files)
+    0x0f0   1     HI Rx gain index, 0..3 ("HI Rx" menu item)
+    0x0f1   1     IF bandwidth index (IF BANDWIDTH menu item)
+    0x0f2   1     HI band output level index, 0..3 ("HI" menu items, -4/-1/+2/+5 dB)
+    0x0f3   1     LO band output level index, 0..3 ("LO" menu items, -10/-4/-1/+1 dB)
+    0x0f4   1     CW mode flag (CFG SWEEP > CW)
+    0x0f5   1     transform/measure mode (OPERATIONS and MEASURE menus; 0 is off)
+    0x0f6   2     unknown, zero in all known files
     0x0f8   4     float, velocity factor in percents (70.0)
     0x0fc   8     float[2], electrical delay of S11 and S21, seconds
     0x104   4     float, electrical delay step by leveler
     0x108   4     float, S21 offset, dB
     0x10c   4     float, port impedance (50.0)
-    0x110   4     float, calibration LOAD resistance, expected to be 50.0 but is 0
-    0x114   120   unknown, contains 50.0 floats at 0x130, 0x14c, 0x168, 0x174 and 0x180
+    0x110   4     float, calibration LOAD resistance, not referenced by firmware, zero in all known files
+    0x114   28    unknown, not referenced by firmware, zero in all known files
+    0x130   92    calibration kit parameters, 23 floats, see CAL_KIT_NAMES
     0x18c   49152 calibration data, 6 terms * 1024 points * (float32 real, float32 imag)
     0xc18c  4     checksum
 
@@ -67,6 +74,14 @@ HEADER_SIZE = 0x18c
 DATA_SIZE = TERMS * POINTS * 8
 FILE_SIZE = HEADER_SIZE + DATA_SIZE + 4
 CHECKSUM_BYTES = FILE_SIZE - 8
+
+CAL_KIT_OFFSET = 0x130
+CAL_KIT_NAMES = (
+    'open_z0', 'open_delay', 'open_loss', 'open_c0', 'open_c1', 'open_c2', 'open_c3',
+    'short_z0', 'short_delay', 'short_loss', 'short_l0', 'short_l1', 'short_l2', 'short_l3',
+    'load_z0', 'load_delay', 'load_loss', 'load_r', 'load_l', 'load_c',
+    'thru_z0', 'thru_delay', 'thru_loss',
+)
 
 TRACES_OFFSET = 0x3c
 TRACE_COUNT = 4
@@ -174,6 +189,35 @@ class CalFile:
     @property
     def power(self) -> int:
         return self._get('<B', 0x37)[0]
+
+    @property
+    def hi_rx_gain(self) -> int:
+        return self._get('<B', 0xf0)[0]
+
+    @property
+    def bandwidth(self) -> int:
+        return self._get('<B', 0xf1)[0]
+
+    @property
+    def hi_level(self) -> int:
+        return self._get('<B', 0xf2)[0]
+
+    @property
+    def lo_level(self) -> int:
+        return self._get('<B', 0xf3)[0]
+
+    @property
+    def cw_mode(self) -> int:
+        return self._get('<B', 0xf4)[0]
+
+    @property
+    def measure(self) -> int:
+        return self._get('<B', 0xf5)[0]
+
+    @property
+    def cal_kit(self) -> typing.Dict[str, float]:
+        values = self._get(f'<{len(CAL_KIT_NAMES)}f', CAL_KIT_OFFSET)
+        return dict(zip(CAL_KIT_NAMES, values))
 
     @property
     def velocity_factor(self) -> float:
