@@ -64,6 +64,7 @@ all bytes before the last 8 bytes of the file. LiteVNA 67 files have zero checks
 """
 
 import argparse
+import json
 import struct
 import typing
 
@@ -296,6 +297,38 @@ class CalFile:
         checksum = calculate_checksum(body[:CHECKSUM_BYTES])
         return body + struct.pack('<I', checksum)
 
+    def to_dict(self) -> dict:
+        return {
+            'start': self.start,
+            'stop': self.stop,
+            'cal_start': self.cal_start,
+            'cal_stop': self.cal_stop,
+            'cal_status': self.cal_status,
+            'header': self.header.hex(),
+            'terms': [[[v.real, v.imag] for v in term] for term in self.terms],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'CalFile':
+        header = bytes.fromhex(data['header'])
+        if len(header) != HEADER_SIZE:
+            raise ValueError(f'Unexpected header size {len(header)}, expected {HEADER_SIZE}')
+
+        terms = data['terms']
+        if len(terms) != TERMS or any(len(term) != POINTS for term in terms):
+            raise ValueError(f'Expected {TERMS} terms with {POINTS} points each')
+
+        cal = cls()
+        cal.header = bytearray(header)
+        cal.terms = [[complex(re, im) for re, im in term] for term in terms]
+
+        # Explicit fields take precedence over raw header bytes
+        for name in ('start', 'stop', 'cal_start', 'cal_stop', 'cal_status'):
+            if name in data:
+                setattr(cal, name, data[name])
+
+        return cal
+
     @property
     def checksum_valid(self) -> bool:
         return self.checksum == calculate_checksum(self.to_bytes()[:CHECKSUM_BYTES])
@@ -311,14 +344,25 @@ def write(path: str, cal: CalFile):
         f.write(cal.to_bytes())
 
 
+def read_json(path: str) -> CalFile:
+    with open(path, 'r') as f:
+        return CalFile.from_dict(json.load(f))
+
+
+def write_json(path: str, cal: CalFile):
+    with open(path, 'w') as f:
+        json.dump(cal.to_dict(), f, indent=1)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Show or convert LiteVNA 64/67 calibration files')
-    parser.add_argument('input', help='calibration file to read')
+    parser.add_argument('input', help='calibration file to read, JSON file if its name ends with .json')
     parser.add_argument('-o', '--output', help='write calibration file copy (checksum is recalculated)')
     parser.add_argument('-c', '--csv', help='write calibration terms to CSV file')
+    parser.add_argument('-j', '--json', help='write calibration data to JSON file')
     args = parser.parse_args()
 
-    cal = read(args.input)
+    cal = read_json(args.input) if args.input.lower().endswith('.json') else read(args.input)
     print(f'Sweep: {cal.start} - {cal.stop} Hz')
     print(f'Calibration: {cal.cal_start} - {cal.cal_stop} Hz, {cal.cal_points} points')
     print(f'Calibration status: 0x{cal.cal_status:04X}')
@@ -326,6 +370,9 @@ def main():
 
     if args.output:
         write(args.output, cal)
+
+    if args.json:
+        write_json(args.json, cal)
 
     if args.csv:
         with open(args.csv, 'w', newline='') as f:
