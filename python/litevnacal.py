@@ -36,7 +36,7 @@ https://github.com/hugen79/NanoVNA-H/blob/816495ebc8ca022149787ec2f9e058d6ce3bcb
     0x035   1     active marker
     0x036   1     previous marker (0xFF if none)
     0x037   1     output power
-    0x038   2     number of calibration points (1024)
+    0x038   2     number of calibration points, 21 to 1024
     0x03a   2     calibration status bit mask
     0x03c   48    4 traces, 12 bytes each (enabled, type, channel, smith format, scale, reference)
     0x06c   4     unknown, zero in all known files
@@ -56,8 +56,11 @@ https://github.com/hugen79/NanoVNA-H/blob/816495ebc8ca022149787ec2f9e058d6ce3bcb
     0x110   4     float, calibration LOAD resistance, not referenced by firmware, zero in all known files
     0x114   28    unknown, not referenced by firmware, zero in all known files
     0x130   92    calibration kit parameters, 23 floats, see CAL_KIT_NAMES
-    0x18c   49152 calibration data, 6 terms * 1024 points * (float32 real, float32 imag)
+    0x18c   49152 calibration data, 6 terms * 1024 entries * (float32 real, float32 imag)
     0xc18c  4     checksum
+
+Data array always has 1024 entries per term; only the first 'number of calibration points'
+entries of each term are used.
 
 Checksum is the same rotate-and-add sum as in tinySA/NanoVNA settings, but it covers
 all bytes before the last 8 bytes of the file. LiteVNA 67 files have zero checksum.
@@ -69,10 +72,11 @@ import struct
 import typing
 
 MAGIC = 0x80081248
-POINTS = 1024
+MIN_POINTS = 21
+MAX_POINTS = 1024
 TERMS = 6
 HEADER_SIZE = 0x18c
-DATA_SIZE = TERMS * POINTS * 8
+DATA_SIZE = TERMS * MAX_POINTS * 8
 FILE_SIZE = HEADER_SIZE + DATA_SIZE + 4
 CHECKSUM_BYTES = FILE_SIZE - 8
 
@@ -90,6 +94,12 @@ TRACE_SIZE = 12
 MARKERS_OFFSET = 0x70
 MARKER_COUNT = 8
 MARKER_SIZE = 16
+
+
+def _check_points(points: int):
+    if not MIN_POINTS <= points <= MAX_POINTS:
+        raise ValueError(f'Unsupported number of calibration points {points}, '
+                         f'expected {MIN_POINTS} to {MAX_POINTS}')
 
 
 def calculate_checksum(data: typing.Union[bytes, bytearray]) -> int:
@@ -124,9 +134,8 @@ class CalFile:
     def __init__(self):
         self.header = bytearray(HEADER_SIZE)
         struct.pack_into('<I', self.header, 0, MAGIC)
-        self.points = POINTS
         # terms[term][point] is a complex number
-        self.terms = [[0j] * POINTS for _ in range(TERMS)]
+        self.terms = [[0j] * MAX_POINTS for _ in range(TERMS)]
         self.checksum = 0
 
     def _get(self, fmt: str, offset: int):
@@ -240,6 +249,11 @@ class CalFile:
     def cal_points(self) -> int:
         return self._get('<H', 0x38)[0]
 
+    @cal_points.setter
+    def cal_points(self, value: int):
+        _check_points(value)
+        self._set('<H', 0x38, value)
+
     @property
     def cal_status(self) -> int:
         return self._get('<H', 0x3a)[0]
@@ -258,8 +272,8 @@ class CalFile:
 
     def frequencies(self) -> typing.List[float]:
         """Frequency of each calibration point, linearly spaced between calibration start and stop."""
-        step = (self.cal_stop - self.cal_start) / (self.points - 1)
-        return [self.cal_start + step * i for i in range(self.points)]
+        step = (self.cal_stop - self.cal_start) / (self.cal_points - 1)
+        return [self.cal_start + step * i for i in range(self.cal_points)]
 
     @classmethod
     def from_bytes(cls, raw: typing.Union[bytes, bytearray]) -> 'CalFile':
@@ -273,13 +287,12 @@ class CalFile:
         cal = cls()
         cal.header = bytearray(raw[:HEADER_SIZE])
 
-        if cal.cal_points != POINTS:
-            raise ValueError(f'Unsupported number of calibration points {cal.cal_points}')
+        _check_points(cal.cal_points)
 
-        floats = struct.unpack_from(f'<{TERMS * POINTS * 2}f', raw, HEADER_SIZE)
+        floats = struct.unpack_from(f'<{TERMS * MAX_POINTS * 2}f', raw, HEADER_SIZE)
         for term in range(TERMS):
-            base = term * POINTS * 2
-            cal.terms[term] = [complex(floats[base + i * 2], floats[base + i * 2 + 1]) for i in range(POINTS)]
+            base = term * MAX_POINTS * 2
+            cal.terms[term] = [complex(floats[base + i * 2], floats[base + i * 2 + 1]) for i in range(MAX_POINTS)]
 
         cal.checksum, = struct.unpack_from('<I', raw, FILE_SIZE - 4)
         return cal
@@ -287,8 +300,8 @@ class CalFile:
     def to_bytes(self) -> bytes:
         floats = []
         for term in self.terms:
-            if len(term) != POINTS:
-                raise ValueError(f'Each term must have {POINTS} points')
+            if len(term) != MAX_POINTS:
+                raise ValueError(f'Each term must have {MAX_POINTS} entries')
             for value in term:
                 floats += (value.real, value.imag)
 
@@ -305,7 +318,8 @@ class CalFile:
             'cal_stop': self.cal_stop,
             'cal_status': self.cal_status,
             'header': self.header.hex(),
-            'terms': [[[v.real, v.imag] for v in term] for term in self.terms],
+            'cal_points': self.cal_points,
+            'terms': [[[v.real, v.imag] for v in term[:self.cal_points]] for term in self.terms],
         }
 
     @classmethod
@@ -315,12 +329,19 @@ class CalFile:
             raise ValueError(f'Unexpected header size {len(header)}, expected {HEADER_SIZE}')
 
         terms = data['terms']
-        if len(terms) != TERMS or any(len(term) != POINTS for term in terms):
-            raise ValueError(f'Expected {TERMS} terms with {POINTS} points each')
-
         cal = cls()
         cal.header = bytearray(header)
-        cal.terms = [[complex(re, im) for re, im in term] for term in terms]
+
+        if 'cal_points' in data:
+            cal.cal_points = data['cal_points']
+
+        points = cal.cal_points
+        if len(terms) != TERMS or any(len(term) != points for term in terms):
+            raise ValueError(f'Expected {TERMS} terms with {points} points each')
+
+        # Entries past the number of calibration points are unused, fill them with zeros
+        padding = [0j] * (MAX_POINTS - points)
+        cal.terms = [[complex(re, im) for re, im in term] + padding for term in terms]
 
         # Explicit fields take precedence over raw header bytes
         for name in ('start', 'stop', 'cal_start', 'cal_stop', 'cal_status'):
