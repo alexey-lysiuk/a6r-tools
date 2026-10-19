@@ -31,12 +31,12 @@ https://github.com/hugen79/NanoVNA-H/blob/816495ebc8ca022149787ec2f9e058d6ce3bcb
     0x020   8     calibration stop frequency, Hz
     0x028   8     frequency step by leveler, Hz (0 for auto)
     0x030   2     mode flags
-    0x032   2     number of sweep points
+    0x032   2     number of sweep points, also number of used calibration points, 21 to 1024
     0x034   1     current trace
     0x035   1     active marker
     0x036   1     previous marker (0xFF if none)
     0x037   1     output power
-    0x038   2     number of calibration points, 21 to 1024
+    0x038   2     calibration points field, 1024 even when fewer points are used
     0x03a   2     calibration status bit mask
     0x03c   48    4 traces, 12 bytes each (enabled, type, channel, smith format, scale, reference)
     0x06c   4     unknown, zero in all known files
@@ -59,8 +59,10 @@ https://github.com/hugen79/NanoVNA-H/blob/816495ebc8ca022149787ec2f9e058d6ce3bcb
     0x18c   49152 calibration data, 6 terms * 1024 entries * (float32 real, float32 imag)
     0xc18c  4     checksum
 
-Data array always has 1024 entries per term; only the first 'number of calibration points'
+Data array always has 1024 entries per term; only the first 'number of sweep points'
 entries of each term are used.
+
+Checksum of a file with fewer points may not match, but such file can still be loaded by device.
 
 Checksum is the same rotate-and-add sum as in tinySA/NanoVNA settings, but it covers
 all bytes before the last 8 bytes of the file. LiteVNA 67 files have zero checksum.
@@ -180,6 +182,11 @@ class CalFile:
     def sweep_points(self) -> int:
         return self._get('<H', 0x32)[0]
 
+    @sweep_points.setter
+    def sweep_points(self, value: int):
+        _check_points(value)
+        self._set('<H', 0x32, value)
+
     @property
     def mode(self) -> int:
         return self._get('<H', 0x30)[0]
@@ -246,13 +253,14 @@ class CalFile:
         return self._get('<f', 0x10c)[0]
 
     @property
-    def cal_points(self) -> int:
-        return self._get('<H', 0x38)[0]
+    def points(self) -> int:
+        """Number of used points in each term, the same as number of sweep points."""
+        return self.sweep_points
 
-    @cal_points.setter
-    def cal_points(self, value: int):
-        _check_points(value)
-        self._set('<H', 0x38, value)
+    @property
+    def cal_points(self) -> int:
+        """Calibration points field, stays 1024 even if fewer points are used."""
+        return self._get('<H', 0x38)[0]
 
     @property
     def cal_status(self) -> int:
@@ -272,8 +280,8 @@ class CalFile:
 
     def frequencies(self) -> typing.List[float]:
         """Frequency of each calibration point, linearly spaced between calibration start and stop."""
-        step = (self.cal_stop - self.cal_start) / (self.cal_points - 1)
-        return [self.cal_start + step * i for i in range(self.cal_points)]
+        step = (self.cal_stop - self.cal_start) / (self.points - 1)
+        return [self.cal_start + step * i for i in range(self.points)]
 
     @classmethod
     def from_bytes(cls, raw: typing.Union[bytes, bytearray]) -> 'CalFile':
@@ -287,7 +295,7 @@ class CalFile:
         cal = cls()
         cal.header = bytearray(raw[:HEADER_SIZE])
 
-        _check_points(cal.cal_points)
+        _check_points(cal.sweep_points)
 
         floats = struct.unpack_from(f'<{TERMS * MAX_POINTS * 2}f', raw, HEADER_SIZE)
         for term in range(TERMS):
@@ -318,8 +326,8 @@ class CalFile:
             'cal_stop': self.cal_stop,
             'cal_status': self.cal_status,
             'header': self.header.hex(),
-            'cal_points': self.cal_points,
-            'terms': [[[v.real, v.imag] for v in term[:self.cal_points]] for term in self.terms],
+            'sweep_points': self.sweep_points,
+            'terms': [[[v.real, v.imag] for v in term[:self.points]] for term in self.terms],
         }
 
     @classmethod
@@ -332,10 +340,10 @@ class CalFile:
         cal = cls()
         cal.header = bytearray(header)
 
-        if 'cal_points' in data:
-            cal.cal_points = data['cal_points']
+        if 'sweep_points' in data:
+            cal.sweep_points = data['sweep_points']
 
-        points = cal.cal_points
+        points = cal.sweep_points
         if len(terms) != TERMS or any(len(term) != points for term in terms):
             raise ValueError(f'Expected {TERMS} terms with {points} points each')
 
@@ -385,9 +393,9 @@ def main():
 
     cal = read_json(args.input) if args.input.lower().endswith('.json') else read(args.input)
     print(f'Sweep: {cal.start} - {cal.stop} Hz')
-    print(f'Calibration: {cal.cal_start} - {cal.cal_stop} Hz, {cal.cal_points} points')
+    print(f'Calibration: {cal.cal_start} - {cal.cal_stop} Hz, {cal.points} points')
     print(f'Calibration status: 0x{cal.cal_status:04X}')
-    print(f'Checksum: 0x{cal.checksum:08X}, {"valid" if cal.checksum_valid else "not valid"}')
+    print(f'Checksum: 0x{cal.checksum:08X}, {"valid" if cal.checksum_valid else "mismatch, may be ignored by device"}')
 
     if args.output:
         write(args.output, cal)
