@@ -228,6 +228,17 @@
         const PROMPT = TEXT_ENCODER.encode('ch> ');
         const BULK_TAG = TEXT_ENCODER.encode('bulk\r\n');
         const FILL_TAG = TEXT_ENCODER.encode('fill\r\n');
+        // "refresh rle" (firmware with __REFRESH_RLE__) adds two push kinds:
+        // "rle8" (a packed bulk update with its own palette) and "scrl" (waterfall
+        // scroll: the region's rows moved down by an int16 dy).
+        const RLE8_TAG = TEXT_ENCODER.encode('rle8\r\n');
+        const SCRL_TAG = TEXT_ENCODER.encode('scrl\r\n');
+        const PUSH_TAGS = [
+            { tag: BULK_TAG, kind: 'bulk' },
+            { tag: FILL_TAG, kind: 'fill' },
+            { tag: RLE8_TAG, kind: 'rle8' },
+            { tag: SCRL_TAG, kind: 'scrl' },
+        ];
         const REGION_HEADER_BYTES = 8; // int16 x, y, w, h (little-endian)
         // "capture rle" (tinySA Ultra firmware >= 1.4252) replies with a
         // NanoVNA-D style RLE8 bitmap instead of the raw RGB565 dump: a 10-byte
@@ -250,6 +261,7 @@
         let readBuffer = new Uint8Array(0);
         let pendingQueue = [];
         let pumpPromise = null;
+        let refreshRleSupported = true;
         let autoRefreshEnabled = false;
         let autoRefreshBusy = false;
         let lastTouchMoveAt = 0;
@@ -399,12 +411,13 @@
                 }
 
                 // Handle command with response or when auto-refresh is enabled
-                await ensureBuffered(Math.max(BULK_TAG.length, FILL_TAG.length, PROMPT.length));
+                await ensureBuffered(Math.max(...PUSH_TAGS.map(({ tag }) => tag.length), PROMPT.length));
 
                 const promptIndex = findSequence(readBuffer, PROMPT);
-                const bulkIndex = findSequence(readBuffer, BULK_TAG);
-                const fillIndex = findSequence(readBuffer, FILL_TAG);
-                const indexes = [promptIndex, bulkIndex, fillIndex].filter((index) => index !== -1);
+                const pushes = PUSH_TAGS
+                    .map(({ tag, kind }) => ({ tag, kind, index: findSequence(readBuffer, tag) }))
+                    .filter(({ index }) => index !== -1);
+                const indexes = [promptIndex, ...pushes.map(({ index }) => index)].filter((index) => index !== -1);
 
                 if (!indexes.length) {
                     await readChunk();
@@ -412,18 +425,12 @@
                 }
 
                 const earliest = Math.min(...indexes);
+                const push = pushes.find(({ index }) => index === earliest);
 
-                if (bulkIndex !== -1 && bulkIndex === earliest) {
-                    result = appendBuffer(result, readBuffer.slice(0, bulkIndex));
-                    readBuffer = readBuffer.slice(bulkIndex + BULK_TAG.length);
-                    await handleRegionUpdate('bulk');
-                    continue;
-                }
-
-                if (fillIndex !== -1 && fillIndex === earliest) {
-                    result = appendBuffer(result, readBuffer.slice(0, fillIndex));
-                    readBuffer = readBuffer.slice(fillIndex + FILL_TAG.length);
-                    await handleRegionUpdate('fill');
+                if (push) {
+                    result = appendBuffer(result, readBuffer.slice(0, push.index));
+                    readBuffer = readBuffer.slice(push.index + push.tag.length);
+                    await handleRegionUpdate(push.kind);
                     continue;
                 }
 
@@ -575,7 +582,35 @@
             const w = readInt16LE(header, 4);
             const h = readInt16LE(header, 6);
 
-            if (kind === 'bulk') {
+            if (kind === 'rle8') {
+                const paletteSize = readUint16LE(await readExact(2), 0);
+                const palette = await readExact(paletteSize);
+                const total = Math.max(0, w) * Math.max(0, h);
+                const pixels = new Uint8Array(total * 2);
+                // One PackBits stream without lengths, unpacked until w * h pixels.
+                let done = 0;
+                while (done < total) {
+                    const count = (await readExact(1))[0] << 24 >> 24;
+                    const repeat = count < 0;
+                    const run = Math.min(repeat ? 1 - count : count + 1, total - done);
+                    const literals = repeat ? await readExact(1) : await readExact(count + 1);
+                    for (let i = 0; i < run; i++) {
+                        const index = repeat ? literals[0] : literals[i];
+                        pixels[done * 2] = palette[index * 2];
+                        pixels[done * 2 + 1] = palette[index * 2 + 1];
+                        done++;
+                    }
+                }
+                if (total > 0) {
+                    ctx.putImageData(renderRgb565(pixels, w, h), x, y);
+                }
+            } else if (kind === 'scrl') {
+                const dy = readInt16LE(await readExact(2), 0);
+                // Rows y .. y + h - 1 move down by dy, so the last one lands just below the region.
+                if (w > 0 && h > 0 && dy > 0) {
+                    ctx.drawImage(canvas, x, y, w, h, x, y + dy, w, h);
+                }
+            } else if (kind === 'bulk') {
                 const payload = await readExact(Math.max(0, w) * Math.max(0, h) * 2);
                 if (w > 0 && h > 0) {
                     ctx.putImageData(renderRgb565(payload, w, h), x, y);
@@ -597,15 +632,10 @@
             while (port) {
                 await ensureBuffered(BULK_TAG.length);
 
-                if (startsWith(readBuffer, BULK_TAG)) {
-                    readBuffer = readBuffer.slice(BULK_TAG.length);
-                    await handleRegionUpdate('bulk');
-                    continue;
-                }
-
-                if (startsWith(readBuffer, FILL_TAG)) {
-                    readBuffer = readBuffer.slice(FILL_TAG.length);
-                    await handleRegionUpdate('fill');
+                const push = PUSH_TAGS.find(({ tag }) => startsWith(readBuffer, tag));
+                if (push) {
+                    readBuffer = readBuffer.slice(push.tag.length);
+                    await handleRegionUpdate(push.kind);
                     continue;
                 }
 
@@ -743,7 +773,20 @@
             }
             if (enabled) {
                 await captureScreenshot();
-                await sendCommand('refresh on');
+                // "refresh rle" (firmware with __REFRESH_RLE__) packs pushes; older
+                // firmware rejects the argument with a usage message.
+                let mode = 'on';
+                if (refreshRleSupported) {
+                    const reply = await sendCommand('refresh rle');
+                    if (/usage/i.test(reply)) {
+                        refreshRleSupported = false;
+                    } else {
+                        mode = null;
+                    }
+                }
+                if (mode) {
+                    await sendCommand('refresh on');
+                }
             } else {
                 await sendCommand('refresh off');
             }
@@ -1047,6 +1090,7 @@
                 writer = port.writable.getWriter();
                 readBuffer = new Uint8Array(0);
                 pendingQueue = [];
+                refreshRleSupported = true;
                 autoRefreshEnabled = false;
                 autoRefreshBusy = false;
                 pumpPromise = runPumpLoop();
