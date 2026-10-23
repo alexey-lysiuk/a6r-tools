@@ -27,6 +27,16 @@
             ]
         },
         {
+            "name": "tinysa4ocr.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/python/tinysa4ocr.py",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}/data",
+            "args": [
+            ]
+        },
+        {
             "name": "remotecontrol.py",
             "type": "debugpy",
             "request": "launch",
