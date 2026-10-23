@@ -551,11 +551,47 @@ private:
 void usage(const char* program)
 {
     fprintf(stderr,
-        "Usage: %s [--plain] <capture.png|capture.bmp>\n"
+        "Usage: %s [--plain | --json] <capture.png|capture.bmp>\n"
         "Recognizes small font texts in the status column and the status row.\n"
         "Default output is tab-separated: region, x, y, color, text.\n"
-        "  --plain  output recognized texts only\n",
+        "  --plain  output recognized texts only\n"
+        "  --json   output a JSON array of recognized text objects\n",
         program);
+}
+
+void printJsonString(const std::string& value)
+{
+    static const char hex[] = "0123456789abcdef";
+
+    putchar('"');
+
+    for (unsigned char ch : value)
+    {
+        switch (ch)
+        {
+        case '"': fputs("\\\"", stdout); break;
+        case '\\': fputs("\\\\", stdout); break;
+        case '\b': fputs("\\b", stdout); break;
+        case '\f': fputs("\\f", stdout); break;
+        case '\n': fputs("\\n", stdout); break;
+        case '\r': fputs("\\r", stdout); break;
+        case '\t': fputs("\\t", stdout); break;
+        default:
+            if (ch < 0x20)
+            {
+                fputs("\\u00", stdout);
+                putchar(hex[ch >> 4]);
+                putchar(hex[ch & 0x0f]);
+            }
+            else
+            {
+                putchar(ch);
+            }
+            break;
+        }
+    }
+
+    putchar('"');
 }
 
 } // namespace
@@ -563,6 +599,7 @@ void usage(const char* program)
 int main(int argc, char** argv)
 {
     bool plain = false;
+    bool json = false;
     const char* path = nullptr;
 
     for (int i = 1; i < argc; ++i)
@@ -570,6 +607,10 @@ int main(int argc, char** argv)
         if (strcmp(argv[i], "--plain") == 0)
         {
             plain = true;
+        }
+        else if (strcmp(argv[i], "--json") == 0)
+        {
+            json = true;
         }
         else if (path == nullptr && argv[i][0] != '\0')
         {
@@ -582,7 +623,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if (path == nullptr)
+    if (path == nullptr || (plain && json))
     {
         usage(argv[0]);
         return 2;
@@ -609,6 +650,13 @@ int main(int argc, char** argv)
         { "row", STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height },
     };
 
+    bool firstJsonItem = true;
+
+    if (json)
+    {
+        puts("[");
+    }
+
     for (const Region& region : regions)
     {
         for (const Text& text : Recognizer(image, region).run())
@@ -617,11 +665,32 @@ int main(int argc, char** argv)
             {
                 printf("%s\n", text.value.c_str());
             }
+            else if (json)
+            {
+                if (!firstJsonItem)
+                {
+                    printf(",\n");
+                }
+
+                printf("  {\"region\":");
+                printJsonString(region.name);
+                printf(",\"x\":%d,\"y\":%d,\"color\":", text.x, text.y);
+                printJsonString(text.color);
+                printf(",\"text\":");
+                printJsonString(text.value);
+                printf("}");
+                firstJsonItem = false;
+            }
             else
             {
                 printf("%s\t%d\t%d\t%s\t%s\n", region.name, text.x, text.y, text.color.c_str(), text.value.c_str());
             }
         }
+    }
+
+    if (json)
+    {
+        puts("\n]");
     }
 
     return 0;
