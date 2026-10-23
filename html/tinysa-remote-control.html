@@ -230,7 +230,7 @@
         const FILL_TAG = TEXT_ENCODER.encode('fill\r\n');
         // "refresh rle" (firmware with __REFRESH_RLE__) adds two push kinds:
         // "rle8" (a packed bulk update with its own palette) and "scrl" (waterfall
-        // scroll: the region moved down by an int16 dy).
+        // scroll: the region's rows moved down by an int16 dy).
         const RLE8_TAG = TEXT_ENCODER.encode('rle8\r\n');
         const SCRL_TAG = TEXT_ENCODER.encode('scrl\r\n');
         const PUSH_TAGS = [
@@ -606,8 +606,9 @@
                 }
             } else if (kind === 'scrl') {
                 const dy = readInt16LE(await readExact(2), 0);
-                if (w > 0 && h > dy && dy > 0) {
-                    ctx.drawImage(canvas, x, y, w, h - dy, x, y + dy, w, h - dy);
+                // Rows y .. y + h - 1 move down by dy, so the last one lands just below the region.
+                if (w > 0 && h > 0 && dy > 0) {
+                    ctx.drawImage(canvas, x, y, w, h, x, y + dy, w, h);
                 }
             } else if (kind === 'bulk') {
                 const payload = await readExact(Math.max(0, w) * Math.max(0, h) * 2);
