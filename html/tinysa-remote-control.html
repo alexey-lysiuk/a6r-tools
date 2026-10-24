@@ -799,7 +799,6 @@
                 return;
             }
             if (enabled) {
-                await captureScreenshot();
                 // "refresh rle" (firmware with __REFRESH_RLE__) packs pushes; older
                 // firmware rejects the argument with a usage message.
                 let mode = 'on';
@@ -814,6 +813,10 @@
                 if (mode) {
                     await sendCommand('refresh on');
                 }
+                // Capture only after pushes are enabled: the device may still be
+                // repainting its UI right after connecting, and anything painted
+                // between an earlier capture and "refresh on" would never be shown.
+                await captureScreenshot();
             } else {
                 await sendCommand('refresh off');
             }
