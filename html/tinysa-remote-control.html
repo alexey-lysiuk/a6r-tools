@@ -600,13 +600,25 @@
                     }
                 }
                 if (total > 0) {
-                    ctx.putImageData(renderRgb565(pixels, w, h), x, y);
+                    const imageData = renderRgb565(pixels, w, h);
+                    ctx.putImageData(imageData, x, y);
+                    if (recording) {
+                        recordFrame(x, y, w, h, imageData.data);
+                    }
                 }
             } else if (kind === 'scrl') {
                 const dy = readInt16LE(await readExact(2), 0);
                 // Rows y .. y + h - 1 move down by dy, so the last one lands just below the region.
                 if (w > 0 && h > 0 && dy > 0) {
                     ctx.drawImage(canvas, x, y, w, h, x, y + dy, w, h);
+                    if (recording) {
+                        const top = y + dy;
+                        const bottom = Math.min(top + h, SCREEN_HEIGHT);
+                        if (top >= 0 && bottom > top && x >= 0 && x + w <= SCREEN_WIDTH) {
+                            const moved = ctx.getImageData(x, top, w, bottom - top);
+                            recordFrame(x, top, w, bottom - top, moved.data);
+                        }
+                    }
                 }
             } else if (kind === 'bulk') {
                 const payload = await readExact(Math.max(0, w) * Math.max(0, h) * 2);
