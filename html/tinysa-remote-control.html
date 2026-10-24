@@ -789,6 +789,13 @@
                 return;
             }
             if (enabled) {
+                // Capture while pushes are still off: with refresh on, bulk/fill pushes
+                // can interleave with the capture reply and corrupt it. The first
+                // "capture rle" can come back mostly black (colors missing from the
+                // firmware's palette map to black, and the next capture re-reads the
+                // screen), so capture twice.
+                await captureScreenshot();
+                await captureScreenshot();
                 // "refresh rle" (firmware with __REFRESH_RLE__) packs pushes; older
                 // firmware rejects the argument with a usage message.
                 let mode = 'on';
@@ -803,12 +810,6 @@
                 if (mode) {
                     await sendCommand('refresh on');
                 }
-                // Capture only after pushes are enabled so nothing painted in between is lost.
-                // The first "capture rle" after connecting can come back mostly black
-                // (colors missing from the firmware's palette map to black and it then
-                // re-reads the screen on the next capture), so capture twice.
-                await captureScreenshot();
-                await captureScreenshot();
             } else {
                 await sendCommand('refresh off');
             }
