@@ -774,12 +774,14 @@
             }
         }
 
-        async function captureScreenshot() {
+        async function captureScreenshot({ raw = false } = {}) {
             // "capture rle" (Ultra firmware >= 1.4252) returns the screen
             // compressed as an RLE8 bitmap: ~10x less data and twice as fast
             // as the plain "capture" dump. readRleCapture() falls back to the
             // plain raw dump if the connected firmware doesn't support it.
-            const pixels = await sendCommand('capture rle', { binary: 'rle' });
+            const pixels = raw
+                ? await sendCommand('capture', { binary: true })
+                : await sendCommand('capture rle', { binary: 'rle' });
             ctx.putImageData(renderRgb565(pixels, SCREEN_WIDTH, SCREEN_HEIGHT), 0, 0);
             return pixels;
         }
@@ -789,13 +791,9 @@
                 return;
             }
             if (enabled) {
-                // Capture while pushes are still off: with refresh on, bulk/fill pushes
-                // can interleave with the capture reply and corrupt it. The first
-                // "capture rle" can come back mostly black (colors missing from the
-                // firmware's palette map to black, and the next capture re-reads the
-                // screen), so capture twice.
-                await captureScreenshot();
-                await captureScreenshot();
+                // Use the plain "capture" here: it reads the LCD directly, while the
+                // first "capture rle" after connecting can come back mostly black.
+                await captureScreenshot({ raw: true });
                 // "refresh rle" (firmware with __REFRESH_RLE__) packs pushes; older
                 // firmware rejects the argument with a usage message.
                 let mode = 'on';
