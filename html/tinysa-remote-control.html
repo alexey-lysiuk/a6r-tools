@@ -201,6 +201,8 @@
             <button id="downloadBtn" disabled>Download</button>
             <div class="toolbar-sep"></div>
             <button id="recordBtn" disabled>Record</button>
+            <label for="recordFpsInput">FPS</label>
+            <input id="recordFpsInput" type="number" min="2" max="120" step="1" value="10" style="width: 4.5em;">
             <h1>tinySA Ultra Remote Control</h1>
             <button id="themeToggleBtn" class="theme-toggle" title="Toggle color theme">
                 <span id="themeToggleIcon" class="theme-icon" aria-hidden="true"></span>
@@ -277,6 +279,8 @@
         const downloadKindSelect = document.getElementById('downloadKindSelect');
         const downloadBtn = document.getElementById('downloadBtn');
         const recordBtn = document.getElementById('recordBtn');
+        const recordFpsInput = document.getElementById('recordFpsInput');
+        let recordFps = 10;
         const statusEl = document.getElementById('status');
         const canvas = document.getElementById('screen');
         // Software canvas: the app reads pixels back (getImageData), and Firefox's
@@ -916,7 +920,7 @@
         // fcTL uses dispose_op "none" and blend_op "source" so unaffected
         // areas keep showing the prior frame's pixels while the changed
         // rectangle is written over them.
-        async function buildApng(frames, width, height, finalTimestamp) {
+        async function buildApng(frames, width, height) {
             const ihdr = pngChunk('IHDR', concatBytes([
                 u32be(width), u32be(height), new Uint8Array([8, 2, 0, 0, 0]),
             ]));
@@ -927,10 +931,7 @@
 
             for (let i = 0; i < frames.length; i++) {
                 const frame = frames[i];
-                const nextTimestamp = i + 1 < frames.length
-                    ? frames[i + 1].timestamp
-                    : Math.max(finalTimestamp, frame.timestamp);
-                const delayMs = Math.min(65535, Math.max(1, Math.round(nextTimestamp - frame.timestamp)));
+                const delayMs = frame.delayMs;
 
                 const compressed = await deflateZlib(rgbaToFilteredRgbRows(frame.data, frame.w, frame.h));
 
@@ -979,12 +980,69 @@
             recordFrames.push({ x, y, w, h, data, timestamp: performance.now() });
         }
 
+        function getRecordFps() {
+            const value = Math.round(Number(recordFpsInput.value));
+            const fps = Number.isFinite(value) ? Math.min(120, Math.max(2, value)) : 10;
+            recordFpsInput.value = fps;
+            return fps;
+        }
+
+        // Combines raw region updates into fixed-interval frames: every update
+        // received within one 1/fps slot is composited into a single frame
+        // covering the union of the changed rectangles. Slots without updates
+        // produce no frame; the previous frame's delay simply spans them.
+        function combineRecordUpdates(updates, fps, finalTimestamp) {
+            const interval = 1000 / fps;
+            const t0 = updates[0].timestamp;
+            const slotOf = (t) => Math.floor((t - t0) / interval);
+            const state = new Uint8ClampedArray(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
+            const groups = [];
+            for (const u of updates) {
+                const slot = slotOf(u.timestamp);
+                let g = groups[groups.length - 1];
+                if (!g || g.slot !== slot) {
+                    g = { slot, x0: u.x, y0: u.y, x1: u.x + u.w, y1: u.y + u.h };
+                    groups.push(g);
+                    g.updates = [];
+                }
+                g.x0 = Math.min(g.x0, u.x);
+                g.y0 = Math.min(g.y0, u.y);
+                g.x1 = Math.max(g.x1, u.x + u.w);
+                g.y1 = Math.max(g.y1, u.y + u.h);
+                g.updates.push(u);
+            }
+            const endSlot = Math.max(slotOf(finalTimestamp), groups[groups.length - 1].slot + 1);
+            const frames = [];
+            groups.forEach((g, i) => {
+                for (const u of g.updates) {
+                    for (let row = 0; row < u.h; row++) {
+                        const src = row * u.w * 4;
+                        state.set(u.data.subarray(src, src + u.w * 4), ((u.y + row) * SCREEN_WIDTH + u.x) * 4);
+                    }
+                }
+                const w = g.x1 - g.x0;
+                const h = g.y1 - g.y0;
+                const data = new Uint8ClampedArray(w * h * 4);
+                for (let row = 0; row < h; row++) {
+                    const src = ((g.y0 + row) * SCREEN_WIDTH + g.x0) * 4;
+                    data.set(state.subarray(src, src + w * 4), row * w * 4);
+                }
+                const nextSlot = i + 1 < groups.length ? groups[i + 1].slot : endSlot;
+                const delayMs = Math.min(65535, Math.max(1,
+                    Math.round(nextSlot * interval) - Math.round(g.slot * interval)));
+                frames.push({ x: g.x0, y: g.y0, w, h, data, delayMs });
+            });
+            return frames;
+        }
+
         function startRecording() {
             if (!isConnected || recording) {
                 return;
             }
             recording = true;
             recordFrames = [];
+            recordFpsInput.disabled = true;
+            recordFps = getRecordFps();
             const imageData = ctx.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
             recordFrame(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, imageData.data);
             updateRecordUi();
@@ -998,9 +1056,11 @@
             recording = false;
             updateRecordUi();
 
-            const frames = recordFrames;
+            recordFpsInput.disabled = false;
+            const updates = recordFrames;
             const finalTimestamp = performance.now();
             recordFrames = [];
+            const frames = combineRecordUpdates(updates, recordFps, finalTimestamp);
 
             if (frames.length < 2) {
                 setStatus('Recording too short to save.', true);
@@ -1009,7 +1069,7 @@
 
             try {
                 setStatus(`Encoding ${frames.length} frame(s)...`);
-                const apngBytes = await buildApng(frames, SCREEN_WIDTH, SCREEN_HEIGHT, finalTimestamp);
+                const apngBytes = await buildApng(frames, SCREEN_WIDTH, SCREEN_HEIGHT);
                 const blob = new Blob([apngBytes], { type: 'image/png' });
                 triggerDownload(blob, `sa_${timestampForFilename()}.png`);
                 setStatus(`Recording saved (${frames.length} frames).`);
