@@ -279,7 +279,9 @@
         const recordBtn = document.getElementById('recordBtn');
         const statusEl = document.getElementById('status');
         const canvas = document.getElementById('screen');
-        const ctx = canvas.getContext('2d');
+        // Software canvas: the app reads pixels back (getImageData), and Firefox's
+        // accelerated canvas can lose the first full-screen putImageData after load.
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
