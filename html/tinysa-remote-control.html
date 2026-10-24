@@ -580,6 +580,7 @@
             const y = readInt16LE(header, 2);
             const w = readInt16LE(header, 4);
             const h = readInt16LE(header, 6);
+            console.log('DEBUG push', kind, { x, y, w, h }, performance.now() | 0);
 
             if (kind === 'rle8') {
                 const paletteSize = readUint16LE(await readExact(2), 0);
@@ -789,7 +790,7 @@
             const after = ctx.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT).data;
             let afterNz = 0;
             for (let i = 0; i < after.length; i += 4) if (after[i] | after[i + 1] | after[i + 2]) afterNz++;
-            console.log('DEBUG draw', { imgNz, afterNz, w: canvas.width, h: canvas.height });
+            console.log('DEBUG draw', performance.now() | 0, { imgNz, afterNz, w: canvas.width, h: canvas.height });
             return pixels;
         }
 
@@ -1239,6 +1240,7 @@
                     pumpPromise = null;
                 }
 
+                console.log('DEBUG clearRect', new Error().stack);
                 ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
                 if (!keepStatus) {
