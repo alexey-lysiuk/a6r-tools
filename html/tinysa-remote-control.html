@@ -555,6 +555,7 @@
             const bpp = header[6];
             const compression = header[7];
             const paletteSize = readUint16LE(header, 8);
+            console.log('DEBUG rle header', Array.from(header), { magic, width, height, bpp, compression, paletteSize });
 
             const isValidRle = magic === RLE_MAGIC && bpp === RLE_BPP && compression === RLE_COMPRESSION
                 && width === SCREEN_WIDTH && height === SCREEN_HEIGHT;
@@ -780,7 +781,15 @@
             // as the plain "capture" dump. readRleCapture() falls back to the
             // plain raw dump if the connected firmware doesn't support it.
             const pixels = await sendCommand('capture rle', { binary: 'rle' });
-            ctx.putImageData(renderRgb565(pixels, SCREEN_WIDTH, SCREEN_HEIGHT), 0, 0);
+            console.log('DEBUG capture', pixels.length, 'nonzero bytes:', pixels.reduce((n, v) => n + (v ? 1 : 0), 0));
+            const img = renderRgb565(pixels, SCREEN_WIDTH, SCREEN_HEIGHT);
+            let imgNz = 0;
+            for (let i = 0; i < img.data.length; i += 4) if (img.data[i] | img.data[i + 1] | img.data[i + 2]) imgNz++;
+            ctx.putImageData(img, 0, 0);
+            const after = ctx.getImageData(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT).data;
+            let afterNz = 0;
+            for (let i = 0; i < after.length; i += 4) if (after[i] | after[i + 1] | after[i + 2]) afterNz++;
+            console.log('DEBUG draw', { imgNz, afterNz, w: canvas.width, h: canvas.height });
             return pixels;
         }
 
