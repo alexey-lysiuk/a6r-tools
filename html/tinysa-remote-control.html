@@ -896,20 +896,54 @@
             return new Uint8Array(await new Response(stream).arrayBuffer());
         }
 
-        // Drops the (always opaque) alpha channel and prefixes each scanline with
-        // the "None" filter-type byte, producing the raw image data PNG expects.
-        function rgbaToFilteredRgbRows(rgba, width, height) {
-            const stride = width * 3 + 1;
+        // Collects distinct colors across all frames; returns null once more than
+        // 256 are found, meaning a palette cannot be used.
+        function buildPalette(frames) {
+            const map = new Map();
+            for (const frame of frames) {
+                const d = frame.data;
+                for (let i = 0; i < d.length; i += 4) {
+                    const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+                    if (!map.has(key)) {
+                        if (map.size >= 256) {
+                            return null;
+                        }
+                        map.set(key, map.size);
+                    }
+                }
+            }
+            return map;
+        }
+
+        // Converts RGBA pixels to filtered scanlines (filter "None"), either as
+        // 24-bit RGB without alpha or as packed palette indices (4 or 8 bits).
+        function encodeRows(rgba, width, height, palette, bitDepth) {
+            const bpp = palette ? bitDepth : 24;
+            const stride = Math.ceil(width * bpp / 8) + 1;
             const raw = new Uint8Array(stride * height);
             let src = 0;
             let dst = 0;
             for (let y = 0; y < height; y++) {
                 raw[dst++] = 0; // filter type: None
-                for (let x = 0; x < width; x++) {
-                    raw[dst++] = rgba[src];
-                    raw[dst++] = rgba[src + 1];
-                    raw[dst++] = rgba[src + 2];
-                    src += 4;
+                if (!palette) {
+                    for (let x = 0; x < width; x++) {
+                        raw[dst++] = rgba[src];
+                        raw[dst++] = rgba[src + 1];
+                        raw[dst++] = rgba[src + 2];
+                        src += 4;
+                    }
+                } else if (bitDepth === 8) {
+                    for (let x = 0; x < width; x++) {
+                        raw[dst++] = palette.get((rgba[src] << 16) | (rgba[src + 1] << 8) | rgba[src + 2]);
+                        src += 4;
+                    }
+                } else {
+                    for (let x = 0; x < width; x++) {
+                        const index = palette.get((rgba[src] << 16) | (rgba[src + 1] << 8) | rgba[src + 2]);
+                        raw[dst + (x >> 1)] |= (x & 1) ? index : index << 4;
+                        src += 4;
+                    }
+                    dst += (width + 1) >> 1;
                 }
             }
             return raw;
@@ -921,26 +955,42 @@
         // fcTL uses dispose_op "none" and blend_op "source" so unaffected
         // areas keep showing the prior frame's pixels while the changed
         // rectangle is written over them.
-        async function buildApng(frames, width, height) {
+        async function buildApng(frames, width, height, animated = true) {
+            const palette = buildPalette(frames);
+            const bitDepth = palette && palette.size <= 16 ? 4 : 8;
             const ihdr = pngChunk('IHDR', concatBytes([
-                u32be(width), u32be(height), new Uint8Array([8, 2, 0, 0, 0]),
+                u32be(width), u32be(height), new Uint8Array([palette ? bitDepth : 8, palette ? 3 : 2, 0, 0, 0]),
             ]));
             const actl = pngChunk('acTL', concatBytes([u32be(frames.length), u32be(0)]));
 
-            const chunks = [PNG_SIGNATURE, ihdr, actl];
+            const chunks = [PNG_SIGNATURE, ihdr];
+            if (palette) {
+                const plte = new Uint8Array(palette.size * 3);
+                for (const [key, index] of palette) {
+                    plte[index * 3] = key >> 16;
+                    plte[index * 3 + 1] = (key >> 8) & 255;
+                    plte[index * 3 + 2] = key & 255;
+                }
+                chunks.push(pngChunk('PLTE', plte));
+            }
+            if (animated) {
+                chunks.push(actl);
+            }
             let seq = 0;
 
             for (let i = 0; i < frames.length; i++) {
                 const frame = frames[i];
                 const delayMs = frame.delayMs;
 
-                const compressed = await deflateZlib(rgbaToFilteredRgbRows(frame.data, frame.w, frame.h));
+                const compressed = await deflateZlib(encodeRows(frame.data, frame.w, frame.h, palette, bitDepth));
 
                 const fcTL = pngChunk('fcTL', concatBytes([
                     u32be(seq++), u32be(frame.w), u32be(frame.h), u32be(frame.x), u32be(frame.y),
                     u16be(delayMs), u16be(1000), new Uint8Array([0, 0]),
                 ]));
-                chunks.push(fcTL);
+                if (animated) {
+                    chunks.push(fcTL);
+                }
 
                 if (i === 0) {
                     chunks.push(pngChunk('IDAT', compressed));
@@ -1085,7 +1135,10 @@
         }
 
         async function saveScreenshot() {
-            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+            const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const frame = { data: image.data, w: canvas.width, h: canvas.height, x: 0, y: 0, delayMs: 0 };
+            const bytes = await buildApng([frame], canvas.width, canvas.height, false);
+            const blob = new Blob([bytes], { type: 'image/png' });
             triggerDownload(blob, `sa_${timestampForFilename()}.png`);
         }
 
