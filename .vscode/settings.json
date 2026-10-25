@@ -19,8 +19,5 @@
     ],
     "python.analysis.ignore": [
         "${workspaceFolder}/python/serial"
-    ],
-    "workbench.editorAssociations": {
-        "*.prs": "tinysa4preset-viewer.presetViewer"
-    }
+    ]
 }
