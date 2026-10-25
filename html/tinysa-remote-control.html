@@ -200,9 +200,9 @@
             </select>
             <button id="downloadBtn" disabled>Download</button>
             <div class="toolbar-sep"></div>
-            <button id="recordBtn" disabled>Record</button>
             <label for="recordFpsInput">FPS</label>
             <input id="recordFpsInput" type="number" min="2" max="120" step="1" value="10" style="width: 4.5em;">
+            <button id="recordBtn" disabled>Record</button>
             <h1>tinySA Ultra Remote Control</h1>
             <button id="themeToggleBtn" class="theme-toggle" title="Toggle color theme">
                 <span id="themeToggleIcon" class="theme-icon" aria-hidden="true"></span>
@@ -254,6 +254,7 @@
         const RLE_COMPRESSION = 1;
         const TOUCH_MOVE_INTERVAL_MS = 50;
         const THEME_STORAGE_KEY = 'tinysa-remote-control-theme';
+        const FPS_STORAGE_KEY = 'tinysa-remote-control-fps';
         const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
         let port = null;
@@ -984,8 +985,13 @@
             const value = Math.round(Number(recordFpsInput.value));
             const fps = Number.isFinite(value) ? Math.min(120, Math.max(2, value)) : 10;
             recordFpsInput.value = fps;
+            localStorage.setItem(FPS_STORAGE_KEY, fps);
             return fps;
         }
+
+        recordFpsInput.value = Number(localStorage.getItem(FPS_STORAGE_KEY)) || 10;
+        recordFps = getRecordFps();
+        recordFpsInput.addEventListener('change', getRecordFps);
 
         // Combines raw region updates into fixed-interval frames: every update
         // received within one 1/fps slot is composited into a single frame
