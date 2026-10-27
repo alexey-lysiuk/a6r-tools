@@ -19,23 +19,35 @@
 #include "stb_image.h"
 
 #include "font5x7.h"
+#include "font7x11b.h"
 
 namespace
 {
 
 constexpr int STATUS_COLUMN_WIDTH = 30; // OFFSETX in tinySA firmware
 constexpr int STATUS_ROW_HEIGHT = 8;    // FREQUENCIES_YPOS = LCD_HEIGHT - 8
-constexpr int MAX_GLYPH_WIDTH = 8;
+constexpr int MARKER_ROWS_HEIGHT = 64;  // 4 marker rows, 16 pixels each
+constexpr int MAX_FONT_HEIGHT = MARKER_FONT_HEIGHT;
 constexpr int SEGMENT_GAP_SPACES = 3;   // gap of this many spaces or more splits texts
 constexpr int INK_THRESHOLD = 100;      // sum of per-channel differences from background
 constexpr double MIN_QUALITY = 0.85;    // minimal share of ink explained by recognized glyphs
+
+// Chart grid, band separator and trigger level lines show through marker texts, they are not ink
+const std::vector<uint32_t> MARKER_IGNORED_COLORS = { 0x848284, 0x0000FF };
 
 struct Glyph
 {
     char ch;
     int width;
     int ink;
-    uint8_t rows[FONT_HEIGHT]; // bit 7 is leftmost column
+    uint8_t rows[MAX_FONT_HEIGHT]; // bit 7 is leftmost column
+};
+
+struct Font
+{
+    int height = 0;
+    int spaceWidth = 4;
+    std::vector<Glyph> glyphs;
 };
 
 struct Rgb
@@ -56,6 +68,8 @@ struct Region
 {
     const char* name;
     int x0, y0, x1, y1; // [x0, x1) x [y0, y1)
+    const Font* font;
+    std::vector<uint32_t> ignoredColors; // pixels of these colors are never ink
 };
 
 struct Token
@@ -74,50 +88,60 @@ struct Text
     std::string value;
 };
 
-std::vector<Glyph> g_glyphs;
-int g_spaceWidth = 4;
+Font g_smallFont;
+Font g_markerFont;
 
-void loadGlyphs()
+void addGlyph(Font& font, int code, int width, const uint8_t* rows)
 {
-    const int count = int(sizeof(x5x7_bits) / FONT_HEIGHT);
-
-    for (int i = 0; i < count; ++i)
+    if (code == ' ')
     {
-        const int code = FONT_START_CHAR + i;
-        const int width = FONT_GET_WIDTH(x5x7_bits, i);
+        font.spaceWidth = width;
+    }
 
-        if (code == ' ')
+    // Skip icons and space, they are not text glyphs
+    // Skip 'O' as well, its glyph is identical to '0' and is resolved by resolveZeroO()
+    if (code <= ' ' || code > 0x7E || code == 'O')
+    {
+        return;
+    }
+
+    Glyph glyph{};
+    glyph.ch = char(code);
+    glyph.width = width;
+
+    for (int r = 0; r < font.height; ++r)
+    {
+        // First row also stores the width in its low bits, drop everything past the glyph width
+        const uint8_t row = rows[r] & uint8_t(0xFF << (8 - width));
+        glyph.rows[r] = row;
+
+        for (int c = 0; c < width; ++c)
         {
-            g_spaceWidth = width;
+            glyph.ink += (row >> (7 - c)) & 1;
         }
+    }
 
-        // Skip icons and space, they are not text glyphs
-        // Skip 'O' as well, its glyph is identical to '0' and is resolved by resolveZeroO()
-        if (code <= ' ' || code > 0x7E || code == 'O')
-        {
-            continue;
-        }
+    if (glyph.ink > 0)
+    {
+        font.glyphs.push_back(glyph);
+    }
+}
 
-        Glyph glyph{};
-        glyph.ch = char(code);
-        glyph.width = width;
+void loadFonts()
+{
+    g_smallFont.height = FONT_HEIGHT;
 
-        for (int r = 0; r < FONT_HEIGHT; ++r)
-        {
-            // First row also stores the width in its low bits, drop everything past the glyph width
-            uint8_t row = x5x7_bits[i * FONT_HEIGHT + r] & uint8_t(0xFF << (8 - width));
-            glyph.rows[r] = row;
+    for (int i = 0, count = int(sizeof(x5x7_bits) / FONT_HEIGHT); i < count; ++i)
+    {
+        addGlyph(g_smallFont, FONT_START_CHAR + i, FONT_GET_WIDTH(x5x7_bits, i), &x5x7_bits[i * FONT_HEIGHT]);
+    }
 
-            for (int c = 0; c < width; ++c)
-            {
-                glyph.ink += (row >> (7 - c)) & 1;
-            }
-        }
+    g_markerFont.height = MARKER_FONT_HEIGHT;
 
-        if (glyph.ink > 0)
-        {
-            g_glyphs.push_back(glyph);
-        }
+    for (int i = 0, count = int(sizeof(x7x11b_bits) / MARKER_FONT_HEIGHT); i < count; ++i)
+    {
+        addGlyph(g_markerFont, MARKER_FONT_START_CHAR + i, MARKER_FONT_GET_WIDTH(x7x11b_bits, i),
+            &x7x11b_bits[i * MARKER_FONT_HEIGHT]);
     }
 }
 
@@ -185,6 +209,7 @@ public:
     Recognizer(const Image& image, const Region& region)
         : m_image(image)
         , m_region(region)
+        , m_font(*region.font)
         , m_background(findBackground())
     {
     }
@@ -195,6 +220,7 @@ public:
         const Region& rg = m_region;
 
         int y = rg.y0;
+        const int fontHeight = m_font.height;
 
         while (y < rg.y1)
         {
@@ -205,13 +231,13 @@ public:
             }
 
             // Top ink row may belong to any glyph row, so try all line positions
-            const int lastTop = rg.y1 - FONT_HEIGHT;
+            const int lastTop = rg.y1 - fontHeight;
             int bestTop = -1;
             double bestScore = 0.0;
             std::vector<Token> bestTokens;
             double bestQuality = 0.0;
 
-            for (int top = std::max(rg.y0, y - (FONT_HEIGHT - 1)); top <= std::min(y, lastTop); ++top)
+            for (int top = std::max(rg.y0, y - (fontHeight - 1)); top <= std::min(y, lastTop); ++top)
             {
                 std::vector<Token> tokens;
                 double quality = 0.0;
@@ -226,18 +252,14 @@ public:
                 }
             }
 
-            if (bestTop < 0)
+            if (bestTop < 0 || bestQuality < MIN_QUALITY)
             {
                 ++y;
                 continue;
             }
 
-            if (bestQuality >= MIN_QUALITY)
-            {
-                splitTexts(bestTop, bestTokens, result);
-            }
-
-            y = bestTop + FONT_HEIGHT;
+            splitTexts(bestTop, bestTokens, result);
+            y = bestTop + fontHeight;
         }
 
         return result;
@@ -246,6 +268,7 @@ public:
 private:
     const Image& m_image;
     Region m_region;
+    const Font& m_font;
     Rgb m_background;
 
     Rgb findBackground() const
@@ -279,6 +302,14 @@ private:
     bool isInk(int x, int y) const
     {
         const Rgb& p = m_image.at(x, y);
+
+        const uint32_t color = (p.r << 16) | (p.g << 8) | p.b;
+
+        if (std::find(m_region.ignoredColors.begin(), m_region.ignoredColors.end(), color) != m_region.ignoredColors.end())
+        {
+            return false;
+        }
+
         const int diff = abs(p.r - m_background.r) + abs(p.g - m_background.g) + abs(p.b - m_background.b);
         return diff >= INK_THRESHOLD;
     }
@@ -299,7 +330,7 @@ private:
     {
         int count = 0;
 
-        for (int r = 0; r < FONT_HEIGHT; ++r)
+        for (int r = 0; r < m_font.height; ++r)
         {
             count += isInk(x, top + r);
         }
@@ -314,7 +345,7 @@ private:
             return false;
         }
 
-        for (int r = 0; r < FONT_HEIGHT; ++r)
+        for (int r = 0; r < m_font.height; ++r)
         {
             for (int c = 0; c < glyph.width; ++c)
             {
@@ -335,7 +366,7 @@ private:
         long r = 0, g = 0, b = 0;
         int count = 0;
 
-        for (int row = 0; row < FONT_HEIGHT; ++row)
+        for (int row = 0; row < m_font.height; ++row)
         {
             for (int c = 0; c < width; ++c)
             {
@@ -418,7 +449,7 @@ private:
             }
 
             // Glyph cell may start with blank columns, so only skip fully blank cells
-            for (const Glyph& glyph : g_glyphs)
+            for (const Glyph& glyph : m_font.glyphs)
             {
                 if (i + glyph.width <= n && matches(glyph, x0 + i, top) && anyInk(colInk, i, glyph.width))
                 {
@@ -519,13 +550,13 @@ private:
             {
                 const int gap = token.x - prevEnd;
 
-                if (gap >= SEGMENT_GAP_SPACES * g_spaceWidth || token.color != text.color)
+                if (gap >= SEGMENT_GAP_SPACES * m_font.spaceWidth || token.color != text.color)
                 {
                     flush(text, active, out);
                 }
                 else
                 {
-                    text.value.append(size_t((gap + g_spaceWidth / 2) / g_spaceWidth), ' ');
+                    text.value.append(size_t((gap + m_font.spaceWidth / 2) / m_font.spaceWidth), ' ');
                 }
             }
 
@@ -552,7 +583,7 @@ void usage(const char* program)
 {
     fprintf(stderr,
         "Usage: %s [--plain | --json] <capture.png|capture.bmp>\n"
-        "Recognizes small font texts in the status column and the status row.\n"
+        "Recognizes texts in the marker rows (marker font), the status column and the status row (small font).\n"
         "Default output is tab-separated: region, x, y, color, text.\n"
         "  --plain  output recognized texts only\n"
         "  --json   output a JSON array of recognized text objects\n",
@@ -642,12 +673,15 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    loadGlyphs();
+    loadFonts();
 
     const Region regions[] =
     {
-        { "column", 0, 0, STATUS_COLUMN_WIDTH, image.height },
-        { "row", STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height },
+        { "markers", STATUS_COLUMN_WIDTH, 0, image.width, std::min(MARKER_ROWS_HEIGHT, image.height),
+            &g_markerFont, MARKER_IGNORED_COLORS },
+        { "column", 0, 0, STATUS_COLUMN_WIDTH, image.height, &g_smallFont, {} },
+        { "row", STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height,
+            &g_smallFont, {} },
     };
 
     bool firstJsonItem = true;

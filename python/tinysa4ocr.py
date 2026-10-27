@@ -5,9 +5,10 @@
 #
 # Loads a capture (PNG or 16 bit BMP) and recognizes texts rendered with the
 # small 5x7 font in the status column (left part of the screen) and in the
-# status row (bottom of the screen) by exact glyph bitmap matching.
+# status row (bottom of the screen), and texts rendered with the 7x11 bold font
+# in the marker rows (top of the screen) by exact glyph bitmap matching.
 #
-# Font data is derived from Font5x7.c of https://github.com/erikkaashoek/tinySA
+# Font data is derived from Font5x7.c and Font7x13b.c of https://github.com/erikkaashoek/tinySA
 # Copyright (c) 2019-2020, Dmitry (DiSlord) dislordlive@gmail.com
 # Licensed under GPL v3 or later.
 #
@@ -37,8 +38,12 @@ SEGMENT_GAP_SPACES = 3    # gap of this many spaces or more splits texts
 INK_THRESHOLD = 100       # sum of per-channel differences from background
 MIN_QUALITY = 0.85        # minimal share of ink explained by recognized glyphs
 FONT_HEIGHT = 7
+MARKER_FONT_HEIGHT = 11
+MARKER_ROWS_HEIGHT = 64   # 4 marker rows, 16 pixels each
+# Chart grid, band separator and trigger level lines show through marker texts, they are not ink
+MARKER_IGNORED_COLORS = frozenset((0x848284, 0x0000ff))
 
-# Characters 0x20..0x7E: (width, 7 row bytes in hex, bit 7 is leftmost column)
+# Small font characters 0x20..0x7E: (width, 7 row bytes in hex, bit 7 is leftmost column)
 FONT = {
     ' ': (4, '00000000000000'),
     '!': (3, '40404040400040'),
@@ -138,39 +143,140 @@ FONT = {
 }
 
 
+# Marker font characters 0x20..0x7E: (width, 11 row bytes in hex, bit 7 is leftmost column)
+FONT_MARKER = {
+    ' ': (4, '0400000000000000000000'),
+    '!': (4, '0460606060606000606000'),
+    '"': (6, '02d8d8d800000000000000'),
+    '#': (6, '025050f8f850f8f8505000'),
+    '$': (8, '00307cb0b0783434f83000'),
+    '%': (8, '6092966c18306cd2920c00'),
+    '&': (8, '0070d8d87072dcccdc7200'),
+    "'": (5, '03e0e060c0000000000000'),
+    '(': (5, '03306060c0c0c060603000'),
+    ')': (5, '03c060603030306060c000'),
+    '*': (7, '01000020a870a820000000'),
+    '+': (7, '0100003030fcfc30300000'),
+    ',': (4, '0400000000000040e060c0'),
+    '-': (7, '0100000000fcfc00000000'),
+    '.': (4, '0400000000000040e04000'),
+    '/': (7, '010c0c1818306060c0c000'),
+    '0': (7, '0178cccccccccccccc7800'),
+    '1': (7, '013070b03030303030fc00'),
+    '2': (7, '0178cccc0c3860c0c0fc00'),
+    '3': (7, '0178cccc0c380ccccc7800'),
+    '4': (7, '010c1c3c6cccccfc0c0c00'),
+    '5': (7, '01fcc0c0f8cc0c0ccc7800'),
+    '6': (7, '0178ccc0c0f8cccccc7800'),
+    '7': (7, '01fc0c0c18183030606000'),
+    '8': (7, '0178cccccc78cccccc7800'),
+    '9': (7, '0178cccccc7c0c0ccc7800'),
+    ':': (4, '040040e0400040e0400000'),
+    ';': (4, '040040e0400040e0408000'),
+    '<': (7, '010c183060c06030180c00'),
+    '=': (7, '01000000fc0000fc000000'),
+    '>': (7, '01c06030180c183060c000'),
+    '?': (7, '0178cccc0c183000303000'),
+    '@': (7, '01788c8cbcacb8808c7800'),
+    'A': (7, '0178ccccccfccccccccc00'),
+    'B': (7, '01f8ccccccf8ccccccf800'),
+    'C': (7, '0178ccccc0c0c0cccc7800'),
+    'D': (7, '01f8ccccccccccccccf800'),
+    'E': (7, '01fcc0c0c0f8c0c0c0fc00'),
+    'F': (7, '01fcc0c0c0f8c0c0c0c000'),
+    'G': (7, '0178ccccc0c0dcccdc6c00'),
+    'H': (7, '01ccccccccfccccccccc00'),
+    'I': (5, '03f060606060606060f000'),
+    'J': (7, '010c0c0c0c0c0c0ccc7800'),
+    'K': (7, '01ccccccd8f0d8cccccc00'),
+    'L': (7, '01c0c0c0c0c0c0c0c0fc00'),
+    'M': (8, '00c6c6eeeed6d6d6c6c600'),
+    'N': (7, '01ccccececfcdcdccccc00'),
+    'O': (7, '0178cccccccccccccc7800'),
+    'P': (7, '01f8ccccccf8c0c0c0c000'),
+    'Q': (7, '0178ccccccccccecdc780c'),
+    'R': (7, '01f8ccccccf8d8cccccc00'),
+    'S': (7, '0178cccc603018cccc7800'),
+    'T': (7, '01fcb43030303030303000'),
+    'U': (7, '01cccccccccccccccc7800'),
+    'V': (8, '00c6c6c66c6c6c38381000'),
+    'W': (8, '00c6c6c6d6d6d6d6fe6c00'),
+    'X': (7, '01cccccc483048cccccc00'),
+    'Y': (7, '01cccccccc783030303000'),
+    'Z': (7, '01fc0c0c183060c0c0fc00'),
+    '[': (5, '03f0c0c0c0c0c0c0c0f000'),
+    '\\': (7, '01c0c060603018180c0c00'),
+    ']': (5, '03f030303030303030f000'),
+    '^': (7, '013078cc84000000000000'),
+    '_': (7, '010000000000000000fcfc'),
+    '`': (5, '03c0603000000000000000'),
+    'a': (7, '01000000780c7ccccc7c00'),
+    'b': (7, '01c0c0c0d8ecccccecd800'),
+    'c': (7, '0100000078ccc0c0cc7800'),
+    'd': (7, '010c0c0c6cdcccccdc6c00'),
+    'e': (7, '0100000078ccfcc0cc7800'),
+    'f': (7, '01386c6060f06060606000'),
+    'g': (7, '0100000074cccccc7c0c78'),
+    'h': (7, '01c0c0c0d8eccccccccc00'),
+    'i': (5, '03606000e060606060f000'),
+    'j': (7, '010c0c000c0c0c0c0ccc78'),
+    'k': (7, '01c0c0c0ccd8f0f0d8cc00'),
+    'l': (7, '017030303030303030fc00'),
+    'm': (8, '00000000ecfed6d6d6d600'),
+    'n': (7, '01000000d8eccccccccc00'),
+    'o': (7, '0100000078cccccccc7800'),
+    'p': (7, '01000000d8ecccccf8c0c0'),
+    'q': (7, '010000006cdccccc7c0c0c'),
+    'r': (7, '01000000d8ecc0c0c0c000'),
+    's': (7, '0100000078cc6018cc7800'),
+    't': (7, '01006060f86060606c3800'),
+    'u': (7, '01000000ccccccccdc6c00'),
+    'v': (7, '01000000cccc4848303000'),
+    'w': (8, '00000000c6c6d6d6fe6c00'),
+    'x': (7, '01000000cc48303048cc00'),
+    'y': (7, '01000000cccccc7c0ccc78'),
+    'z': (7, '01000000fc0c1860c0fc00'),
+    '{': (6, '0238606060c06060603800'),
+    '|': (5, '0360606060606060606000'),
+    '}': (6, '02e030303018303030e000'),
+    '~': (7, '0164fc9800000000000000'),
+}
+
+
 class Glyph:
     __slots__ = ('ch', 'width', 'ink', 'cols')
 
-    def __init__(self, ch, width, rows):
+    def __init__(self, ch, width, rows, height):
         self.ch = ch
         self.width = width
         # Bit r of each column mask is set if row r is inked
-        self.cols = tuple(sum(((rows[r] >> (7 - c)) & 1) << r for r in range(FONT_HEIGHT)) for c in range(width))
+        self.cols = tuple(sum(((rows[r] >> (7 - c)) & 1) << r for r in range(height)) for c in range(width))
         self.ink = sum(bin(col).count('1') for col in self.cols)
 
 
-def load_glyphs():
-    glyphs = []
-    space_width = 4
+class Font:
+    def __init__(self, data, height):
+        self.height = height
+        self.glyphs = []
+        self.space_width = 4
 
-    for ch, (width, rows) in FONT.items():
-        if ch == ' ':
-            space_width = width
-            continue
+        for ch, (width, rows) in data.items():
+            if ch == ' ':
+                self.space_width = width
+                continue
 
-        # 'O' is identical to '0' and is resolved by resolve_zero_o()
-        if ch == 'O':
-            continue
+            # 'O' is identical to '0' and is resolved by resolve_zero_o()
+            if ch == 'O':
+                continue
 
-        glyph = Glyph(ch, width, bytes.fromhex(rows))
+            glyph = Glyph(ch, width, bytes.fromhex(rows), height)
 
-        if glyph.ink > 0:
-            glyphs.append(glyph)
-
-    return glyphs, space_width
+            if glyph.ink > 0:
+                self.glyphs.append(glyph)
 
 
-GLYPHS, SPACE_WIDTH = load_glyphs()
+SMALL_FONT = Font(FONT, FONT_HEIGHT)
+MARKER_FONT = Font(FONT_MARKER, MARKER_FONT_HEIGHT)
 
 
 class Image:
@@ -362,8 +468,9 @@ def resolve_zero_o(value):
 
 
 class Recognizer:
-    def __init__(self, image, x0, y0, x1, y1):
+    def __init__(self, image, x0, y0, x1, y1, font, ignore=()):
         self.image = image
+        self.font = font
         self.x0, self.y0, self.x1, self.y1 = x0, y0, x1, y1
 
         histogram = Counter()
@@ -387,7 +494,7 @@ class Recognizer:
                 ink = ink_cache.get(p)
 
                 if ink is None:
-                    ink = abs((p >> 16) - br) + abs(((p >> 8) & 255) - bg) + abs((p & 255) - bb) >= INK_THRESHOLD
+                    ink = p not in ignore and abs((p >> 16) - br) + abs(((p >> 8) & 255) - bg) + abs((p & 255) - bb) >= INK_THRESHOLD
                     ink_cache[p] = ink
 
                 if ink:
@@ -402,7 +509,7 @@ class Recognizer:
     def cell_color(self, x, width, top):
         r = g = b = count = 0
 
-        for row in range(FONT_HEIGHT):
+        for row in range(self.font.height):
             for c in range(width):
                 if self.is_ink(x + c, top + row):
                     p = self.image.rows[top + row][x + c]
@@ -416,7 +523,7 @@ class Recognizer:
     def decode_line(self, top):
         """Returns (score, quality, tokens) for the best glyph sequence of a line starting at the given row."""
         n = self.x1 - self.x0
-        mask = (1 << FONT_HEIGHT) - 1
+        mask = (1 << self.font.height) - 1
         cols = [(bits >> top) & mask for bits in self.colbits]
         colink = [bin(c).count('1') for c in cols]
         totalink = sum(colink)
@@ -429,7 +536,7 @@ class Recognizer:
         prev = [-1] * (n + 1)
         glyph = [None] * (n + 1)
         unknown = [False] * (n + 1)
-        glyphs = GLYPHS
+        glyphs = self.font.glyphs
 
         for i in range(n):
             base = score[i]
@@ -495,6 +602,7 @@ class Recognizer:
     def run(self):
         result = []
         y = self.y0
+        height = self.font.height
 
         while y < self.y1:
             if self.rowink[y] == 0:
@@ -502,13 +610,13 @@ class Recognizer:
                 continue
 
             # Top ink row may belong to any glyph row, so try all line positions
-            last_top = self.y1 - FONT_HEIGHT
+            last_top = self.y1 - height
             best_top = -1
             best_score = 0.0
             best_tokens = []
             best_quality = 0.0
 
-            for top in range(max(self.y0, y - (FONT_HEIGHT - 1)), min(y, last_top) + 1):
+            for top in range(max(self.y0, y - (height - 1)), min(y, last_top) + 1):
                 score, quality, tokens = self.decode_line(top)
 
                 if score > best_score:
@@ -517,19 +625,17 @@ class Recognizer:
                     best_tokens = tokens
                     best_quality = quality
 
-            if best_top < 0:
+            if best_top < 0 or best_quality < MIN_QUALITY:
                 y += 1
                 continue
 
-            if best_quality >= MIN_QUALITY:
-                self.split_texts(best_top, best_tokens, result)
-
-            y = best_top + FONT_HEIGHT
+            self.split_texts(best_top, best_tokens, result, self.font.space_width)
+            y = best_top + height
 
         return result
 
     @staticmethod
-    def split_texts(top, tokens, out):
+    def split_texts(top, tokens, out, space_width):
         text = None  # [x, y, color, value]
         prev_end = 0
 
@@ -537,12 +643,12 @@ class Recognizer:
             if text is not None:
                 gap = x - prev_end
 
-                if gap >= SEGMENT_GAP_SPACES * SPACE_WIDTH or color != text[2]:
+                if gap >= SEGMENT_GAP_SPACES * space_width or color != text[2]:
                     text[3] = resolve_zero_o(text[3])
                     out.append(tuple(text))
                     text = None
                 else:
-                    text[3] += ' ' * ((gap + SPACE_WIDTH // 2) // SPACE_WIDTH)
+                    text[3] += ' ' * ((gap + space_width // 2) // space_width)
 
             if text is None:
                 text = [x, top, color, '']
@@ -560,7 +666,7 @@ class Recognizer:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Recognizes small font texts in the status column and the status row. '
+        description='Recognizes texts in the marker rows (marker font), the status column and the status row (small font). '
         'Default output is tab-separated: region, x, y, color, text.')
     parser.add_argument('capture', metavar='capture.png|capture.bmp')
     group = parser.add_mutually_exclusive_group()
@@ -579,15 +685,16 @@ def main():
         return 1
 
     regions = (
-        ('column', 0, 0, STATUS_COLUMN_WIDTH, image.height),
-        ('row', STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height),
+        ('markers', STATUS_COLUMN_WIDTH, 0, image.width, min(MARKER_ROWS_HEIGHT, image.height), MARKER_FONT, MARKER_IGNORED_COLORS),
+        ('column', 0, 0, STATUS_COLUMN_WIDTH, image.height, SMALL_FONT, ()),
+        ('row', STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height, SMALL_FONT, ()),
     )
 
     lines = []
     items = []
 
-    for name, x0, y0, x1, y1 in regions:
-        for x, y, color, value in Recognizer(image, x0, y0, x1, y1).run():
+    for name, x0, y0, x1, y1, font, ignore in regions:
+        for x, y, color, value in Recognizer(image, x0, y0, x1, y1, font, ignore).run():
             if args.plain:
                 lines.append(value)
             elif args.json:
