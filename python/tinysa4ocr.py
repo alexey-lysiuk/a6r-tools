@@ -5,10 +5,10 @@
 #
 # Loads a capture (PNG or 16 bit BMP) and recognizes texts rendered with the
 # small 5x7 font in the status column (left part of the screen) and in the
-# status row (bottom of the screen), and texts rendered with the big 10x14 font
+# status row (bottom of the screen), and texts rendered with the 7x11 bold font
 # in the marker rows (top of the screen) by exact glyph bitmap matching.
 #
-# Font data is derived from Font5x7.c and Font10x14.c of https://github.com/erikkaashoek/tinySA
+# Font data is derived from Font5x7.c and Font7x13b.c of https://github.com/erikkaashoek/tinySA
 # Copyright (c) 2019-2020, Dmitry (DiSlord) dislordlive@gmail.com
 # Licensed under GPL v3 or later.
 #
@@ -38,7 +38,7 @@ SEGMENT_GAP_SPACES = 3    # gap of this many spaces or more splits texts
 INK_THRESHOLD = 100       # sum of per-channel differences from background
 MIN_QUALITY = 0.85        # minimal share of ink explained by recognized glyphs
 FONT_HEIGHT = 7
-BIG_FONT_HEIGHT = 14
+MARKER_FONT_HEIGHT = 11
 MARKER_ROWS_HEIGHT = 64   # 4 marker rows, 16 pixels each
 GRID_COLOR = 0x848284     # chart grid shows through marker texts, not ink
 
@@ -142,119 +142,119 @@ FONT = {
 }
 
 
-# Big font characters 0x20..0x7E: (width, 14 row words in hex, bit 15 is leftmost column)
-FONT_BIG = {
-    ' ': (7, '00070000000000000000000000000000000000000000000000000000'),
-    '!': (7, '30073000780078007800780030003000300030000000300078003000'),
-    '"': (9, '66056600660066004400000000000000000000000000000000000000'),
-    '#': (12, '0002330033003300ffc0ffc033003300ffc0ffc03300330033000000'),
-    '$': (11, '3e036b00c900c900e80078003c000e000b00098089808980cb007e00'),
-    '%': (14, '70108830886088c08980730006000ce0191031106110c11080e00000'),
-    '&': (14, '1e0031003100310032001cf018602c404e80c700c300c390e5f07860'),
-    "'": (7, '38073800380038000000000000000000000000000000000000000000'),
-    '(': (7, '00070000180030006000c000c000c000c000c0006000300018000000'),
-    ')': (7, '00070000c000600030001800180018001800180030006000c0000000'),
-    '*': (10, '0004000000001000d600d6003800d600d60010000000000000000000'),
-    '+': (10, '000400000000180018001800ff00ff00180018001800000000000000'),
-    ',': (7, '00070000000000000000000000000000000000006000f0007000e000'),
-    '-': (10, '000400000000000000000000ff00ff00000000000000000000000000'),
-    '.': (7, '000700000000000000000000000000000000000000006000f0006000'),
-    '/': (10, '0004000000000100030006001800180030006000c000800000000000'),
-    '0': (12, '3f027f80f3c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0f3c07f803f00'),
-    '1': (9, '38057800f800f80038003800380038003800380038003800fe00fe00'),
-    '2': (12, '3f027f80f3c0e1c001c003c007800f003c007800f000f000ffc0ffc0'),
-    '3': (12, '3f027f80f3c0e1c001c003c01f801f8003c001c0e1c0f3c07f803f00'),
-    '4': (12, 'e382e380e380e380e380e380e380e380e380ffc0ffc0038003800380'),
-    '5': (12, 'ffc2ffc0e000e000e000ff00ff80e3c001c001c0e1c0f3c07f803f00'),
-    '6': (12, '3f027f80f3c0e1c0e000ef00ff80f3c0e1c0e1c0e1c0f3c07f803f00'),
-    '7': (12, 'ffc2ffc0e1c001c001c003c007800f001e001c001c001c001c001c00'),
-    '8': (12, '3f027f80f3c0e1c0e1c0f3c07f807f80f3c0e1c0e1c0f3c07f803f00'),
-    '9': (12, '3f027f80f3c0e1c0e1c0e1c0f3c07fc03dc001c0e1c0f3c07f803f00'),
-    ':': (7, '000700006000f000600000000000000000006000f000600000000000'),
-    ';': (7, '000700006000f000600000000000000000006000f000300060000000'),
-    '<': (12, '0002000000c003800e003800e000e00038000e00038000c000000000'),
-    '=': (12, '0002000000000000ffc0ffc000000000ffc0ffc00000000000000000'),
-    '>': (12, '00020000c00070001c00070001c001c007001c007000c00000000000'),
-    '?': (12, '3f027f80f3c0e1c001c001c0038007000e001c001c0000001c001c00'),
-    '@': (14, '0f0030c04020869089909090909090909090899086e0400030000f00'),
-    'A': (12, '0c021e003f007f80f3c0e1c0e1c0e1c0ffc0ffc0e1c0e1c0e1c0e1c0'),
-    'B': (12, 'ff02ff80e3c0e1c0e1c0e3c0ff80ff80e3c0e1c0e1c0e3c0ff80ff00'),
-    'C': (12, '3f027f80f3c0e1c0e000e000e000e000e000e000e1c0f3c07f803f00'),
-    'D': (12, 'ff02ff80e3c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0e3c0ff80ff00'),
-    'E': (12, 'ffc2ffc0e000e000e000e000ff00ff00e000e000e000e000ffc0ffc0'),
-    'F': (12, 'ffc2ffc0e000e000e000e000ff00ff00e000e000e000e000e000e000'),
-    'G': (12, '3f027f80f3c0e1c0e000e000e7c0e7c0e1c0e1c0e3c0f7c07ec03cc0'),
-    'H': (12, 'e1c2e1c0e1c0e1c0e1c0e1c0ffc0ffc0e1c0e1c0e1c0e1c0e1c0e1c0'),
-    'I': (9, 'fe05380038003800380038003800380038003800380038003800fe00'),
-    'J': (12, '1fc21fc00380038003800380038003800380e380e380f7807f003e00'),
-    'K': (13, 'e0e1e1e0e3c0e780ef00fe00fc00fc00fe00ef00e780e3c0e1e0e0e0'),
-    'L': (12, 'e002e000e000e000e000e000e000e000e000e000e000e000ffc0ffc0'),
-    'M': (13, 'e0e1e0e0f1e0fbe0ffe0ffe0ffe0eee0eee0e4e0e0e0e0e0e0e0e0e0'),
-    'N': (12, 'e1c2e1c0e1c0f1c0f9c0fdc0ffc0efc0e7c0e3c0e1c0e1c0e1c0e1c0'),
-    'O': (12, '3f027f80f3c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0f3c07f803f00'),
-    'P': (12, 'ff02ff80e3c0e1c0e1c0e3c0ff80ff00e000e000e000e000e000e000'),
-    'Q': (13, '3f817fc0f1e0e0e0e0e0e0e0e0e0e0e0eee0efe0e780f3c07fe03ee0'),
-    'R': (12, 'ff02ff80e3c0e1c0e1c0e3c0ff80ff00ff80e3c0e1c0e1c0e1c0e1c0'),
-    'S': (12, '3f027f80f3c0e1c0e000f0007f003f8003c001c0e1c0f3c07f803f00'),
-    'T': (13, 'ffe1ffe08e200e000e000e000e000e000e000e000e000e000e000e00'),
-    'U': (12, 'e1c2e1c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0f3c07f803f00'),
-    'V': (12, 'e1c2e1c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0f3c07f803f001e000c00'),
-    'W': (13, 'e0e1e0e0e0e0e0e0e0e0eee0eee0eee0eee0eee0ffe0ffe07bc03180'),
-    'X': (13, 'e0e1e0e0e0e0f1e07bc03f801f001f003f807bc0f1e0e0e0e0e0e0e0'),
-    'Y': (13, 'e0e1e0e0e0e0f1e07bc03f801f000e000e000e000e000e000e000e00'),
-    'Z': (13, 'ffe1ffe000e001e003c007800f001e003c007800f000e000ffe0ffe0'),
-    '[': (7, 'f807f800e000e000e000e000e000e000e000e000e000e000f800f800'),
-    '\\': (10, '0004000000008000c0006000600018000c0006000300010000000000'),
-    ']': (7, 'f807f8003800380038003800380038003800380038003800f800f800'),
-    '^': (11, '08031c0036006300c180000000000000000000000000000000000000'),
-    '_': (13, '000100000000000000000000000000000000000000000000ffe0ffe0'),
-    '`': (7, '60073000180000000000000000000000000000000000000000000000'),
-    'a': (13, '00010000000000007f80ffc0e1c001c07fc0ffc0e1c0e1c0ffe07f60'),
-    'b': (12, 'e002e000e000e000ef00ff80f3c0e1c0e1c0e1c0e1c0f3c0ff80df00'),
-    'c': (12, '00020000000000003f007f80f3c0e1c0e000e000e1c0f3c07f803f00'),
-    'd': (12, '01c201c001c001c03dc07fc0f3c0e1c0e1c0e1c0e1c0f1c07fc03ec0'),
-    'e': (12, '00020000000000003f007f80f3c0e1c0ffc0ffc0e000f0c07fc03f80'),
-    'f': (12, '0fc21fc01c001c00ff80ff801c001c001c001c001c001c001c001c00'),
-    'g': (12, '00020000000000003ec07fc0f1c0e1c0e1c0f3c07fc03fc001c07f80'),
-    'h': (12, 'e002e000e000e000ef00ff80f3c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0'),
-    'i': (9, '3805380000000000f80038003800380038003800380038003800fe00'),
-    'j': (10, '07040700000000001f000700070007000700070007000700e7007e00'),
-    'k': (13, 'e001e000e000e000e0e0e1e0e3c0e780ff00ff00e780e3c0e1e0e0e0'),
-    'l': (9, 'f805380038003800380038003800380038003800380038003800fe00'),
-    'm': (13, '0001000000000000db80ffc0ffe0eee0eee0eee0eee0eee0eee0eee0'),
-    'n': (12, '0002000000000000df00ff80f3c0e1c0e1c0e1c0e1c0e1c0e1c0e1c0'),
-    'o': (12, '00020000000000003f007f80f3c0e1c0e1c0e1c0e1c0f3c07f803f00'),
-    'p': (12, '0002000000000000df80ffc0e1c0e1c0e1c0e1c0e1c0ffc0ff80e000'),
-    'q': (13, '00010000000000003ee07fc0e1c0e1c0e1c0e1c0e1c07fc03fc001c0'),
-    'r': (12, '0002000000000000df80ffc0f1c0e1c0e000e000e000e000e000e000'),
-    's': (12, '00020000000000007f80ffc0e1c0e000ff807fc001c0e1c0ffc07f80'),
-    't': (12, '1c021c001c001c00ff80ff801c001c001c001c001c001dc01fc00f80'),
-    'u': (12, '0002000000000000e1c0e1c0e1c0e1c0e1c0e1c0e1c0f3c07fc03ec0'),
-    'v': (12, '0002000000000000e1c0e1c0e1c0e1c0e1c0f3c07f803f001e000c00'),
-    'w': (13, '0001000000000000e0e0e0e0eee0eee0eee0eee0eee0ffe07fc03b80'),
-    'x': (13, '0001000000000000e0e0f1e07bc03f801f001f003f807bc0f1e0e0e0'),
-    'y': (12, '0002000000000000e1c0e1c0e1c0e1c0f1c07fc01dc001c0e1c07f80'),
-    'z': (12, '0002000000000000ffc0ffc0038007000e001c0038007000ffc0ffc0'),
-    '{': (7, '0007000038006000600060006000c000600060006000600038000000'),
-    '|': (7, '30073000300030003000300030003000300030003000300030003000'),
-    '}': (7, '00070000e000300030003000300018003000300030003000e0000000'),
-    '~': (11, '000300000000000038c06d80c7000000000000000000000000000000'),
+# Marker font characters 0x20..0x7E: (width, 11 row bytes in hex, bit 7 is leftmost column)
+FONT_MARKER = {
+    ' ': (4, '0400000000000000000000'),
+    '!': (4, '0460606060606000606000'),
+    '"': (6, '02d8d8d800000000000000'),
+    '#': (6, '025050f8f850f8f8505000'),
+    '$': (8, '00307cb0b0783434f83000'),
+    '%': (8, '6092966c18306cd2920c00'),
+    '&': (8, '0070d8d87072dcccdc7200'),
+    "'": (5, '03e0e060c0000000000000'),
+    '(': (5, '03306060c0c0c060603000'),
+    ')': (5, '03c060603030306060c000'),
+    '*': (7, '01000020a870a820000000'),
+    '+': (7, '0100003030fcfc30300000'),
+    ',': (4, '0400000000000040e060c0'),
+    '-': (7, '0100000000fcfc00000000'),
+    '.': (4, '0400000000000040e04000'),
+    '/': (7, '010c0c1818306060c0c000'),
+    '0': (7, '0178cccccccccccccc7800'),
+    '1': (7, '013070b03030303030fc00'),
+    '2': (7, '0178cccc0c3860c0c0fc00'),
+    '3': (7, '0178cccc0c380ccccc7800'),
+    '4': (7, '010c1c3c6cccccfc0c0c00'),
+    '5': (7, '01fcc0c0f8cc0c0ccc7800'),
+    '6': (7, '0178ccc0c0f8cccccc7800'),
+    '7': (7, '01fc0c0c18183030606000'),
+    '8': (7, '0178cccccc78cccccc7800'),
+    '9': (7, '0178cccccc7c0c0ccc7800'),
+    ':': (4, '040040e0400040e0400000'),
+    ';': (4, '040040e0400040e0408000'),
+    '<': (7, '010c183060c06030180c00'),
+    '=': (7, '01000000fc0000fc000000'),
+    '>': (7, '01c06030180c183060c000'),
+    '?': (7, '0178cccc0c183000303000'),
+    '@': (7, '01788c8cbcacb8808c7800'),
+    'A': (7, '0178ccccccfccccccccc00'),
+    'B': (7, '01f8ccccccf8ccccccf800'),
+    'C': (7, '0178ccccc0c0c0cccc7800'),
+    'D': (7, '01f8ccccccccccccccf800'),
+    'E': (7, '01fcc0c0c0f8c0c0c0fc00'),
+    'F': (7, '01fcc0c0c0f8c0c0c0c000'),
+    'G': (7, '0178ccccc0c0dcccdc6c00'),
+    'H': (7, '01ccccccccfccccccccc00'),
+    'I': (5, '03f060606060606060f000'),
+    'J': (7, '010c0c0c0c0c0c0ccc7800'),
+    'K': (7, '01ccccccd8f0d8cccccc00'),
+    'L': (7, '01c0c0c0c0c0c0c0c0fc00'),
+    'M': (8, '00c6c6eeeed6d6d6c6c600'),
+    'N': (7, '01ccccececfcdcdccccc00'),
+    'O': (7, '0178cccccccccccccc7800'),
+    'P': (7, '01f8ccccccf8c0c0c0c000'),
+    'Q': (7, '0178ccccccccccecdc780c'),
+    'R': (7, '01f8ccccccf8d8cccccc00'),
+    'S': (7, '0178cccc603018cccc7800'),
+    'T': (7, '01fcb43030303030303000'),
+    'U': (7, '01cccccccccccccccc7800'),
+    'V': (8, '00c6c6c66c6c6c38381000'),
+    'W': (8, '00c6c6c6d6d6d6d6fe6c00'),
+    'X': (7, '01cccccc483048cccccc00'),
+    'Y': (7, '01cccccccc783030303000'),
+    'Z': (7, '01fc0c0c183060c0c0fc00'),
+    '[': (5, '03f0c0c0c0c0c0c0c0f000'),
+    '\\': (7, '01c0c060603018180c0c00'),
+    ']': (5, '03f030303030303030f000'),
+    '^': (7, '013078cc84000000000000'),
+    '_': (7, '010000000000000000fcfc'),
+    '`': (5, '03c0603000000000000000'),
+    'a': (7, '01000000780c7ccccc7c00'),
+    'b': (7, '01c0c0c0d8ecccccecd800'),
+    'c': (7, '0100000078ccc0c0cc7800'),
+    'd': (7, '010c0c0c6cdcccccdc6c00'),
+    'e': (7, '0100000078ccfcc0cc7800'),
+    'f': (7, '01386c6060f06060606000'),
+    'g': (7, '0100000074cccccc7c0c78'),
+    'h': (7, '01c0c0c0d8eccccccccc00'),
+    'i': (5, '03606000e060606060f000'),
+    'j': (7, '010c0c000c0c0c0c0ccc78'),
+    'k': (7, '01c0c0c0ccd8f0f0d8cc00'),
+    'l': (7, '017030303030303030fc00'),
+    'm': (8, '00000000ecfed6d6d6d600'),
+    'n': (7, '01000000d8eccccccccc00'),
+    'o': (7, '0100000078cccccccc7800'),
+    'p': (7, '01000000d8ecccccf8c0c0'),
+    'q': (7, '010000006cdccccc7c0c0c'),
+    'r': (7, '01000000d8ecc0c0c0c000'),
+    's': (7, '0100000078cc6018cc7800'),
+    't': (7, '01006060f86060606c3800'),
+    'u': (7, '01000000ccccccccdc6c00'),
+    'v': (7, '01000000cccc4848303000'),
+    'w': (8, '00000000c6c6d6d6fe6c00'),
+    'x': (7, '01000000cc48303048cc00'),
+    'y': (7, '01000000cccccc7c0ccc78'),
+    'z': (7, '01000000fc0c1860c0fc00'),
+    '{': (6, '0238606060c06060603800'),
+    '|': (5, '0360606060606060606000'),
+    '}': (6, '02e030303018303030e000'),
+    '~': (7, '0164fc9800000000000000'),
 }
 
 
 class Glyph:
     __slots__ = ('ch', 'width', 'ink', 'cols')
 
-    def __init__(self, ch, width, rows, height, bits):
+    def __init__(self, ch, width, rows, height):
         self.ch = ch
         self.width = width
         # Bit r of each column mask is set if row r is inked
-        self.cols = tuple(sum(((rows[r] >> (bits - 1 - c)) & 1) << r for r in range(height)) for c in range(width))
+        self.cols = tuple(sum(((rows[r] >> (7 - c)) & 1) << r for r in range(height)) for c in range(width))
         self.ink = sum(bin(col).count('1') for col in self.cols)
 
 
 class Font:
-    def __init__(self, data, height, bits):
+    def __init__(self, data, height):
         self.height = height
         self.glyphs = []
         self.space_width = 4
@@ -268,16 +268,14 @@ class Font:
             if ch == 'O':
                 continue
 
-            raw = bytes.fromhex(rows)
-            words = [int.from_bytes(raw[i * bits // 8:(i + 1) * bits // 8], 'big') for i in range(height)]
-            glyph = Glyph(ch, width, words, height, bits)
+            glyph = Glyph(ch, width, bytes.fromhex(rows), height)
 
             if glyph.ink > 0:
                 self.glyphs.append(glyph)
 
 
-SMALL_FONT = Font(FONT, FONT_HEIGHT, 8)
-BIG_FONT = Font(FONT_BIG, BIG_FONT_HEIGHT, 16)
+SMALL_FONT = Font(FONT, FONT_HEIGHT)
+MARKER_FONT = Font(FONT_MARKER, MARKER_FONT_HEIGHT)
 
 
 class Image:
@@ -667,7 +665,7 @@ class Recognizer:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Recognizes texts in the marker rows (big font), the status column and the status row (small font). '
+        description='Recognizes texts in the marker rows (marker font), the status column and the status row (small font). '
         'Default output is tab-separated: region, x, y, color, text.')
     parser.add_argument('capture', metavar='capture.png|capture.bmp')
     group = parser.add_mutually_exclusive_group()
@@ -686,7 +684,7 @@ def main():
         return 1
 
     regions = (
-        ('markers', STATUS_COLUMN_WIDTH, 0, image.width, min(MARKER_ROWS_HEIGHT, image.height), BIG_FONT, GRID_COLOR),
+        ('markers', STATUS_COLUMN_WIDTH, 0, image.width, min(MARKER_ROWS_HEIGHT, image.height), MARKER_FONT, GRID_COLOR),
         ('column', 0, 0, STATUS_COLUMN_WIDTH, image.height, SMALL_FONT, None),
         ('row', STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height, SMALL_FONT, None),
     )

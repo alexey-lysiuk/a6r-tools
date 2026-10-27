@@ -18,8 +18,8 @@
 #define STBI_NO_HDR
 #include "stb_image.h"
 
-#include "font10x14.h"
 #include "font5x7.h"
+#include "font7x11b.h"
 
 namespace
 {
@@ -27,7 +27,7 @@ namespace
 constexpr int STATUS_COLUMN_WIDTH = 30; // OFFSETX in tinySA firmware
 constexpr int STATUS_ROW_HEIGHT = 8;    // FREQUENCIES_YPOS = LCD_HEIGHT - 8
 constexpr int MARKER_ROWS_HEIGHT = 64;  // 4 marker rows, 16 pixels each
-constexpr int MAX_FONT_HEIGHT = BIG_FONT_HEIGHT;
+constexpr int MAX_FONT_HEIGHT = MARKER_FONT_HEIGHT;
 constexpr int SEGMENT_GAP_SPACES = 3;   // gap of this many spaces or more splits texts
 constexpr int INK_THRESHOLD = 100;      // sum of per-channel differences from background
 constexpr double MIN_QUALITY = 0.85;    // minimal share of ink explained by recognized glyphs
@@ -39,7 +39,7 @@ struct Glyph
     char ch;
     int width;
     int ink;
-    uint16_t rows[MAX_FONT_HEIGHT]; // bit 15 is leftmost column
+    uint8_t rows[MAX_FONT_HEIGHT]; // bit 7 is leftmost column
 };
 
 struct Font
@@ -88,11 +88,9 @@ struct Text
 };
 
 Font g_smallFont;
-Font g_bigFont;
+Font g_markerFont;
 
-// Source rows are left aligned to bit 15 of the glyph rows
-template <typename Row>
-void addGlyph(Font& font, int code, int width, const Row* rows, int rowBits)
+void addGlyph(Font& font, int code, int width, const uint8_t* rows)
 {
     if (code == ' ')
     {
@@ -113,12 +111,12 @@ void addGlyph(Font& font, int code, int width, const Row* rows, int rowBits)
     for (int r = 0; r < font.height; ++r)
     {
         // First row also stores the width in its low bits, drop everything past the glyph width
-        const uint16_t row = uint16_t(uint16_t(rows[r] << (16 - rowBits)) & uint16_t(0xFFFF << (16 - width)));
+        const uint8_t row = rows[r] & uint8_t(0xFF << (8 - width));
         glyph.rows[r] = row;
 
         for (int c = 0; c < width; ++c)
         {
-            glyph.ink += (row >> (15 - c)) & 1;
+            glyph.ink += (row >> (7 - c)) & 1;
         }
     }
 
@@ -134,15 +132,15 @@ void loadFonts()
 
     for (int i = 0, count = int(sizeof(x5x7_bits) / FONT_HEIGHT); i < count; ++i)
     {
-        addGlyph(g_smallFont, FONT_START_CHAR + i, FONT_GET_WIDTH(x5x7_bits, i), &x5x7_bits[i * FONT_HEIGHT], 8);
+        addGlyph(g_smallFont, FONT_START_CHAR + i, FONT_GET_WIDTH(x5x7_bits, i), &x5x7_bits[i * FONT_HEIGHT]);
     }
 
-    g_bigFont.height = BIG_FONT_HEIGHT;
+    g_markerFont.height = MARKER_FONT_HEIGHT;
 
-    for (int i = 0, count = int(sizeof(x10x14_bits) / sizeof(uint16_t) / BIG_FONT_HEIGHT); i < count; ++i)
+    for (int i = 0, count = int(sizeof(x7x11b_bits) / MARKER_FONT_HEIGHT); i < count; ++i)
     {
-        addGlyph(g_bigFont, BIG_FONT_START_CHAR + i, BIG_FONT_GET_WIDTH(x10x14_bits, i),
-            &x10x14_bits[i * BIG_FONT_HEIGHT], 16);
+        addGlyph(g_markerFont, MARKER_FONT_START_CHAR + i, MARKER_FONT_GET_WIDTH(x7x11b_bits, i),
+            &x7x11b_bits[i * MARKER_FONT_HEIGHT]);
     }
 }
 
@@ -348,7 +346,7 @@ private:
         {
             for (int c = 0; c < glyph.width; ++c)
             {
-                const bool expected = (glyph.rows[r] >> (15 - c)) & 1;
+                const bool expected = (glyph.rows[r] >> (7 - c)) & 1;
 
                 if (expected != isInk(x + c, top + r))
                 {
@@ -582,7 +580,7 @@ void usage(const char* program)
 {
     fprintf(stderr,
         "Usage: %s [--plain | --json] <capture.png|capture.bmp>\n"
-        "Recognizes texts in the marker rows (big font), the status column and the status row (small font).\n"
+        "Recognizes texts in the marker rows (marker font), the status column and the status row (small font).\n"
         "Default output is tab-separated: region, x, y, color, text.\n"
         "  --plain  output recognized texts only\n"
         "  --json   output a JSON array of recognized text objects\n",
@@ -677,7 +675,7 @@ int main(int argc, char** argv)
     const Region regions[] =
     {
         { "markers", STATUS_COLUMN_WIDTH, 0, image.width, std::min(MARKER_ROWS_HEIGHT, image.height),
-            &g_bigFont, GRID_COLOR },
+            &g_markerFont, GRID_COLOR },
         { "column", 0, 0, STATUS_COLUMN_WIDTH, image.height, &g_smallFont, NO_IGNORED_COLOR },
         { "row", STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height,
             &g_smallFont, NO_IGNORED_COLOR },
