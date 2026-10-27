@@ -31,8 +31,9 @@ constexpr int MAX_FONT_HEIGHT = MARKER_FONT_HEIGHT;
 constexpr int SEGMENT_GAP_SPACES = 3;   // gap of this many spaces or more splits texts
 constexpr int INK_THRESHOLD = 100;      // sum of per-channel differences from background
 constexpr double MIN_QUALITY = 0.85;    // minimal share of ink explained by recognized glyphs
-constexpr uint32_t GRID_COLOR = 0x848284; // chart grid shows through marker texts, not ink
-constexpr uint32_t NO_IGNORED_COLOR = 0xFFFFFFFF;
+
+// Chart grid, band separator and trigger level lines show through marker texts, they are not ink
+const std::vector<uint32_t> MARKER_IGNORED_COLORS = { 0x848284, 0x0000FF };
 
 struct Glyph
 {
@@ -68,7 +69,7 @@ struct Region
     const char* name;
     int x0, y0, x1, y1; // [x0, x1) x [y0, y1)
     const Font* font;
-    uint32_t ignoredColor; // pixels of this color are never ink
+    std::vector<uint32_t> ignoredColors; // pixels of these colors are never ink
 };
 
 struct Token
@@ -302,7 +303,9 @@ private:
     {
         const Rgb& p = m_image.at(x, y);
 
-        if (uint32_t((p.r << 16) | (p.g << 8) | p.b) == m_region.ignoredColor)
+        const uint32_t color = (p.r << 16) | (p.g << 8) | p.b;
+
+        if (std::find(m_region.ignoredColors.begin(), m_region.ignoredColors.end(), color) != m_region.ignoredColors.end())
         {
             return false;
         }
@@ -675,10 +678,10 @@ int main(int argc, char** argv)
     const Region regions[] =
     {
         { "markers", STATUS_COLUMN_WIDTH, 0, image.width, std::min(MARKER_ROWS_HEIGHT, image.height),
-            &g_markerFont, GRID_COLOR },
-        { "column", 0, 0, STATUS_COLUMN_WIDTH, image.height, &g_smallFont, NO_IGNORED_COLOR },
+            &g_markerFont, MARKER_IGNORED_COLORS },
+        { "column", 0, 0, STATUS_COLUMN_WIDTH, image.height, &g_smallFont, {} },
         { "row", STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height,
-            &g_smallFont, NO_IGNORED_COLOR },
+            &g_smallFont, {} },
     };
 
     bool firstJsonItem = true;

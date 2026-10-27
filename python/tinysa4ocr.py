@@ -40,7 +40,8 @@ MIN_QUALITY = 0.85        # minimal share of ink explained by recognized glyphs
 FONT_HEIGHT = 7
 MARKER_FONT_HEIGHT = 11
 MARKER_ROWS_HEIGHT = 64   # 4 marker rows, 16 pixels each
-GRID_COLOR = 0x848284     # chart grid shows through marker texts, not ink
+# Chart grid, band separator and trigger level lines show through marker texts, they are not ink
+MARKER_IGNORED_COLORS = frozenset((0x848284, 0x0000ff))
 
 # Small font characters 0x20..0x7E: (width, 7 row bytes in hex, bit 7 is leftmost column)
 FONT = {
@@ -467,7 +468,7 @@ def resolve_zero_o(value):
 
 
 class Recognizer:
-    def __init__(self, image, x0, y0, x1, y1, font, ignore=None):
+    def __init__(self, image, x0, y0, x1, y1, font, ignore=()):
         self.image = image
         self.font = font
         self.x0, self.y0, self.x1, self.y1 = x0, y0, x1, y1
@@ -493,7 +494,7 @@ class Recognizer:
                 ink = ink_cache.get(p)
 
                 if ink is None:
-                    ink = p != ignore and abs((p >> 16) - br) + abs(((p >> 8) & 255) - bg) + abs((p & 255) - bb) >= INK_THRESHOLD
+                    ink = p not in ignore and abs((p >> 16) - br) + abs(((p >> 8) & 255) - bg) + abs((p & 255) - bb) >= INK_THRESHOLD
                     ink_cache[p] = ink
 
                 if ink:
@@ -684,9 +685,9 @@ def main():
         return 1
 
     regions = (
-        ('markers', STATUS_COLUMN_WIDTH, 0, image.width, min(MARKER_ROWS_HEIGHT, image.height), MARKER_FONT, GRID_COLOR),
-        ('column', 0, 0, STATUS_COLUMN_WIDTH, image.height, SMALL_FONT, None),
-        ('row', STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height, SMALL_FONT, None),
+        ('markers', STATUS_COLUMN_WIDTH, 0, image.width, min(MARKER_ROWS_HEIGHT, image.height), MARKER_FONT, MARKER_IGNORED_COLORS),
+        ('column', 0, 0, STATUS_COLUMN_WIDTH, image.height, SMALL_FONT, ()),
+        ('row', STATUS_COLUMN_WIDTH, image.height - STATUS_ROW_HEIGHT, image.width, image.height, SMALL_FONT, ()),
     )
 
     lines = []
