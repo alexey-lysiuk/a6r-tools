@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinySA Ultra Screenshot OCR</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: sans-serif; background: #1e1e1e; color: #e0e0e0; margin: 0; padding: 16px; }
+        h1 { font-size: 1.3em; color: #c0c0c0; margin: 0 0 12px; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+        button, .button { background: #383838; color: #d0d0d0; border: 1px solid #404040; border-radius: 3px;
+            padding: 6px 12px; cursor: pointer; font-size: 0.9em; }
+        button:hover:not(:disabled) { background: #484848; }
+        button:disabled { opacity: 0.5; cursor: default; }
+        #drop { border: 2px dashed #404040; border-radius: 6px; padding: 14px; color: #888; margin-bottom: 12px; text-align: center; }
+        #drop.over { border-color: #8ab4f8; color: #e0e0e0; }
+        #error { color: #f08080; margin-bottom: 8px; }
+        .layout { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+        canvas { image-rendering: pixelated; border: 1px solid #404040; background: #000; max-width: 100%; }
+        #results { flex: 1; min-width: 320px; }
+        table { border-collapse: collapse; width: 100%; font-size: 0.9em; }
+        th, td { border-bottom: 1px solid #404040; padding: 3px 8px; text-align: left; }
+        th { color: #a0a0a0; }
+        td.text { font-family: monospace; white-space: pre; }
+        .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; border: 1px solid #666; }
+        tr.hl td { background: rgba(255,255,255,0.1); }
+        textarea { width: 100%; height: 140px; background: #252525; color: #e0e0e0; border: 1px solid #404040;
+            font-family: monospace; margin-top: 12px; }
+        select, label { color: #d0d0d0; font-size: 0.9em; }
+        select { background: #252525; border: 1px solid #404040; padding: 5px; }
+        a { color: #8ab4f8; }
+    </style>
+</head>
+<body>
+    <h1>tinySA Ultra Screenshot OCR</h1>
+    <div id="drop">Drop a tinySA capture (PNG, BMP, ...) here, paste it from the clipboard, or choose a file.</div>
+    <div class="toolbar">
+        <input type="file" id="file" accept="image/*">
+        <label>Output
+            <select id="format">
+                <option value="plain">Plain text</option>
+                <option value="tsv">Tab-separated</option>
+                <option value="json">JSON</option>
+            </select>
+        </label>
+        <button id="copy" disabled>Copy</button>
+    </div>
+    <div id="error"></div>
+    <div class="layout">
+        <canvas id="canvas" width="480" height="320"></canvas>
+        <div id="results">
+            <table id="table" hidden>
+                <thead><tr><th>Region</th><th>X</th><th>Y</th><th>Color</th><th>Text</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <textarea id="output" readonly hidden></textarea>
+        </div>
+    </div>
+
+<script>
+// Font data derived from Font5x7.c and Font7x13b.c of https://github.com/erikkaashoek/tinySA
+// Copyright (c) 2019-2020, Dmitry (DiSlord) dislordlive@gmail.com, GPL v3 or later.
+// Glyphs start at char code 0x16, one byte per row; width = 8 - (first byte & 7).
+const FONT_SMALL = new Uint8Array([0,6,6,70,254,254,64,2,32,32,80,80,136,248,132,192,224,240,224,192,128,0,108,178,146,154,108,0,2,32,64,248,64,32,0,2,32,16,248,16,32,0,2,248,80,80,80,80,152,2,0,136,136,216,168,128,114,136,136,136,80,80,216,99,144,144,96,0,0,0,4,0,0,0,0,0,0,69,64,64,64,64,0,64,80,80,80,0,0,0,0,82,80,248,80,248,80,80,34,120,160,112,40,240,32,194,200,16,32,64,152,24,2,32,80,96,168,144,104,100,64,128,0,0,0,0,36,64,128,128,128,64,32,132,64,32,32,32,64,128,2,32,168,112,168,32,0,2,32,32,248,32,32,0,5,0,0,0,192,64,128,3,0,0,240,0,0,0,5,0,0,0,0,192,192,36,32,64,64,64,128,128,99,144,144,144,144,144,96,35,96,32,32,32,32,112,99,144,16,32,64,128,240,99,144,16,96,16,144,96,147,144,144,144,240,16,16,243,128,224,16,16,144,96,99,144,128,224,144,144,96,243,16,32,32,64,64,64,99,144,144,96,144,144,96,99,144,144,112,16,144,96,4,192,192,0,192,192,0,4,96,96,0,96,64,128,3,32,64,128,64,32,0,3,0,240,0,240,0,0,3,128,64,32,64,128,0,99,144,16,32,64,0,64,99,144,176,176,128,128,112,99,144,144,144,240,144,144,227,144,144,224,144,144,224,99,144,128,128,128,144,96,227,144,144,144,144,144,224,243,128,128,224,128,128,240,243,128,128,224,128,128,128,99,144,128,176,144,144,112,147,144,144,240,144,144,144,228,64,64,64,64,64,224,115,16,16,16,16,144,96,147,144,144,224,144,144,144,131,128,128,128,128,128,240,138,216,168,168,168,136,136,147,144,208,176,144,144,144,99,144,144,144,144,144,96,227,144,144,224,128,128,128,99,144,144,144,144,160,80,227,144,144,224,144,144,144,99,144,128,96,16,144,96,250,32,32,32,32,32,32,147,144,144,144,144,144,112,147,144,144,144,144,96,96,138,136,136,168,168,168,80,138,136,80,32,80,136,136,138,136,136,80,32,32,32,243,16,32,64,128,128,240,228,128,128,128,128,128,224,132,128,64,64,64,32,32,228,32,32,32,32,32,224,68,160,0,0,0,0,0,3,0,0,0,0,0,248,196,64,32,0,0,0,0,3,0,112,144,144,176,80,131,128,160,208,144,144,224,3,0,112,128,128,128,112,19,16,80,176,144,144,112,3,0,96,144,240,128,112,35,80,64,224,64,64,64,3,0,112,144,112,16,96,131,128,160,208,144,144,144,68,0,192,64,64,64,224,36,0,32,32,32,160,64,131,128,144,160,192,160,144,196,64,64,64,64,64,224,2,0,240,168,168,168,168,3,0,160,208,144,144,144,3,0,96,144,144,144,96,3,0,224,144,144,224,128,3,0,112,144,144,112,16,3,0,160,208,128,128,128,3,0,112,128,96,16,224,67,64,224,64,64,64,48,3,0,144,144,144,176,80,3,0,144,144,144,96,96,2,0,136,136,168,168,80,3,0,144,144,96,144,144,3,0,144,144,112,16,224,3,0,240,32,64,128,240,36,64,64,128,64,64,32,36,32,32,32,32,32,32,132,64,64,32,64,64,128,3,0,80,160,0,0,0]);
+const FONT_MARKER = new Uint8Array([0,6,6,6,38,102,254,254,96,32,0,0,16,16,56,56,108,108,198,198,254,0,2,128,192,224,240,248,240,224,192,128,0,0,0,110,219,145,153,137,219,118,0,0,0,0,16,48,96,254,254,96,48,16,0,0,0,16,24,12,254,254,12,24,16,0,1,0,0,0,252,108,108,108,236,204,0,0,0,0,0,198,198,198,198,238,214,192,0,124,198,198,198,198,198,108,108,238,0,2,112,216,216,112,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,4,96,96,96,96,96,96,0,96,96,0,2,216,216,216,0,0,0,0,0,0,0,2,80,80,248,248,80,248,248,80,80,0,0,48,124,176,176,120,52,52,248,48,0,96,146,150,108,24,48,108,210,146,12,0,0,112,216,216,112,114,220,204,220,114,0,3,224,224,96,192,0,0,0,0,0,0,3,48,96,96,192,192,192,96,96,48,0,3,192,96,96,48,48,48,96,96,192,0,1,0,0,32,168,112,168,32,0,0,0,1,0,0,48,48,252,252,48,48,0,0,4,0,0,0,0,0,0,64,224,96,192,1,0,0,0,0,252,252,0,0,0,0,4,0,0,0,0,0,0,64,224,64,0,1,12,12,24,24,48,96,96,192,192,0,1,120,204,204,204,204,204,204,204,120,0,1,48,112,176,48,48,48,48,48,252,0,1,120,204,204,12,56,96,192,192,252,0,1,120,204,204,12,56,12,204,204,120,0,1,12,28,60,108,204,204,252,12,12,0,1,252,192,192,248,204,12,12,204,120,0,1,120,204,192,192,248,204,204,204,120,0,1,252,12,12,24,24,48,48,96,96,0,1,120,204,204,204,120,204,204,204,120,0,1,120,204,204,204,124,12,12,204,120,0,4,0,64,224,64,0,64,224,64,0,0,4,0,64,224,64,0,64,224,64,128,0,1,12,24,48,96,192,96,48,24,12,0,1,0,0,0,252,0,0,252,0,0,0,1,192,96,48,24,12,24,48,96,192,0,1,120,204,204,12,24,48,0,48,48,0,1,120,140,140,188,172,184,128,140,120,0,1,120,204,204,204,252,204,204,204,204,0,1,248,204,204,204,248,204,204,204,248,0,1,120,204,204,192,192,192,204,204,120,0,1,248,204,204,204,204,204,204,204,248,0,1,252,192,192,192,248,192,192,192,252,0,1,252,192,192,192,248,192,192,192,192,0,1,120,204,204,192,192,220,204,220,108,0,1,204,204,204,204,252,204,204,204,204,0,3,240,96,96,96,96,96,96,96,240,0,1,12,12,12,12,12,12,12,204,120,0,1,204,204,204,216,240,216,204,204,204,0,1,192,192,192,192,192,192,192,192,252,0,0,198,198,238,238,214,214,214,198,198,0,1,204,204,236,236,252,220,220,204,204,0,1,120,204,204,204,204,204,204,204,120,0,1,248,204,204,204,248,192,192,192,192,0,1,120,204,204,204,204,204,236,220,120,12,1,248,204,204,204,248,216,204,204,204,0,1,120,204,204,96,48,24,204,204,120,0,1,252,180,48,48,48,48,48,48,48,0,1,204,204,204,204,204,204,204,204,120,0,0,198,198,198,108,108,108,56,56,16,0,0,198,198,198,214,214,214,214,254,108,0,1,204,204,204,72,48,72,204,204,204,0,1,204,204,204,204,120,48,48,48,48,0,1,252,12,12,24,48,96,192,192,252,0,3,240,192,192,192,192,192,192,192,240,0,1,192,192,96,96,48,24,24,12,12,0,3,240,48,48,48,48,48,48,48,240,0,1,48,120,204,132,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,252,252,3,192,96,48,0,0,0,0,0,0,0,1,0,0,0,120,12,124,204,204,124,0,1,192,192,192,216,236,204,204,236,216,0,1,0,0,0,120,204,192,192,204,120,0,1,12,12,12,108,220,204,204,220,108,0,1,0,0,0,120,204,252,192,204,120,0,1,56,108,96,96,240,96,96,96,96,0,1,0,0,0,116,204,204,204,124,12,120,1,192,192,192,216,236,204,204,204,204,0,3,96,96,0,224,96,96,96,96,240,0,1,12,12,0,12,12,12,12,12,204,120,1,192,192,192,204,216,240,240,216,204,0,1,112,48,48,48,48,48,48,48,252,0,0,0,0,0,236,254,214,214,214,214,0,1,0,0,0,216,236,204,204,204,204,0,1,0,0,0,120,204,204,204,204,120,0,1,0,0,0,216,236,204,204,248,192,192,1,0,0,0,108,220,204,204,124,12,12,1,0,0,0,216,236,192,192,192,192,0,1,0,0,0,120,204,96,24,204,120,0,1,0,96,96,248,96,96,96,108,56,0,1,0,0,0,204,204,204,204,220,108,0,1,0,0,0,204,204,72,72,48,48,0,0,0,0,0,198,198,214,214,254,108,0,1,0,0,0,204,72,48,48,72,204,0,1,0,0,0,204,204,204,124,12,204,120,1,0,0,0,252,12,24,96,192,252,0,2,56,96,96,96,192,96,96,96,56,0,3,96,96,96,96,96,96,96,96,96,0,2,224,48,48,48,24,48,48,48,224,0,1,100,252,152,0,0,0,0,0,0,0]);
+
+const STATUS_COLUMN_WIDTH = 30;
+const STATUS_ROW_HEIGHT = 8;
+const MARKER_ROWS_HEIGHT = 64;
+const SEGMENT_GAP_SPACES = 3;
+const INK_THRESHOLD = 100;
+const MIN_QUALITY = 0.85;
+const FONT_START_CHAR = 0x16;
+// Chart grid and trigger level lines show through marker texts, they are not ink
+const MARKER_IGNORED_COLORS = [0x848284, 0x0000FF];
+
+function loadFont(bits, height) {
+    const font = { height, spaceWidth: 4, glyphs: [] };
+
+    for (let i = 0, count = bits.length / height; i < count; ++i) {
+        const code = FONT_START_CHAR + i;
+        const width = 8 - (bits[i * height] & 7);
+
+        if (code === 0x20) font.spaceWidth = width;
+        // Skip icons and space; 'O' is identical to '0' and is resolved by resolveZeroO()
+        if (code <= 0x20 || code > 0x7E || code === 0x4F) continue;
+
+        const rows = new Uint8Array(height);
+        let ink = 0;
+
+        for (let r = 0; r < height; ++r) {
+            rows[r] = bits[i * height + r] & (0xFF << (8 - width)) & 0xFF;
+            for (let c = 0; c < width; ++c) ink += (rows[r] >> (7 - c)) & 1;
+        }
+
+        if (ink > 0) font.glyphs.push({ ch: String.fromCharCode(code), width, ink, rows });
+    }
+
+    return font;
+}
+
+const SMALL_FONT = loadFont(FONT_SMALL, 7);
+const MARKER_FONT = loadFont(FONT_MARKER, 11);
+
+function colorName(r, g, b) {
+    const maxc = Math.max(r, g, b);
+    const delta = maxc - Math.min(r, g, b);
+
+    if (delta * 4 < maxc) return maxc >= 192 ? 'white' : 'gray';
+
+    let hue;
+    if (maxc === r) hue = 60 * ((g - b) / delta);
+    else if (maxc === g) hue = 60 * ((b - r) / delta + 2);
+    else hue = 60 * ((r - g) / delta + 4);
+    if (hue < 0) hue += 360;
+
+    if (hue < 15 || hue >= 330) return 'red';
+    if (hue < 45) return 'orange';
+    if (hue < 75) return 'yellow';
+    if (hue < 165) return 'green';
+    if (hue < 200) return 'cyan';
+    if (hue < 260) return 'blue';
+    return 'magenta';
+}
+
+class Recognizer {
+    constructor(image, region) {
+        this.image = image;
+        this.region = region;
+        this.font = region.font;
+        this.computeInk();
+    }
+
+    computeInk() {
+        const { width, data } = this.image;
+        const { x0, y0, x1, y1, ignoredColors } = this.region;
+        const histogram = new Map();
+
+        for (let y = y0; y < y1; ++y) {
+            for (let x = x0; x < x1; ++x) {
+                const i = (y * width + x) * 4;
+                const key = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+                histogram.set(key, (histogram.get(key) || 0) + 1);
+            }
+        }
+
+        let best = 0, bestCount = -1;
+        for (const [key, count] of histogram) {
+            if (count > bestCount) { bestCount = count; best = key; }
+        }
+
+        const br = best >> 16, bg = (best >> 8) & 255, bb = best & 255;
+        this.ink = new Uint8Array(width * this.image.height);
+
+        for (let y = y0; y < y1; ++y) {
+            for (let x = x0; x < x1; ++x) {
+                const i = (y * width + x) * 4;
+                const r = data[i], g = data[i + 1], b = data[i + 2];
+                if (ignoredColors.includes((r << 16) | (g << 8) | b)) continue;
+                const diff = Math.abs(r - br) + Math.abs(g - bg) + Math.abs(b - bb);
+                this.ink[y * width + x] = diff >= INK_THRESHOLD ? 1 : 0;
+            }
+        }
+    }
+
+    isInk(x, y) { return this.ink[y * this.image.width + x] === 1; }
+
+    rowInk(y) {
+        let count = 0;
+        for (let x = this.region.x0; x < this.region.x1; ++x) count += this.isInk(x, y);
+        return count;
+    }
+
+    columnInk(x, top) {
+        let count = 0;
+        for (let r = 0; r < this.font.height; ++r) count += this.isInk(x, top + r);
+        return count;
+    }
+
+    matches(glyph, x, top) {
+        if (x + glyph.width > this.region.x1) return false;
+
+        for (let r = 0; r < this.font.height; ++r) {
+            for (let c = 0; c < glyph.width; ++c) {
+                if (((glyph.rows[r] >> (7 - c)) & 1) !== (this.isInk(x + c, top + r) ? 1 : 0)) return false;
+            }
+        }
+
+        return true;
+    }
+
+    cellColor(x, width, top) {
+        let r = 0, g = 0, b = 0, count = 0;
+        const { data, width: imgWidth } = this.image;
+
+        for (let row = 0; row < this.font.height; ++row) {
+            for (let c = 0; c < width; ++c) {
+                if (this.isInk(x + c, top + row)) {
+                    const i = ((top + row) * imgWidth + x + c) * 4;
+                    r += data[i]; g += data[i + 1]; b += data[i + 2];
+                    ++count;
+                }
+            }
+        }
+
+        return count > 0 ? colorName(Math.trunc(r / count), Math.trunc(g / count), Math.trunc(b / count)) : 'white';
+    }
+
+    run() {
+        const result = [];
+        const rg = this.region;
+        const fontHeight = this.font.height;
+        let y = rg.y0;
+
+        while (y < rg.y1) {
+            if (this.rowInk(y) === 0) { ++y; continue; }
+
+            // Top ink row may belong to any glyph row, so try all line positions
+            const lastTop = rg.y1 - fontHeight;
+            let bestTop = -1, bestScore = 0, bestTokens = [], bestQuality = 0;
+
+            for (let top = Math.max(rg.y0, y - (fontHeight - 1)); top <= Math.min(y, lastTop); ++top) {
+                const line = this.decodeLine(top);
+                if (line.score > bestScore) {
+                    bestScore = line.score;
+                    bestTop = top;
+                    bestTokens = line.tokens;
+                    bestQuality = line.quality;
+                }
+            }
+
+            if (bestTop < 0 || bestQuality < MIN_QUALITY) { ++y; continue; }
+
+            this.splitTexts(bestTop, bestTokens, result);
+            y = bestTop + fontHeight;
+        }
+
+        return result;
+    }
+
+    decodeLine(top) {
+        const x0 = this.region.x0;
+        const n = this.region.x1 - x0;
+        const colInk = new Int32Array(n);
+        let totalInk = 0;
+
+        for (let i = 0; i < n; ++i) {
+            colInk[i] = this.columnInk(x0 + i, top);
+            totalInk += colInk[i];
+        }
+
+        if (totalInk === 0) return { score: 0, tokens: [], quality: 0 };
+
+        const anyInk = (from, count) => {
+            for (let i = from; i < from + count; ++i) if (colInk[i] > 0) return true;
+            return false;
+        };
+
+        // Decoding may start at any column
+        const nodes = Array.from({ length: n + 1 }, () => ({ score: 0, prev: -1, glyph: null, unknown: false }));
+
+        for (let i = 0; i < n; ++i) {
+            const base = nodes[i].score;
+            const step = nodes[i + 1];
+            const stepScore = base - 2 * colInk[i];
+
+            if (stepScore > step.score || (colInk[i] === 0 && stepScore >= step.score)) {
+                step.score = stepScore;
+                step.prev = i;
+                step.glyph = null;
+                step.unknown = colInk[i] > 0;
+            }
+
+            // Glyph cell may start with blank columns, so only skip fully blank cells
+            for (const glyph of this.font.glyphs) {
+                if (i + glyph.width <= n && this.matches(glyph, x0 + i, top) && anyInk(i, glyph.width)) {
+                    const next = nodes[i + glyph.width];
+                    const score = base + glyph.ink;
+
+                    if (score > next.score) {
+                        next.score = score;
+                        next.prev = i;
+                        next.glyph = glyph;
+                        next.unknown = false;
+                    }
+                }
+            }
+        }
+
+        let end = 0;
+        for (let i = 0; i <= n; ++i) if (nodes[i].score >= nodes[end].score) end = i;
+
+        const total = nodes[end].score;
+        let matchedInk = 0;
+        const tokens = [];
+
+        for (let i = end; i > 0 && nodes[i].prev >= 0;) {
+            const node = nodes[i];
+            const from = node.prev;
+
+            if (node.glyph) {
+                matchedInk += node.glyph.ink;
+                tokens.push({ x: x0 + from, width: node.glyph.width, ch: node.glyph.ch,
+                    color: this.cellColor(x0 + from, node.glyph.width, top) });
+            } else if (node.unknown) {
+                tokens.push({ x: x0 + from, width: 1, ch: '?', color: this.cellColor(x0 + from, 1, top) });
+            }
+
+            i = from;
+        }
+
+        tokens.reverse();
+        return { score: matchedInk > 0 ? total : 0, tokens, quality: matchedInk / totalInk };
+    }
+
+    // Glyphs of '0' and 'O' are identical, use uppercase neighbors as a hint
+    static resolveZeroO(value) {
+        const chars = value.split('');
+        const numeric = c => /[0-9.]/.test(c);
+        const upper = c => /[A-Z]/.test(c);
+
+        for (let i = 0; i < chars.length; ++i) {
+            if (chars[i] !== '0') continue;
+            const before = i > 0 ? chars[i - 1] : ' ';
+            const after = i + 1 < chars.length ? chars[i + 1] : ' ';
+            if (!numeric(before) && !numeric(after) && (upper(before) || upper(after))) chars[i] = 'O';
+        }
+
+        return chars.join('');
+    }
+
+    splitTexts(top, tokens, out) {
+        const spaceWidth = this.font.spaceWidth;
+        let text = null, prevEnd = 0;
+
+        const flush = () => {
+            if (text) {
+                text.value = Recognizer.resolveZeroO(text.value);
+                out.push(text);
+                text = null;
+            }
+        };
+
+        for (const token of tokens) {
+            if (text) {
+                const gap = token.x - prevEnd;
+
+                if (gap >= SEGMENT_GAP_SPACES * spaceWidth || token.color !== text.color) {
+                    flush();
+                } else {
+                    text.value += ' '.repeat(Math.trunc((gap + Math.trunc(spaceWidth / 2)) / spaceWidth));
+                }
+            }
+
+            if (!text) text = { region: this.region.name, x: token.x, y: top, color: token.color, value: '', height: this.font.height, width: 0 };
+
+            // Merge adjacent unrecognized columns
+            if (!(token.ch === '?' && text.value.endsWith('?') && token.x === prevEnd)) text.value += token.ch;
+
+            prevEnd = token.x + token.width;
+            text.width = prevEnd - text.x;
+        }
+
+        flush();
+    }
+}
+
+function recognize(image) {
+    const regions = [
+        { name: 'markers', x0: STATUS_COLUMN_WIDTH, y0: 0, x1: image.width, y1: Math.min(MARKER_ROWS_HEIGHT, image.height),
+            font: MARKER_FONT, ignoredColors: MARKER_IGNORED_COLORS },
+        { name: 'column', x0: 0, y0: 0, x1: STATUS_COLUMN_WIDTH, y1: image.height, font: SMALL_FONT, ignoredColors: [] },
+        { name: 'row', x0: STATUS_COLUMN_WIDTH, y0: image.height - STATUS_ROW_HEIGHT, x1: image.width, y1: image.height,
+            font: SMALL_FONT, ignoredColors: [] },
+    ];
+
+    return regions.flatMap(region => new Recognizer(image, region).run());
+}
+
+// ── UI ──────────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const canvas = $('canvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+let texts = [];
+let image = null;
+
+const COLOR_CSS = { white: '#fff', gray: '#999', red: '#f44', orange: '#fa0', yellow: '#ee0',
+    green: '#4d4', cyan: '#0dd', blue: '#68f', magenta: '#d4d' };
+
+function formatOutput() {
+    switch ($('format').value) {
+        case 'tsv': return texts.map(t => [t.region, t.x, t.y, t.color, t.value].join('\t')).join('\n');
+        case 'json': return JSON.stringify(texts.map(t => ({ region: t.region, x: t.x, y: t.y, color: t.color, text: t.value })), null, 2);
+        default: return texts.map(t => t.value).join('\n');
+    }
+}
+
+function draw(highlight) {
+    ctx.putImageData(image, 0, 0);
+    if (highlight) {
+        ctx.strokeStyle = '#ff0';
+        ctx.strokeRect(highlight.x - 0.5, highlight.y - 0.5, highlight.width + 1, highlight.height + 1);
+    }
+}
+
+function render() {
+    const tbody = $('table').tBodies[0];
+    tbody.textContent = '';
+
+    texts.forEach(t => {
+        const tr = tbody.insertRow();
+        tr.insertCell().textContent = t.region;
+        tr.insertCell().textContent = t.x;
+        tr.insertCell().textContent = t.y;
+        const color = tr.insertCell();
+        const swatch = document.createElement('span');
+        swatch.className = 'swatch';
+        swatch.style.background = COLOR_CSS[t.color];
+        color.append(swatch, t.color);
+        const text = tr.insertCell();
+        text.className = 'text';
+        text.textContent = t.value;
+        tr.onmouseenter = () => { tr.classList.add('hl'); draw(t); };
+        tr.onmouseleave = () => { tr.classList.remove('hl'); draw(); };
+    });
+
+    $('table').hidden = false;
+    $('output').hidden = false;
+    $('output').value = formatOutput();
+    $('copy').disabled = texts.length === 0;
+}
+
+async function loadBlob(blob) {
+    $('error').textContent = '';
+
+    try {
+        const bitmap = await createImageBitmap(blob);
+
+        if (bitmap.width <= STATUS_COLUMN_WIDTH || bitmap.height <= STATUS_ROW_HEIGHT * 2) {
+            throw new Error(`Image size ${bitmap.width}x${bitmap.height} is too small for a tinySA capture`);
+        }
+
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        ctx.drawImage(bitmap, 0, 0);
+        image = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+        canvas.style.width = bitmap.width * 2 + 'px';
+        texts = recognize(image);
+        render();
+    } catch (e) {
+        $('error').textContent = 'Failed to load image: ' + e.message;
+    }
+}
+
+$('file').onchange = e => { if (e.target.files[0]) loadBlob(e.target.files[0]); };
+$('format').onchange = () => { if (image) $('output').value = formatOutput(); };
+$('copy').onclick = () => navigator.clipboard.writeText($('output').value);
+
+const drop = $('drop');
+document.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+document.addEventListener('dragleave', () => drop.classList.remove('over'));
+document.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) loadBlob(e.dataTransfer.files[0]);
+});
+document.addEventListener('paste', e => {
+    const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
+    if (item) loadBlob(item.getAsFile());
+});
+</script>
+</body>
+</html>
