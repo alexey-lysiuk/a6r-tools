@@ -139,6 +139,9 @@ function loadFont(bits, height) {
 const SMALL_FONT = loadFont(FONT_SMALL, 7);
 const MARKER_FONT = loadFont(FONT_MARKER, 11);
 
+// Active marker indicator, a filled right-pointing triangle before the marker index, recognized as '>'
+MARKER_FONT.glyphs.push({ ch: '>', width: 5, ink: 25, rows: new Uint8Array([0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xF0, 0xE0, 0xC0, 0x80, 0x00]) });
+
 function colorName(r, g, b) {
     const maxc = Math.max(r, g, b);
     const delta = maxc - Math.min(r, g, b);
