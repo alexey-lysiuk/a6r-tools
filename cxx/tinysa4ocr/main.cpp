@@ -143,6 +143,27 @@ void loadFonts()
         addGlyph(g_markerFont, MARKER_FONT_START_CHAR + i, MARKER_FONT_GET_WIDTH(x7x11b_bits, i),
             &x7x11b_bits[i * MARKER_FONT_HEIGHT]);
     }
+
+    // Active marker indicator, a filled right-pointing triangle before the marker index, recognized as '>'
+    {
+        static const uint8_t triangle[MARKER_FONT_HEIGHT] = { 0x00, 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xF0, 0xE0, 0xC0, 0x80, 0x00 };
+
+        Glyph glyph{};
+        glyph.ch = '>';
+        glyph.width = 5;
+
+        for (int r = 0; r < MARKER_FONT_HEIGHT; ++r)
+        {
+            glyph.rows[r] = triangle[r];
+
+            for (int c = 0; c < glyph.width; ++c)
+            {
+                glyph.ink += (triangle[r] >> (7 - c)) & 1;
+            }
+        }
+
+        g_markerFont.glyphs.push_back(glyph);
+    }
 }
 
 bool loadImage(const char* path, Image& image)

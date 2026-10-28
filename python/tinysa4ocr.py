@@ -254,8 +254,12 @@ class Glyph:
         self.ink = sum(bin(col).count('1') for col in self.cols)
 
 
+# Active marker indicator, a filled right-pointing triangle before the marker index, recognized as '>'
+MARKER_ACTIVE = ('>', 5, '0080c0e0f0f8f0e0c08000')
+
+
 class Font:
-    def __init__(self, data, height):
+    def __init__(self, data, height, extra=()):
         self.height = height
         self.glyphs = []
         self.space_width = 4
@@ -274,9 +278,12 @@ class Font:
             if glyph.ink > 0:
                 self.glyphs.append(glyph)
 
+        for ch, width, rows in extra:
+            self.glyphs.append(Glyph(ch, width, bytes.fromhex(rows), height))
+
 
 SMALL_FONT = Font(FONT, FONT_HEIGHT)
-MARKER_FONT = Font(FONT_MARKER, MARKER_FONT_HEIGHT)
+MARKER_FONT = Font(FONT_MARKER, MARKER_FONT_HEIGHT, (MARKER_ACTIVE,))
 
 
 class Image:
