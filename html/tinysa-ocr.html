@@ -369,10 +369,6 @@ class Recognizer {
         return chars.join('');
     }
 
-    static isMarkerIndex(value) {
-        return /^>?[0-9]+$/.test(value);
-    }
-
     splitTexts(top, tokens, out) {
         const spaceWidth = this.font.spaceWidth;
         let text = null, prevEnd = 0;
@@ -389,9 +385,7 @@ class Recognizer {
             if (text) {
                 const gap = token.x - prevEnd;
 
-                const keepMarker = this.font === MARKER_FONT && Recognizer.isMarkerIndex(text.value);
-
-                if (!keepMarker && (gap >= SEGMENT_GAP_SPACES * spaceWidth || token.color !== text.color)) {
+                if (gap >= SEGMENT_GAP_SPACES * spaceWidth || token.color !== text.color) {
                     flush();
                 } else {
                     text.value += ' '.repeat(Math.trunc((gap + Math.trunc(spaceWidth / 2)) / spaceWidth));

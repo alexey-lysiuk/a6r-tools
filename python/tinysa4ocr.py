@@ -474,11 +474,6 @@ def resolve_zero_o(value):
     return ''.join(chars)
 
 
-def is_marker_index(value):
-    index = value[1:] if value.startswith('>') else value
-    return bool(index) and all('0' <= ch <= '9' for ch in index)
-
-
 class Recognizer:
     def __init__(self, image, x0, y0, x1, y1, font, ignore=()):
         self.image = image
@@ -641,13 +636,13 @@ class Recognizer:
                 y += 1
                 continue
 
-            self.split_texts(best_top, best_tokens, result, self.font.space_width, self.font is MARKER_FONT)
+            self.split_texts(best_top, best_tokens, result, self.font.space_width)
             y = best_top + height
 
         return result
 
     @staticmethod
-    def split_texts(top, tokens, out, space_width, marker_font=False):
+    def split_texts(top, tokens, out, space_width):
         text = None  # [x, y, color, value]
         prev_end = 0
 
@@ -655,9 +650,7 @@ class Recognizer:
             if text is not None:
                 gap = x - prev_end
 
-                keep_marker = marker_font and is_marker_index(text[3])
-
-                if not keep_marker and (gap >= SEGMENT_GAP_SPACES * space_width or color != text[2]):
+                if gap >= SEGMENT_GAP_SPACES * space_width or color != text[2]:
                     text[3] = resolve_zero_o(text[3])
                     out.append(tuple(text))
                     text = None
