@@ -28,6 +28,7 @@
 
 import argparse
 import json
+import re
 import struct
 import sys
 from collections import Counter
@@ -474,6 +475,9 @@ def resolve_zero_o(value):
     return ''.join(chars)
 
 
+MARKER_INDEX = re.compile(r'>?[0-9]+[A-Z]*')  # its value is kept in the same text despite the gap
+
+
 class Recognizer:
     def __init__(self, image, x0, y0, x1, y1, font, ignore=()):
         self.image = image
@@ -650,7 +654,7 @@ class Recognizer:
             if text is not None:
                 gap = x - prev_end
 
-                if gap >= SEGMENT_GAP_SPACES * space_width or color != text[2]:
+                if (gap >= SEGMENT_GAP_SPACES * space_width and not MARKER_INDEX.fullmatch(text[3])) or color != text[2]:
                     text[3] = resolve_zero_o(text[3])
                     out.append(tuple(text))
                     text = None

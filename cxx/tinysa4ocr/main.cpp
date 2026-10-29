@@ -549,6 +549,22 @@ private:
         }
     }
 
+    // Marker index like "1T" or ">3T"; its value is kept in the same text despite the gap
+    static bool isMarkerIndex(const std::string& value)
+    {
+        size_t i = !value.empty() && value[0] == '>' ? 1 : 0;
+        const size_t digits = i;
+
+        while (i < value.size() && isdigit((unsigned char)value[i])) ++i;
+
+        if (i == digits)
+            return false;
+
+        while (i < value.size() && isupper((unsigned char)value[i])) ++i;
+
+        return i == value.size();
+    }
+
     static void flush(Text& text, bool& active, std::vector<Text>& out)
     {
         if (active)
@@ -571,7 +587,7 @@ private:
             {
                 const int gap = token.x - prevEnd;
 
-                if (gap >= SEGMENT_GAP_SPACES * m_font.spaceWidth || token.color != text.color)
+                if ((gap >= SEGMENT_GAP_SPACES * m_font.spaceWidth && !isMarkerIndex(text.value)) || token.color != text.color)
                 {
                     flush(text, active, out);
                 }

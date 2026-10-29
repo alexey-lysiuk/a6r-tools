@@ -385,7 +385,7 @@ class Recognizer {
             if (text) {
                 const gap = token.x - prevEnd;
 
-                if (gap >= SEGMENT_GAP_SPACES * spaceWidth || token.color !== text.color) {
+                if ((gap >= SEGMENT_GAP_SPACES * spaceWidth && !/^>?[0-9]+[A-Z]*$/.test(text.value)) || token.color !== text.color) {
                     flush();
                 } else {
                     text.value += ' '.repeat(Math.trunc((gap + Math.trunc(spaceWidth / 2)) / spaceWidth));
