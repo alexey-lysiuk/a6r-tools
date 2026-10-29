@@ -549,6 +549,26 @@ private:
         }
     }
 
+    static bool isMarkerIndex(const std::string& value)
+    {
+        size_t i = value.size() > 0 && value[0] == '>' ? 1 : 0;
+
+        if (i >= value.size())
+        {
+            return false;
+        }
+
+        for (; i < value.size(); ++i)
+        {
+            if (!isdigit((unsigned char)value[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     static void flush(Text& text, bool& active, std::vector<Text>& out)
     {
         if (active)
@@ -571,7 +591,10 @@ private:
             {
                 const int gap = token.x - prevEnd;
 
-                if (gap >= SEGMENT_GAP_SPACES * m_font.spaceWidth || token.color != text.color)
+                // Marker index may differ in color or be set apart from its power/frequency, keep them together
+                const bool keepMarker = &m_font == &g_markerFont && isMarkerIndex(text.value);
+
+                if (!keepMarker && (gap >= SEGMENT_GAP_SPACES * m_font.spaceWidth || token.color != text.color))
                 {
                     flush(text, active, out);
                 }
