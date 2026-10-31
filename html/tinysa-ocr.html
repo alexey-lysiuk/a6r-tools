@@ -510,12 +510,19 @@ document.addEventListener('dragleave', () => drop.classList.remove('over'));
 document.addEventListener('drop', e => {
     e.preventDefault();
     drop.classList.remove('over');
-    if (e.dataTransfer.files[0]) loadBlob(e.dataTransfer.files[0]);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    $('file').files = e.dataTransfer.files;
+    loadBlob(file);
 });
 document.addEventListener('paste', e => {
     const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
-    if (item) loadBlob(item.getAsFile());
+    if (!item) return;
+    $('file').value = '';
+    loadBlob(item.getAsFile());
 });
+
+$('file').value = ''; // browsers may restore the previous selection on reload
 </script>
 </body>
 </html>
