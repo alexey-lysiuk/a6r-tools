@@ -460,6 +460,7 @@ function render() {
         const text = tr.insertCell();
         text.className = 'text';
         text.textContent = t.value;
+        t.row = tr;
         tr.onmouseenter = () => { tr.classList.add('hl'); draw(t); };
         tr.onmouseleave = () => { tr.classList.remove('hl'); draw(); };
     });
@@ -485,12 +486,35 @@ async function loadBlob(blob) {
         ctx.drawImage(bitmap, 0, 0);
         image = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
         canvas.style.width = bitmap.width * 2 + 'px';
+        hoveredText = null;
         texts = recognize(image);
         render();
     } catch (e) {
         $('error').textContent = 'Failed to load image: ' + e.message;
     }
 }
+
+let hoveredText = null;
+canvas.onmousemove = e => {
+    if (!image) return;
+    const r = canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left) * canvas.width / r.width;
+    const y = (e.clientY - r.top) * canvas.height / r.height;
+    const t = texts.find(t => x >= t.x && x < t.x + t.width && y >= t.y && y < t.y + t.height) || null;
+    if (t === hoveredText) return;
+    if (hoveredText) hoveredText.row.classList.remove('hl');
+    hoveredText = t;
+    if (t) {
+        t.row.classList.add('hl');
+        t.row.scrollIntoView({ block: 'nearest' });
+    }
+    draw(t);
+};
+canvas.onmouseleave = () => {
+    if (hoveredText) hoveredText.row.classList.remove('hl');
+    hoveredText = null;
+    if (image) draw();
+};
 
 $('file').onchange = e => { if (e.target.files[0]) loadBlob(e.target.files[0]); };
 $('format').onchange = () => { if (image) $('output').value = formatOutput(); };
