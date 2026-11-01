@@ -518,8 +518,12 @@ document.addEventListener('drop', e => {
 document.addEventListener('paste', e => {
     const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
     if (!item) return;
-    $('file').value = '';
-    loadBlob(item.getAsFile());
+    const file = item.getAsFile();
+    if (!file) return;
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([file], '<Clipboard>', { type: file.type }));
+    $('file').files = transfer.files;
+    loadBlob(file);
 });
 
 $('file').value = ''; // browsers may restore the previous selection on reload
