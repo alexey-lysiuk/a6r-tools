@@ -218,10 +218,6 @@
     <div id="status">Disconnected.</div>
 
     <script>
-        // STMicroelectronics STM32 Virtual COM Port (VCP) using the USB CDC class
-        const USB_VID = 0x0483;
-        const USB_PID = 0x5740;
-
         const SCREEN_WIDTH = 480;
         const SCREEN_HEIGHT = 320;
         const PIXEL_BYTES = SCREEN_WIDTH * SCREEN_HEIGHT * 2;
@@ -1241,7 +1237,12 @@
             }
 
             try {
-                options = { filters: [ { usbVendorId: USB_VID, usbProductId: USB_PID } ] }
+                options = { filters: [
+                    // STMicroelectronics STM32 Virtual COM Port (VCP) using the USB CDC class
+                    { usbVendorId: 0x0483, usbProductId: 0x5740 },
+                    // USB IDs since firmware v1.4-273-gffd75d8
+                    { usbVendorId: 0x1781, usbProductId: 0x0A44 },
+                ] }
                 port = await navigator.serial.requestPort(options);
                 await port.open({ baudRate: 115200 });
                 reader = port.readable.getReader();
