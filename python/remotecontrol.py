@@ -38,9 +38,14 @@ _BMP_HEADER2 = b'\x01'\
 
 
 class SMTVirtualCOMPort:
+    # STMicroelectronics STM32 Virtual COM Port (VCP) using the USB CDC class
     VID = 0x0483  # 1155
     PID_GENERIC = 0x5740  # 22336
     PID_TINYGTC = 0x5741  # 22337
+
+    # tinySA USB IDs since firmware v1.4-273-gffd75d8
+    VID_TINYSA = 0x1781
+    PID_TINYSA = 0x0A44
 
     S1P = 0
     S2P = 1
@@ -55,7 +60,10 @@ class SMTVirtualCOMPort:
             tinygtc_port = None
 
             for port in ports:
-                if port.vid != self.VID:
+                if port.vid == self.VID_TINYSA and port.pid == self.PID_TINYSA:
+                    device_name = port.device
+                    break
+                elif port.vid != self.VID:
                     continue
 
                 if port.pid == self.PID_TINYGTC:
