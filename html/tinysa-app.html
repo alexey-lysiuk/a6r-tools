@@ -237,7 +237,7 @@
         #consoleLog .rx { color: var(--plot-text); }
         #consoleLog .note { color: var(--muted); font-style: italic; }
         #screenCanvas, #batteryCanvas { display: block; max-width: 100%; border: 1px solid var(--surface-border); background: #000; }
-        #screenCanvas { image-rendering: pixelated; width: 960px; }
+        #screenCanvas { image-rendering: pixelated; cursor: pointer; touch-action: none; }
         #batteryCanvas { background: var(--plot-bg); width: 640px; height: 280px; }
 
         .hidden { display: none !important; }
@@ -402,9 +402,9 @@
             <button id="screenSaveBtn">Save image</button>
             <button id="screenCopyBtn">Copy image</button>
             <label><input id="screenInvertChk" type="checkbox">Invert colours</label>
-            <label title="Capture the screen about once a second"><input id="screenAutoChk" type="checkbox">Auto refresh</label>
+            <label title="Scale the picture to the window"><input id="screenFitChk" type="checkbox">Fit</label>
+            <label title="Live screen: the unit pushes its changes, clicks and drags act as touches"><input id="screenRemoteChk" type="checkbox">Remote</label>
             <span class="grow"></span>
-            <a href="tinysa-remote-control.html" target="_blank" rel="noopener" title="Faster live mirror with touch control">Live remote control</a>
             <button data-close>Close</button>
         </div>
     </dialog>
@@ -941,10 +941,12 @@ class RxParser {
             const n = (p << 24) >> 24;
             const need = n >= 0 ? n + 2 : n === -128 ? 1 : 2;
             if (avail < need) return false;
+            this.rle.push(this.buf.slice(this.pos, this.pos + need));
             this.pos += need;
             this.rleLeft -= n >= 0 ? n + 1 : n === -128 ? 0 : 1 - n;
             if (this.rleLeft <= 0) {
-                out.push({ type: 'region', rect: this.region });
+                out.push({ type: 'region', rect: this.region, kind: 'rle8', data: concatBytes(this.rle) });
+                this.rle = [];
                 this.rleRegion = false;
                 this.swallowPrompt = true; // the push ends with its own "ch> "
                 this.state = 'text';
@@ -964,8 +966,9 @@ class RxParser {
         case 'regionBody': {
             const need = this.push === 'b' ? this.region.w * this.region.h * 2 : 2;
             if (avail < need) return false;
+            const kind = { b: 'bulk', f: 'fill', s: 'scrl' }[this.push];
+            out.push({ type: 'region', rect: this.region, kind, data: this.buf.slice(this.pos, this.pos + need) });
             this.pos += need;
-            out.push({ type: 'region', rect: this.region });
             this.swallowPrompt = true;
             this.state = 'text';
             return true;
@@ -1074,16 +1077,47 @@ function unpackBits(src, srcStart, srcLen, outLen) {
     return out;
 }
 
+function putRgb565(img, i, v) {
+    const r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31;
+    img.data[i * 4] = (r << 3) | (r >> 2);
+    img.data[i * 4 + 1] = (g << 2) | (g >> 4);
+    img.data[i * 4 + 2] = (b << 3) | (b >> 2);
+    img.data[i * 4 + 3] = 255;
+}
+
+// Screen pushes of a unit in remote mode, applied to the picture kept from the capture
+function applyRegion(img, e) {
+    const r = e.rect, d = e.data;
+    const x0 = Math.max(r.x, 0), x1 = Math.min(r.x + r.w, img.width), y0 = Math.max(r.y, 0), y1 = Math.min(r.y + r.h, img.height);
+    if (e.kind === 'scrl') { // the rows of the rectangle move down by dy (a waterfall)
+        const dy = ((d[0] | d[1] << 8) << 16) >> 16;
+        const top = Math.max(y0, -dy), bottom = Math.min(y1 - 1, img.height - 1 - dy);
+        for (let i = 0; i <= bottom - top; i++) {
+            const y = dy > 0 ? bottom - i : top + i;
+            img.data.copyWithin(((y + dy) * img.width + x0) * 4, (y * img.width + x0) * 4, (y * img.width + x1) * 4);
+        }
+    } else if (e.kind === 'fill') {
+        const c = d[0] << 8 | d[1];
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) putRgb565(img, y * img.width + x, c);
+    } else if (e.kind === 'rle8') { // u16 palette bytes, palette (big-endian RGB565), PackBits indices
+        const n = d[0] | d[1] << 8;
+        const idx = unpackBits(d, 2 + n, d.length - 2 - n, r.w * r.h);
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+            const k = 2 + 2 * idx[(y - r.y) * r.w + x - r.x];
+            putRgb565(img, y * img.width + x, k + 1 < 2 + n ? d[k] << 8 | d[k + 1] : 0);
+        }
+    } else {
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+            const k = 2 * ((y - r.y) * r.w + x - r.x);
+            putRgb565(img, y * img.width + x, d[k] << 8 | d[k + 1]);
+        }
+    }
+}
+
 // Capture payload (raw big-endian RGB565, or RLE8) -> ImageData of w x h
 function decodeCapture(data, rle8, w, h) {
     const img = new ImageData(w, h);
-    const put = (i, v) => {
-        const r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31;
-        img.data[i * 4] = (r << 3) | (r >> 2);
-        img.data[i * 4 + 1] = (g << 2) | (g >> 4);
-        img.data[i * 4 + 2] = (b << 3) | (b >> 2);
-        img.data[i * 4 + 3] = 255;
-    };
+    const put = (i, v) => putRgb565(img, i, v);
     if (!rle8) {
         if (data.length < w * h * 2) return null;
         for (let i = 0; i < w * h; i++) put(i, data[2 * i] << 8 | data[2 * i + 1]);
@@ -1166,7 +1200,7 @@ class SimTransport {
         this.closed = false;
     }
     async open() {}
-    async close() { this.closed = true; if (this.scan) clearInterval(this.scan.timer); this.scan = null; }
+    async close() { this.closed = true; clearInterval(this.pushTimer); if (this.scan) clearInterval(this.scan.timer); this.scan = null; }
     out(text) { if (!this.closed) setTimeout(() => !this.closed && this.onData(new TextEncoder().encode(text)), 0); }
     outBytes(b) { if (!this.closed) setTimeout(() => !this.closed && this.onData(b), 0); }
 
@@ -1203,7 +1237,13 @@ class SimTransport {
         let r = [];
         switch (cmd) {
         case '': break;
-        case 'abort': case 'pause': case 'resume': case 'saveconfig': case 'clearconfig': case 'touch': case 'release': case 'ui': case 'refresh': break;
+        case 'abort': case 'pause': case 'resume': case 'saveconfig': case 'clearconfig': case 'ui': break;
+        case 'touch': case 'release': this.touches = (this.touches || 0) + 1; break;
+        case 'refresh': // on | rle | off: the screen pushes of remote mode, from a timer
+            clearInterval(this.pushTimer); this.pushTimer = null;
+            this.pushRle = a[0] === 'rle';
+            if (a[0] === 'on' || this.pushRle) this.pushTimer = setInterval(() => this.pushTick(), 100);
+            break;
         case 'version':
             r = this.kind === 'basic' ? ['tinySA_v1.4-311-g0c1b0a3'] : ['tinySA4_v1.4-341-g5ab3f5c', 'HW Version:V0.5.4 (1.34inch,PCB)'];
             break;
@@ -1236,7 +1276,31 @@ class SimTransport {
         case 'capture': return this.capture(line);
         default: r = [`${cmd}?`];
         }
-        this.out(line + '\r\n' + r.map((l) => l + '\r\n').join('') + 'ch> ');
+        if (this.pushTimer && line.length > 2) { // a push inside the echo, as the firmware's threads allow
+            this.out(line.slice(0, 2));
+            this.pushTick();
+            this.out(line.slice(2) + '\r\n' + r.map((l) => l + '\r\n').join('') + 'ch> ');
+        } else this.out(line + '\r\n' + r.map((l) => l + '\r\n').join('') + 'ch> ');
+    }
+
+    // screen push: kind + x y w h (int16 LE) + payload + prompt
+    push(kind, x, y, w, h, payload) {
+        const le = (v) => [v & 255, (v >> 8) & 255];
+        const t = (str) => new TextEncoder().encode(str);
+        this.outBytes(concatBytes([t(kind + '\r\n'), Uint8Array.from([...le(x), ...le(y), ...le(w), ...le(h)]), payload, t('ch> ')]));
+    }
+
+    pushTick() {
+        if (this.scan) return; // never inside scan data
+        const [w, h] = this.model.lcd, n = (this.pushes = (this.pushes || 0) + 1);
+        const px = new Uint8Array(32 * 16 * 2);
+        for (let i = 0; i < 32 * 16; i++) { px[2 * i] = 0x00; px[2 * i + 1] = 0x1f + 0x21 * (i % 8); }
+        this.push('bulk', (n * 16) % (w - 32), h - 24, 32, 16, px);
+        if (this.pushRle) { // a waterfall as refresh rle sends it: the rows move down, then a new top row
+            this.push('scrl', 30, 200, 450, 80, Uint8Array.of(1, 0));
+            const c = 0xf800 + 0x20 * (n % 32);
+            this.push('fill', 30, 200, 450, 1, Uint8Array.of(c >> 8, c & 255));
+        }
     }
 
     scanraw(line, [start, stop, points]) {
@@ -1335,7 +1399,9 @@ class DeviceLink extends Emitter {
         this.paused = false; this.uiOff = false; this.aborting = false;
         this.frame = null; this.frameSeq = 0; this.sweepPiece = -1; this.scanExpect = 0;
         this.batteryDue = false; this.wake = null; this.lastRx = 0;
-        clearInterval(this.batteryTimer); clearTimeout(this.timeout);
+        this.remote = false; this.modeBeforeRemote = 'off'; this.screenImg = null; this.pendingTouch = '';
+        clearInterval(this.batteryTimer); clearTimeout(this.timeout); clearTimeout(this.touchTimer); clearTimeout(this.screenTimer);
+        this.touchTimer = this.screenTimer = null;
     }
 
     get isOpen() { return !!this.io; }
@@ -1502,7 +1568,16 @@ class DeviceLink extends Emitter {
         case 'pixels':
             if (cur) { cur.pixels = e.data; cur.rle8 = e.rle8; }
             break;
-        default: // 'region': screen push of a unit left in remote mode, not used here
+        case 'region': { // screen push (refresh on / rle): change the picture kept from the capture
+            const [w, h] = this.info.model.lcd, img = this.screenImg;
+            if (!img || img.width !== w || img.height !== h) {
+                this.screenImg = new ImageData(w, h);
+                for (let i = 3; i < this.screenImg.data.length; i += 4) this.screenImg.data[i] = 255;
+            }
+            applyRegion(this.screenImg, e);
+            if (!this.screenTimer) this.screenTimer = setTimeout(() => { this.screenTimer = null; this.emit('screen', this.screenImg); }, 40);
+            break;
+        }
         }
     }
 
@@ -1514,6 +1589,7 @@ class DeviceLink extends Emitter {
             if (this.drainP) { await this.drainP; continue; }
             if (this.queue.length) {
                 const c = this.queue.shift();
+                if (c.fn) { await c.fn(); continue; }
                 const r = await this.exec(c);
                 if (c.done) c.done(r);
                 continue;
@@ -1671,6 +1747,7 @@ class DeviceLink extends Emitter {
                 done: (r) => {
                     const img = r.ok && r.pixels ? decodeCapture(r.pixels, r.rle8, w, h) : null;
                     if (img) {
+                        this.screenImg = img;
                         this.emit('traffic', false, `<screen ${w}x${h}, ${r.rle8 ? 'RLE8' : 'raw'} ${r.pixels.length} bytes, ${Math.round(performance.now() - this.sentAt)} ms>`, false);
                         this.emit('screen', img);
                     } else this.emit('message', 'Screen capture failed', true);
@@ -1679,6 +1756,71 @@ class DeviceLink extends Emitter {
             });
             this.poke();
         });
+    }
+
+    // Remote control: the unit drives its own display (our scanning pauses) and pushes screen
+    // changes; off restores the previous scan mode.
+    setRemote(on) {
+        if (!this.ready || on === this.remote) return;
+        if (on) {
+            this.remote = true;
+            this.modeBeforeRemote = this.mode;
+            this.setMode('off'); // resumes the unit's own sweeping and display
+            if (this.uiOff) this.queue.push({ line: 'ui on' });
+            if (this.paused) this.queue.push({ line: 'resume' });
+            this.capture(); // full picture first, then only the changes
+            // compressed pushes and a scrolling waterfall; firmware without them answers with usage
+            this.queue.push({ line: 'refresh rle', timeout: 3000, done: (r) => {
+                if (this.remote && r.lines.join(' ').includes('usage')) { this.queue.push({ line: 'refresh on' }); this.poke(); }
+            } });
+        } else {
+            this.queue.push({ fn: async () => { // after anything in flight
+                if (!this.io) return;
+                this.flushTouch();
+                clearTimeout(this.touchTimer); this.touchTimer = null;
+                this.writeDirect('refresh off');
+                this.remote = false;
+                await this.drain(); // pushes still in the pipe; their echo too
+                this.setMode(this.modeBeforeRemote);
+            } });
+        }
+        this.poke();
+    }
+
+    // Remote mode: the unit echoes from another thread than the one pushing the screen, so
+    // touches are sent without waiting for echo and prompt
+    writeDirect(line) {
+        if (!this.io) return;
+        this.io.write(line + '\r').catch(() => {});
+        this.emit('traffic', true, line, false);
+    }
+
+    flushTouch() {
+        if (!this.pendingTouch) return;
+        const line = this.pendingTouch;
+        this.pendingTouch = '';
+        this.writeDirect(line);
+    }
+
+    touch(x, y, down) {
+        if (!this.ready) return;
+        const line = down ? `touch ${x} ${y}` : 'release';
+        if (this.remote) { // live screen: drags at most every 30 ms
+            if (!down) { this.flushTouch(); this.writeDirect(line); return; }
+            if (this.touchTimer) { this.pendingTouch = line; return; }
+            this.writeDirect(line);
+            const tick = () => {
+                if (this.pendingTouch) { this.flushTouch(); this.touchTimer = setTimeout(tick, 30); } else this.touchTimer = null;
+            };
+            this.touchTimer = setTimeout(tick, 30);
+            return;
+        }
+        if (down) { // dragging: update a touch that is still waiting instead of queueing more
+            const q = this.queue.find((c) => c.line && c.line.startsWith('touch '));
+            if (q) { q.line = line; return; }
+        }
+        this.queue.push({ line });
+        this.poke();
     }
 
     // Leave the unit sweeping on its own: stop our scan (the shell reads the abort within
@@ -1692,6 +1834,7 @@ class DeviceLink extends Emitter {
             let t = '';
             if (c && c.body === 'scanraw' && !c.scanDone && !this.aborting) t += 'abort\r';
             if (this.activity === 'generator' && wasReady) t += `output off\rmode ${this.info.model.hasInputMode ? this.want.input : 'low'} input\r`;
+            if (this.remote && wasReady) t += 'refresh off\r';
             if (this.uiOff && wasReady) t += 'ui on\r';
             if (this.paused && wasReady) t += 'resume\r';
             if (t) { try { await io.write(t); await sleep(100); } catch (e) { /* port gone */ } }
@@ -2143,7 +2286,7 @@ const SETTINGS_KEY = 'tinysa-app-settings', THEME_KEY = 'tinysa-app-theme';
 const POINT_CHOICES = [51, 101, 145, 290, 450, 500, 1000, 2000, 5000, 10000];
 
 let cfg = defaultConfig();
-const settings = { screenOff: true, csvFormat: 'hz', sep: ',', comma: false, name: '', auto: true, yTop: -20, yBottom: -120 };
+const settings = { screenOff: true, csvFormat: 'hz', sep: ',', comma: false, name: '', auto: true, yTop: -20, yBottom: -120, screenInvert: false };
 const memShow = [true, true, true];
 let showLive = true, sweeps = 0, lastSweepSeconds = 0, uiPending = false;
 let batteryHistory = [], lastMv = null, lastScreen = null;
@@ -2482,10 +2625,19 @@ function sendConsole() {
 
 function showScreen() {
     if (!lastScreen) return;
-    const c = $('screenCanvas'), img = new ImageData(new Uint8ClampedArray(lastScreen.data), lastScreen.width, lastScreen.height);
-    if ($('screenInvertChk').checked) for (let i = 0; i < img.data.length; i += 4) { img.data[i] ^= 255; img.data[i + 1] ^= 255; img.data[i + 2] ^= 255; }
-    c.width = img.width; c.height = img.height;
-    c.getContext('2d', { willReadFrequently: true }).putImageData(img, 0, 0);
+    const c = $('screenCanvas'), g = c.getContext('2d', { willReadFrequently: true });
+    let img = lastScreen;
+    if ($('screenInvertChk').checked) { // RGB565: every channel inverted
+        img = new ImageData(new Uint8ClampedArray(lastScreen.data), lastScreen.width, lastScreen.height);
+        for (let i = 0; i < img.data.length; i += 4) { img.data[i] ^= 255; img.data[i + 1] ^= 255; img.data[i + 2] ^= 255; }
+    }
+    if (c.width !== img.width || c.height !== img.height) { c.width = img.width; c.height = img.height; fitScreen(); }
+    g.putImageData(img, 0, 0);
+}
+
+function fitScreen() {
+    const c = $('screenCanvas');
+    c.style.width = $('screenFitChk').checked ? Math.floor(Math.min(innerWidth - 60, (innerHeight - 150) * c.width / c.height)) + 'px' : '';
 }
 
 function drawBattery() {
@@ -2524,31 +2676,38 @@ function bindDialogs() {
         else if (e.key === 'ArrowUp' && histPos > 0) { $('consoleIn').value = cmdHistory[--histPos]; e.preventDefault(); }
         else if (e.key === 'ArrowDown' && histPos < cmdHistory.length) { $('consoleIn').value = cmdHistory[++histPos] || ''; e.preventDefault(); }
     };
-    $('screenBtn').onclick = () => { $('screenDlg').showModal(); if (!lastScreen) link.capture(); else showScreen(); };
+    $('screenBtn').onclick = () => { $('screenDlg').showModal(); fitScreen(); if (!lastScreen) link.capture(); else showScreen(); };
     $('captureBtn').onclick = () => link.capture();
     $('screenInvertChk').onchange = showScreen;
-    // click = touch (the unit's touchscreen); a screen refresh follows so the result shows
-    $('screenCanvas').onclick = async (e) => {
-        if (!link.isOpen) return;
-        const c = $('screenCanvas'), r = c.getBoundingClientRect();
-        const x = Math.round((e.clientX - r.left) * c.width / r.width), y = Math.round((e.clientY - r.top) * c.height / r.height);
-        if (x < 0 || y < 0 || x >= c.width || y >= c.height) return;
-        await link.send(`touch ${x} ${y}`);
-        await link.send('release');
-        setTimeout(() => link.capture(), 250);
+    $('screenInvertChk').checked = settings.screenInvert;
+    $('screenInvertChk').onchange = () => { settings.screenInvert = $('screenInvertChk').checked; saveSettings(); showScreen(); };
+    $('screenFitChk').onchange = fitScreen;
+    addEventListener('resize', fitScreen);
+    $('screenRemoteChk').onchange = () => { $('captureBtn').disabled = $('screenRemoteChk').checked; link.setRemote($('screenRemoteChk').checked); };
+    $('screenDlg').addEventListener('close', () => { $('screenRemoteChk').checked = false; $('captureBtn').disabled = false; link.setRemote(false); });
+    // the unit's touchscreen: press, drag, release; without live updates the result is captured afterwards
+    const canvas = $('screenCanvas');
+    const lcdPoint = (e) => {
+        const r = canvas.getBoundingClientRect();
+        return [clamp(Math.floor((e.clientX - r.left) * canvas.width / r.width), 0, canvas.width - 1),
+            clamp(Math.floor((e.clientY - r.top) * canvas.height / r.height), 0, canvas.height - 1)];
     };
-    let autoTimer = null, capturing = false;
-    const autoTick = async () => {
-        if (capturing || !link.isOpen || !$('screenDlg').open) return;
-        capturing = true;
-        try { await link.capture(); } finally { capturing = false; }
+    let touching = false;
+    canvas.onpointerdown = (e) => {
+        if (e.button !== 0 || !lastScreen || !link.isOpen) return;
+        touching = true;
+        canvas.setPointerCapture(e.pointerId);
+        link.touch(...lcdPoint(e), true);
     };
-    const autoSync = () => {
-        clearInterval(autoTimer);
-        autoTimer = $('screenAutoChk').checked && $('screenDlg').open ? setInterval(autoTick, 1000) : null;
+    canvas.onpointermove = (e) => { if (touching) link.touch(...lcdPoint(e), true); };
+    const lift = (e) => {
+        if (!touching) return;
+        touching = false;
+        link.touch(...lcdPoint(e), false);
+        if (!$('screenRemoteChk').checked) setTimeout(() => link.capture(), 300);
     };
-    $('screenAutoChk').onchange = autoSync;
-    $('screenDlg').addEventListener('close', autoSync);
+    canvas.onpointerup = lift;
+    canvas.onpointercancel = lift;
     $('screenSaveBtn').onclick = async () => { const b = await canvasBlob($('screenCanvas')); download(b, `tinysa-screen-${stamp()}.png`); };
     $('screenCopyBtn').onclick = () => copyCanvas($('screenCanvas'));
     $('batteryBtn').onclick = () => { $('batteryDlg').showModal(); drawBattery(); };
@@ -2706,6 +2865,7 @@ function bindLink() {
     });
     link.on('closed', (reason) => {
         setConnected(false);
+        $('screenRemoteChk').checked = false; $('captureBtn').disabled = false;
         genCfg.on = false;
         setAppMode('analyzer');
         syncGenInputs();
