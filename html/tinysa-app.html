@@ -1,0 +1,2466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tinySA App</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMyIgZmlsbD0iIzFlMWUxZSIvPgogIDxwb2x5bGluZSBmaWxsPSJub25lIiBzdHJva2U9IiNmZmQ3MDAiIHN0cm9rZS13aWR0aD0iMS41IgogICAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogICAgcG9pbnRzPSIxLDI3IDMsMjYgNSwyNCA3LDkgOSwyMyAxMSwyNSAxMywyMCAxNSwxOCAxNywyMiAxOSwyNSAyMSwyNCAyMywxOSAyNSwyMyAyNywyNSAyOSwyNCAzMSwyNiIvPgo8L3N2Zz4=">
+    <style>
+        :root {
+            color-scheme: dark light;
+            --body-bg: #1e1e1e;
+            --surface-bg: #252525;
+            --surface-border: #404040;
+            --text: #e0e0e0;
+            --muted: #b0b0b0;
+            --button-bg: #383838;
+            --button-hover: #484848;
+            --button-text: #f5f5f5;
+            --accent: #ffd700;
+            --input-bg: #2f2f2f;
+            --input-border: #505050;
+            --error: #f08080;
+            --plot-bg: #101010;
+            --plot-grid: #343434;
+            --plot-text: #c8c8c8;
+            --trace-live: #ffd700;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --body-bg: #f0f2f5;
+                --surface-bg: #ffffff;
+                --surface-border: #b0bcc8;
+                --text: #303848;
+                --muted: #5d6a7f;
+                --button-bg: #3060a0;
+                --button-hover: #204080;
+                --button-text: #ffffff;
+                --accent: #3060a0;
+                --input-bg: #ffffff;
+                --input-border: #b0bcc8;
+                --error: #c02020;
+                --plot-bg: #ffffff;
+                --plot-grid: #dde2ea;
+                --plot-text: #303848;
+                --trace-live: #b07800;
+            }
+        }
+
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --body-bg: #1e1e1e;
+            --surface-bg: #252525;
+            --surface-border: #404040;
+            --text: #e0e0e0;
+            --muted: #b0b0b0;
+            --button-bg: #383838;
+            --button-hover: #484848;
+            --button-text: #f5f5f5;
+            --accent: #ffd700;
+            --input-bg: #2f2f2f;
+            --input-border: #505050;
+            --error: #f08080;
+            --plot-bg: #101010;
+            --plot-grid: #343434;
+            --plot-text: #c8c8c8;
+            --trace-live: #ffd700;
+        }
+
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --body-bg: #f0f2f5;
+            --surface-bg: #ffffff;
+            --surface-border: #b0bcc8;
+            --text: #303848;
+            --muted: #5d6a7f;
+            --button-bg: #3060a0;
+            --button-hover: #204080;
+            --button-text: #ffffff;
+            --accent: #3060a0;
+            --input-bg: #ffffff;
+            --input-border: #b0bcc8;
+            --error: #c02020;
+            --plot-bg: #ffffff;
+            --plot-grid: #dde2ea;
+            --plot-text: #303848;
+            --trace-live: #b07800;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body { height: 100%; }
+
+        body {
+            margin: 0;
+            padding: 10px;
+            font-family: sans-serif;
+            font-size: 14px;
+            background: var(--body-bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .panel {
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            background: var(--surface-bg);
+            padding: 10px;
+        }
+
+        .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .toolbar-sep { width: 1px; height: 24px; background: var(--input-border); flex-shrink: 0; }
+        .grow { flex: 1; }
+
+        button {
+            border: 1px solid var(--surface-border);
+            border-radius: 6px;
+            background: var(--button-bg);
+            color: var(--button-text);
+            padding: 6px 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: inherit;
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button:hover:not(:disabled) { background: var(--button-hover); }
+        button.on { outline: 2px solid var(--accent); }
+        button.small { padding: 2px 7px; font-size: 0.85rem; }
+        button.danger { background: var(--error); color: #fff; }
+
+        input, select, textarea {
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            background: var(--input-bg);
+            color: var(--text);
+            padding: 4px 6px;
+            font-size: inherit;
+            font-family: inherit;
+        }
+        input[type=checkbox], input[type=radio] { padding: 0; }
+        input[type=number] { width: 100%; }
+
+        label { color: var(--muted); font-size: 0.9rem; }
+
+        .layout { flex: 1; min-height: 0; display: flex; gap: 10px; }
+
+        .side {
+            width: 270px;
+            flex-shrink: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .side fieldset {
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            margin: 0;
+            padding: 6px 8px 8px;
+        }
+        .side legend { color: var(--accent); font-weight: 600; padding: 0 4px; }
+
+        .form { display: grid; grid-template-columns: auto 1fr; gap: 5px 8px; align-items: center; }
+        .form .span2 { grid-column: 1 / -1; }
+        .row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+        .row label { display: inline-flex; align-items: center; gap: 3px; }
+
+        .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+
+        .modes { display: flex; gap: 4px; }
+        .modes button { flex: 1; }
+
+        .graph-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 300px;
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--plot-bg);
+        }
+        #graph { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; outline: none; }
+
+        .markers { max-height: 170px; overflow: auto; }
+        table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+        th, td { text-align: right; padding: 2px 8px; border-bottom: 1px solid var(--surface-border); white-space: nowrap; }
+        th:first-child, td:first-child { text-align: left; }
+        tr.sel td { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+        tbody tr { cursor: pointer; }
+
+        #status { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--muted); font-size: 0.9rem; }
+        #status .msg.error { color: var(--error); }
+        #status span { white-space: nowrap; }
+
+        dialog {
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            background: var(--surface-bg);
+            color: var(--text);
+            padding: 12px;
+            max-width: min(96vw, 1000px);
+        }
+        dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+        dialog h2 { margin: 0 0 8px; font-size: 1.1rem; }
+
+        #consoleLog, #infoText {
+            width: min(90vw, 720px);
+            height: 320px;
+            overflow: auto;
+            background: var(--plot-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            padding: 6px;
+            font: 12px/1.35 monospace;
+            white-space: pre-wrap;
+            margin: 0 0 6px;
+        }
+        #consoleLog .tx { color: var(--accent); }
+        #consoleLog .rx { color: var(--plot-text); }
+        #consoleLog .note { color: var(--muted); font-style: italic; }
+        #screenCanvas, #batteryCanvas { display: block; max-width: 100%; border: 1px solid var(--surface-border); background: #000; }
+        #screenCanvas { image-rendering: pixelated; width: 960px; }
+        #batteryCanvas { background: var(--plot-bg); width: 640px; height: 280px; }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 800px) {
+            .layout { flex-direction: column; }
+            .side { width: 100%; max-height: 40vh; }
+        }
+    </style>
+</head>
+<body>
+    <div class="panel toolbar" id="toolbar">
+        <button id="connectBtn" title="Connect to a tinySA over WebSerial">Connect</button>
+        <button id="demoBtn" title="Connect to a simulated tinySA">Demo</button>
+        <div class="toolbar-sep"></div>
+        <button id="onceBtn" disabled title="Sweep once">Once</button>
+        <button id="scanBtn" disabled title="Sweep continuously">Scan</button>
+        <button id="stopBtn" disabled title="Stop scanning (Esc)">Stop</button>
+        <div class="toolbar-sep"></div>
+        <button id="saveCsvBtn" title="Save the trace as a CSV file">Save CSV</button>
+        <button id="saveImgBtn" title="Save the graph as a PNG image">Save image</button>
+        <button id="copyImgBtn" title="Copy the graph to the clipboard">Copy image</button>
+        <button id="recordBtn" title="Save every sweep as CSV into a folder">Record</button>
+        <div class="toolbar-sep"></div>
+        <button id="screenBtn" disabled title="The tinySA screen">Screen</button>
+        <button id="consoleBtn" disabled title="Type tinySA commands and see the traffic">Console</button>
+        <button id="batteryBtn" title="Battery voltage over time">Battery</button>
+        <button id="settingsBtn" title="Settings and device information">Settings</button>
+        <span class="grow"></span>
+        <button id="themeBtn" title="Toggle color theme">Theme</button>
+    </div>
+
+    <div class="layout">
+        <div class="side">
+            <div class="modes" id="modes">
+                <button id="modeAnalyzer" class="on" title="Spectrum analyzer: the tinySA measures">Analyzer</button>
+                <button id="modeGenerator" disabled title="Signal generator: not available yet">Generator</button>
+            </div>
+
+            <fieldset>
+                <legend>Sweep (MHz)</legend>
+                <div class="form">
+                    <label for="startIn">Start</label><input id="startIn" type="text" inputmode="decimal">
+                    <label for="stopIn">Stop</label><input id="stopIn" type="text" inputmode="decimal">
+                    <label for="centerIn">Center</label><input id="centerIn" type="text" inputmode="decimal">
+                    <label for="spanIn">Span</label><input id="spanIn" type="text" inputmode="decimal">
+                    <label for="pointsSel">Points</label><select id="pointsSel"></select>
+                    <label for="logChk">Log</label><input id="logChk" type="checkbox" title="Logarithmic frequency axis">
+                    <button id="fromUnitBtn" class="span2" disabled title="Sweep the range that was set on the tinySA itself">From tinySA</button>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Input</legend>
+                <div class="form">
+                    <label for="rbwSel">RBW</label><select id="rbwSel"></select>
+                    <label for="attenSel">Atten</label><select id="attenSel"></select>
+                    <label for="inputSel" id="inputLabel">Input</label>
+                    <select id="inputSel"><option value="low">Low</option><option value="high">High</option></select>
+                    <label for="lnaChk" id="lnaLabel">LNA</label><input id="lnaChk" type="checkbox" title="Low noise amplifier (tinySA Ultra)">
+                    <label for="extGainIn">Ext. gain</label><input id="extGainIn" type="number" step="0.1" min="-100" max="100" value="0" title="External amplifier (+) or attenuator (-), dB">
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Trace</legend>
+                <div class="form">
+                    <label for="avgIn">Avg</label>
+                    <div class="row"><input id="avgIn" type="number" min="1" max="1000" value="1" style="width:5em" title="Moving average over this many sweeps (power)"><button id="restartBtn" class="small" title="Restart averaging and min/max hold">&#8634;</button></div>
+                    <label>Hold</label>
+                    <div class="row">
+                        <label><input type="radio" name="hold" value="off" checked>Off</label>
+                        <label><input type="radio" name="hold" value="max">Max</label>
+                        <label><input type="radio" name="hold" value="min">Min</label>
+                    </div>
+                    <label for="normChk">Normalize</label><input id="normChk" type="checkbox" title="Show levels relative to the current trace">
+                    <label for="autoChk">Auto scale</label><input id="autoChk" type="checkbox" checked>
+                    <label for="yTopIn">Top dBm</label><input id="yTopIn" type="number" step="5">
+                    <label for="yBotIn">Bottom dBm</label><input id="yBotIn" type="number" step="5">
+                    <label for="liveChk">Live</label><input id="liveChk" type="checkbox" checked title="Show the live trace">
+                </div>
+                <div id="memRows" style="margin-top:6px;display:grid;gap:4px"></div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Markers</legend>
+                <div class="row">
+                    <button id="mkAddBtn" class="small" title="Add a marker in the middle (or double click the graph)">Add</button>
+                    <button id="mkDelBtn" class="small" title="Delete the selected marker (Del)">Delete</button>
+                    <button id="mkClearBtn" class="small" title="Delete all markers">Clear all</button>
+                    <button id="mkPeakBtn" class="small" title="Move the selected marker to the strongest signal">To peak</button>
+                    <label><input id="mkDeltaChk" type="checkbox">Delta</label>
+                    <label><input id="peakChk" type="checkbox" checked>Show max</label>
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="main">
+            <div class="graph-wrap"><canvas id="graph" tabindex="0"></canvas></div>
+            <div class="panel markers" id="markerPanel">
+                <table>
+                    <thead><tr><th>Marker</th><th>Frequency</th><th>Level</th><th>&Delta; Frequency</th><th>&Delta; Level</th></tr></thead>
+                    <tbody id="markerRows"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="status">
+        <span class="msg" id="msg">Not connected.</span>
+        <span id="stDevice"></span>
+        <span id="stSweeps"></span>
+        <span id="stAvg"></span>
+        <span id="stStep"></span>
+        <span id="stBattery"></span>
+    </div>
+
+    <dialog id="consoleDlg">
+        <h2>Console</h2>
+        <pre id="consoleLog"></pre>
+        <div class="row"><input id="consoleIn" class="grow" placeholder="tinySA command, Enter sends" autocomplete="off" spellcheck="false">
+            <button id="consoleSend">Send</button><button id="consoleClear">Clear</button><button data-close>Close</button></div>
+    </dialog>
+
+    <dialog id="screenDlg">
+        <h2>tinySA screen</h2>
+        <canvas id="screenCanvas" width="480" height="320"></canvas>
+        <div class="row" style="margin-top:6px">
+            <button id="captureBtn">Capture</button>
+            <button id="screenSaveBtn">Save image</button>
+            <button id="screenCopyBtn">Copy image</button>
+            <label><input id="screenInvertChk" type="checkbox">Invert colours</label>
+            <span class="grow"></span>
+            <a href="tinysa-remote-control.html" target="_blank" rel="noopener" title="Live mirror with touch control">Live remote control</a>
+            <button data-close>Close</button>
+        </div>
+    </dialog>
+
+    <dialog id="batteryDlg">
+        <h2>Battery voltage</h2>
+        <canvas id="batteryCanvas" width="640" height="280"></canvas>
+        <div class="row" style="margin-top:6px"><span class="grow"></span><button data-close>Close</button></div>
+    </dialog>
+
+    <dialog id="settingsDlg">
+        <h2>Settings</h2>
+        <div class="form" style="min-width:min(80vw,460px)">
+            <label for="screenOffChk">Screen off while scanning</label>
+            <input id="screenOffChk" type="checkbox" title="Faster sweeps on firmware with the ui command (tinySA Ultra v1.4-314 and later)">
+            <label for="csvFormatSel">CSV format</label>
+            <select id="csvFormatSel">
+                <option value="hz">Frequency in Hz, level in dBm</option>
+                <option value="mhz">MHz CSV for wireless managers</option>
+            </select>
+            <label for="csvSepSel">CSV separator</label>
+            <select id="csvSepSel"><option value=",">Comma</option><option value=";">Semicolon</option><option value="&#9;">Tab</option></select>
+            <label for="csvCommaChk">Decimal comma</label><input id="csvCommaChk" type="checkbox">
+            <label for="nameIn">Sweep name</label><input id="nameIn" type="text" placeholder="Shown above saved images and in saved CSV files">
+            <label for="vbatIn">Battery offset (mV)</label>
+            <div class="row"><input id="vbatIn" type="number" style="width:7em"><button id="vbatSetBtn" class="small">Set</button></div>
+            <div class="span2 row">
+                <button id="timeBtn" class="small">Set clock to now</button>
+                <button id="saveCfgBtn" class="small">Save config</button>
+                <button id="clearCfgBtn" class="small danger">Clear config</button>
+            </div>
+        </div>
+        <h2 style="margin-top:10px">Device</h2>
+        <pre id="infoText">Not connected.</pre>
+        <div class="row"><span class="grow"></span><button data-close>Close</button></div>
+    </dialog>
+
+    <script>
+'use strict';
+// ===========================================================================
+// tinySA App - web version of https://github.com/erikkaashoek/tinySA-app
+// Sections: 1 units & sweep grid, 2 device models & config, 3 shell protocol,
+// 4 transports (WebSerial, simulator), 5 device link, 6 traces/markers/CSV,
+// 7 graph view, 8 application UI.
+// Units everywhere: Hz, dBm.
+// ===========================================================================
+
+// ---------------------------------------------------------------- 1. units
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const K_LOG_MIN_HZ = 10e3;
+
+class FreqRange {
+    constructor(start = 0, stop = 0) { this.start = start; this.stop = stop; this.min = 0; this.max = 100e9; this.minSpan = 10e3; }
+    get center() { return (this.start + this.stop) / 2; }
+    get span() { return this.stop - this.start; }
+    setLimits(min, max, minSpan = 10e3) {
+        this.min = min; this.max = Math.max(max, min); this.minSpan = Math.min(minSpan, this.max - this.min);
+        this.set(this.start, this.stop);
+    }
+    place(start, span) {
+        span = clamp(span, this.minSpan, this.max - this.min);
+        this.start = clamp(start, this.min, this.max - span);
+        this.stop = this.start + span;
+    }
+    set(a, b) {
+        if (b < a) [a, b] = [b, a];
+        a = clamp(a, this.min, this.max);
+        b = clamp(b, this.min, this.max);
+        if (b - a < this.minSpan) this.place((a + b - this.minSpan) / 2, this.minSpan);
+        else { this.start = a; this.stop = b; }
+    }
+    setStart(hz) { this.set(Math.min(hz, this.stop - this.minSpan), this.stop); }
+    setStop(hz) { this.set(this.start, Math.max(hz, this.start + this.minSpan)); }
+    setCenter(hz) { this.place(hz - this.span / 2, this.span); }
+    setSpan(hz) { const c = this.center; hz = clamp(hz, this.minSpan, this.max - this.min); this.place(c - hz / 2, hz); }
+    pan(deltaHz) { this.place(this.start + deltaHz, this.span); }
+    setCenterLog(hz) {
+        if (this.start <= 0 || hz <= 0) return this.setCenter(hz);
+        const half = Math.sqrt(this.stop / this.start);
+        let lo = hz / half;
+        if (lo * half * half > this.max) lo = this.max / (half * half);
+        lo = Math.max(lo, this.min);
+        this.set(lo, lo * half * half);
+    }
+}
+
+// The points of a sweep: linear, or logarithmic (startHz > 0). The firmware's `scanraw` only
+// sweeps linearly, so a log sweep is made of `pieces` linear pieces (one scanraw each) that
+// start at exact log frequencies.
+class ScanGrid {
+    constructor(startHz = 0, stopHz = 0, points = 0, log = false, pieces = 0) {
+        Object.assign(this, { startHz, stopHz, points, log, pieces });
+    }
+    static from(o) { return new ScanGrid(o.startHz, o.stopHz, o.points, !!o.log, o.pieces || 0); }
+    equals(o) {
+        return !!o && this.startHz === o.startHz && this.stopHz === o.stopHz && this.points === o.points
+            && this.log === o.log && this.pieces === o.pieces;
+    }
+    get isLog() { return this.log && this.startHz > 0 && this.stopHz > this.startHz && this.points > 1; }
+    get pieceCount() { return this.log && this.pieces > 0 ? this.pieces : 1; }
+    pieceStart(k) {
+        const n = this.pieceCount;
+        return k >= n ? this.points : Math.round(k * (this.points - 1) / n);
+    }
+    step() {
+        if (this.points < 2) return 0;
+        return this.isLog ? this.freq(1) - this.freq(0) : (this.stopHz - this.startHz) / (this.points - 1);
+    }
+    freq(i) { return this.freqAt(i); }
+    freqAt(x) {
+        if (this.points < 2) return this.startHz;
+        const last = this.points - 1;
+        if (!this.isLog) return this.startHz + (this.stopHz - this.startHz) / last * x;
+        const exact = (i) => this.startHz * Math.pow(this.stopHz / this.startHz, i / last);
+        if (this.pieces <= 0) return exact(x);
+        const k = this._pieceOf(x);
+        const a = this.pieceStart(k), b = Math.min(this.pieceStart(k + 1), last);
+        const fa = exact(a), fb = exact(b);
+        return fa + (fb - fa) * (x - a) / (b - a);
+    }
+    _pieceOf(x) {
+        const n = this.pieceCount, last = this.points - 1;
+        let k = clamp(Math.floor(x * n / last), 0, n - 1);
+        while (k > 0 && x < this.pieceStart(k)) k--;
+        while (k < n - 1 && x >= this.pieceStart(k + 1)) k++;
+        return k;
+    }
+    index(hz) {
+        if (this.points < 2) return 0;
+        const last = this.points - 1;
+        if (!this.isLog) return this.stopHz > this.startHz ? (hz - this.startHz) / (this.stopHz - this.startHz) * last : 0;
+        if (hz <= 0) return -1e9;
+        const x = Math.log(hz / this.startHz) / Math.log(this.stopHz / this.startHz) * last;
+        if (this.pieces <= 0) return x;
+        const k = this._pieceOf(x);
+        const a = this.pieceStart(k), b = Math.min(this.pieceStart(k + 1), last);
+        const fa = this.freqAt(a), fb = this.freqAt(b);
+        return a + (hz - fa) / (fb - fa) * (b - a);
+    }
+    nearest(hz) {
+        if (this.points < 2 || this.stopHz <= this.startHz) return 0;
+        if (!this.isLog) return clamp(Math.round(this.index(hz)), 0, this.points - 1);
+        const i = clamp(Math.floor(this.index(hz)), 0, this.points - 1);
+        return i < this.points - 1 && Math.abs(this.freq(i + 1) - hz) < Math.abs(hz - this.freq(i)) ? i + 1 : i;
+    }
+    piece(k) {
+        if (!this.isLog) return new ScanGrid(this.startHz, this.stopHz, this.points);
+        const a = this.pieceStart(k), b = this.pieceStart(k + 1) - 1;
+        return new ScanGrid(this.freq(a), this.freq(b), b - a + 1);
+    }
+    // scanraw steps by (stop-start)/points, so the last point is one step short of the stop;
+    // asking for stop' = start + span*N/(N-1) puts the points exactly on start..stop
+    scanrawStop() {
+        if (this.points < 2) return Math.round(this.stopHz);
+        return Math.round(this.startHz + (this.stopHz - this.startHz) * this.points / (this.points - 1));
+    }
+}
+
+function logPieces(startHz, stopHz, points) {
+    if (startHz <= 0 || stopHz <= startHz || points < 5) return 1;
+    const octaves = Math.ceil(Math.log2(stopHz / startHz) - 1e-9);
+    return clamp(octaves, 1, Math.floor((points - 1) / 2));
+}
+
+// smallest {1, 2, 5} x 10^n >= v
+function nice125(v) {
+    if (!(v > 0)) return 1;
+    const decade = Math.pow(10, Math.floor(Math.log10(v)));
+    for (const m of [1, 2, 5, 10]) if (m * decade >= v * (1 - 1e-9)) return m * decade;
+    return 10 * decade;
+}
+
+function formatHz(hz, resolutionHz = 1) {
+    const a = Math.abs(hz);
+    let mult = 1, unit = 'Hz';
+    if (a >= 1e9) { mult = 1e9; unit = 'GHz'; }
+    else if (a >= 1e6) { mult = 1e6; unit = 'MHz'; }
+    else if (a >= 1e3) { mult = 1e3; unit = 'kHz'; }
+    resolutionHz = Math.max(resolutionHz, 1);
+    const decimals = clamp(Math.ceil(Math.log10(mult / resolutionHz) - 1e-9), 0, 9);
+    return `${(hz / mult).toFixed(decimals)} ${unit}`;
+}
+
+// MHz for the edits, to the Hz and without trailing zeros: "433.92"
+function formatMHz(hz) {
+    return (hz / 1e6).toFixed(6).replace(/\.?0+$/, '');
+}
+
+// "433.92", "433,92", "433.92M", "1.2 GHz", "100k": numbers without suffix are in defaultUnitHz
+function parseHz(text, defaultUnitHz = 1e6) {
+    const m = /^\s*([-+]?\d*(?:[.,]\d*)?(?:[eE][-+]?\d+)?)\s*([kKmMgG]?)\s*(?:[hH][zZ])?\s*$/.exec(text);
+    if (!m || !m[1] || m[1] === '.' || m[1] === ',') return null;
+    const v = parseFloat(m[1].replace(',', '.'));
+    if (!Number.isFinite(v)) return null;
+    const s = m[2].toLowerCase();
+    if (s === 'k') return v * 1e3;
+    if (s === 'm') return v * 1e6;
+    if (s === 'g') return v * 1e9;
+    return v * (/hz/i.test(text) ? 1 : defaultUnitHz);
+}
+
+// ------------------------------------------------- 2. device models & config
+// Everything model-specific is one row here; code asks the descriptor instead of testing
+// the model type. `gen` is the place for the signal generator description (output limits,
+// modulation types) once generator support is added.
+const MODELS = {
+    basic: {
+        name: 'tinySA', lcd: [320, 240], defaultZero: 128, hasLna: false, hasInputMode: true,
+        minHz: 0, maxHz: 350e6, highMinHz: 240e6, highMaxHz: 960e6,
+        rbwKHz: [3, 10, 30, 100, 300, 600], maxAtten: 30, gen: null,
+    },
+    ultra: {
+        name: 'tinySA Ultra', lcd: [480, 320], defaultZero: 174, hasLna: true, hasInputMode: false,
+        minHz: 0, maxHz: 9.9e9, highMinHz: 0, highMaxHz: 0,
+        rbwKHz: [0.2, 1, 3, 10, 30, 100, 300, 600, 850], maxAtten: 30, gen: null,
+    },
+    ultraPlus: {
+        name: 'tinySA Ultra+', lcd: [480, 320], defaultZero: 174, hasLna: true, hasInputMode: false,
+        minHz: 0, maxHz: 9.9e9, highMinHz: 0, highMaxHz: 0,
+        rbwKHz: [0.2, 1, 3, 10, 30, 100, 300, 600, 850], maxAtten: 30, gen: null,
+    },
+};
+const lowLimit = (m, input) => (input === 'high' && m.hasInputMode ? m.highMinHz : m.minHz);
+const highLimit = (m, input) => (input === 'high' && m.hasInputMode ? m.highMaxHz : m.maxHz);
+
+// First `info` line ("tinySA v0.3ZS304", "tinySA ULTRA ZS405", "tinySA ULTRA+ ZS407"),
+// falling back on the `version` reply ("tinySA4_v1.4-..."). null: not a tinySA.
+function detectModel(info, version) {
+    const first = (info.split('\n')[0] || '').trim().toLowerCase();
+    if (first.includes('tinysa ultra+')) return MODELS.ultraPlus;
+    if (first.includes('tinysa ultra')) return MODELS.ultra;
+    if (first.startsWith('tinysa')) return MODELS.basic;
+    if (version.startsWith('tinySA4')) return MODELS.ultra;
+    if (version.startsWith('tinySA')) return MODELS.basic;
+    return null;
+}
+
+function firmwareNumber(version) {
+    const m = /v(\d+)\.(\d+)-(\d+)/.exec(version);
+    return m ? +m[1] * 1000000 + +m[2] * 1000 + +m[3] : 0;
+}
+
+const parseHelp = (lines) => lines.flatMap((l) => {
+    const at = l.indexOf('commands:');
+    return at >= 0 ? l.slice(at + 9).split(' ').filter(Boolean) : [];
+});
+
+function parseZero(lines, fallback) {
+    for (const l of lines) {
+        const m = /^\s*(-?\d+)\s*dBm\s*$/.exec(l);
+        if (m) return +m[1];
+    }
+    return fallback;
+}
+
+function defaultConfig() {
+    return {
+        grid: new ScanGrid(88e6, 108e6, 450),
+        rbwKHz: 0,        // 0 = auto
+        atten: -1,        // dB, -1 = auto
+        lna: false,       // models with hasLna
+        input: 'low',     // models with hasInputMode: 'low' | 'high'
+        extGainDb: 0,     // the unit's `ext_gain`: shifts the levels it reports
+    };
+}
+
+// Clamp a config to what the model supports (range per input mode, RBW list, atten).
+function clampConfig(c, m) {
+    c = { ...c, grid: ScanGrid.from(c.grid) };
+    if (!m.hasInputMode) c.input = 'low';
+    if (!m.hasLna) c.lna = false;
+    const r = new FreqRange(c.grid.startHz, c.grid.stopHz);
+    const lo = lowLimit(m, c.input);
+    r.setLimits(c.grid.log ? Math.max(K_LOG_MIN_HZ, lo) : lo, highLimit(m, c.input));
+    c.grid.startHz = r.start;
+    c.grid.stopHz = r.stop;
+    c.grid.points = clamp(Math.round(c.grid.points) || 450, 2, 30000);
+    c.grid.pieces = 0; // the link splits its sweeps
+    if (c.rbwKHz > 0 && !m.rbwKHz.includes(c.rbwKHz)) {
+        c.rbwKHz = m.rbwKHz.reduce((best, v) =>
+            Math.abs(Math.log(v / c.rbwKHz)) < Math.abs(Math.log(best / c.rbwKHz)) ? v : best);
+    }
+    c.atten = clamp(Math.round(c.atten), -1, m.maxAtten);
+    c.extGainDb = clamp(Math.round(c.extGainDb * 10) / 10, -100, 100);
+    return c;
+}
+
+// Commands that bring the unit from `have` (what the link applied, undefined = unknown) to
+// `want`, in firmware-safe order (input mode first, on every model while unknown: it resets
+// rbw/atten). Updates `have`.
+function configCommands(want, have, m, info) {
+    const cmds = [];
+    const input = m.hasInputMode ? want.input : 'low';
+    if (have.input !== input) {
+        cmds.push(input === 'high' ? 'mode high input' : 'mode low input');
+        const ext = have.extGainDb;
+        for (const k of Object.keys(have)) delete have[k];
+        have.input = input;
+        have.extGainDb = ext;
+    }
+    if (m.hasLna && have.lna !== want.lna) { cmds.push(want.lna ? 'lna on' : 'lna off'); have.lna = want.lna; }
+    if (have.atten !== want.atten) {
+        cmds.push(want.atten < 0 ? 'attenuate auto' : `attenuate ${want.atten}`);
+        have.atten = want.atten;
+    }
+    if (have.rbwKHz !== want.rbwKHz) {
+        cmds.push(want.rbwKHz <= 0 ? 'rbw auto' : `rbw ${want.rbwKHz}`);
+        have.rbwKHz = want.rbwKHz;
+    }
+    if (info.commands.includes('ext_gain') && have.extGainDb !== want.extGainDb) {
+        cmds.push(`ext_gain ${want.extGainDb}`);
+        have.extGainDb = want.extGainDb;
+    }
+    const sweep = [Math.round(want.grid.startHz), Math.round(want.grid.stopHz)];
+    if (!have.sweep || have.sweep[0] !== sweep[0] || have.sweep[1] !== sweep[1]) {
+        cmds.push(`sweep start ${sweep[0]}`, `sweep stop ${sweep[1]}`);
+        have.sweep = sweep;
+    }
+    return cmds;
+}
+
+// -------------------------------------------------------- 3. shell protocol
+// tinySA shell byte stream -> events. Pure state machine, no I/O: it can be fed in arbitrary
+// chunks. Shell facts (firmware main.c / sa_cmd.c):
+//  - the command "cmd\r" is echoed as "cmd\r\n", followed by output lines and the prompt
+//    "ch> " (no newline); binary replies follow the echo directly
+//  - scanraw: '{' + N x ('x', lo, hi) + '}' then the prompt; aborted by touch/jog or `abort`:
+//    early '}', NO prompt
+//  - capture: W*H*2 bytes RGB565 (big-endian) then the prompt. `capture rle` (DiSlord RLE8;
+//    older firmware ignores the argument and sends raw pixels, told apart by the header):
+//    "BM" u16 width, u16 height, u8 bpp=8, u8 compression=1, u16 palette bytes + palette
+//    (RGB565 as read from the LCD), then per row u16 length + PackBits-packed palette indices
+//  - with `refresh on|rle` the unit pushes "bulk"/"fill"/"rle8"/"scrl" screen regions at any
+//    time, even inside the echo of a command; they are parsed and dropped here (see the
+//    separate remote control page for a live screen)
+class RxParser {
+    constructor() { this.reset(); }
+    reset() {
+        this.buf = new Uint8Array(4096); this.len = 0; this.pos = 0;
+        this.state = 'text';
+        this.echo = ''; this.body = 'text'; this.captureBytes = 0;
+        this.fragment = '';
+        this.rle = []; this.rleRows = 0; this.rleRegion = false; this.rleLeft = 0;
+        this.scan = []; this.scanCount = 0;
+        this.swallowPrompt = false;
+        this.region = null; this.push = '';
+    }
+    // After the echo of commandLine the parser switches to the body type: 'text' | 'scanraw' | 'capture'
+    expect(commandLine, body = 'text', bytes = 0) { this.echo = commandLine; this.body = body; this.captureBytes = bytes; }
+    get idle() { return this.state === 'text' && this.len === this.pos; }
+
+    feed(bytes) {
+        if (this.len + bytes.length > this.buf.length) {
+            const nb = new Uint8Array(Math.max(this.buf.length * 2, this.len + bytes.length));
+            nb.set(this.buf.subarray(0, this.len));
+            this.buf = nb;
+        }
+        this.buf.set(bytes, this.len);
+        this.len += bytes.length;
+        const out = [];
+        while (this.pos < this.len && this._step(out)) { /* consume */ }
+        this._flushScan(out);
+        if (this.pos === this.len) { this.pos = this.len = 0; }
+        else if (this.pos > 65536) { this.buf.copyWithin(0, this.pos, this.len); this.len -= this.pos; this.pos = 0; }
+        if (this.state === 'text' && this.len - this.pos > 65536) { // binary junk without newlines
+            out.push({ type: 'line', text: this._text(this.pos, this.pos + 80) + '...' });
+            this.pos = this.len = 0;
+        }
+        return out;
+    }
+
+    _text(a, b) { let s = ''; for (let i = a; i < b; i++) s += String.fromCharCode(this.buf[i]); return s; }
+    _u16(k) { return this.buf[this.pos + k] | this.buf[this.pos + k + 1] << 8; }
+    _i16(k) { return (this._u16(k) << 16) >> 16; }
+    _atPrompt() { return this.len - this.pos >= 4 && this._text(this.pos, this.pos + 4) === 'ch> '; }
+    _atPromptPrefix() { const n = this.len - this.pos; return n < 4 && 'ch> '.startsWith(this._text(this.pos, this.len)); }
+
+    _step(out) {
+        const avail = this.len - this.pos;
+        const p = this.buf[this.pos];
+        switch (this.state) {
+        case 'text': return this._textStep(out);
+        case 'scanStart':
+            if (p === 13 || p === 10) { this.pos++; return true; }
+            if (p === 0x7b) { this.pos++; this.scanCount = 0; this.state = 'scanPoints'; return true; }
+            this.state = 'text'; // a text reply instead of data, e.g. "frequency range is invalid"
+            return true;
+        case 'scanPoints': return this._scanStep(out);
+        case 'captureHead': { // RLE8 header, or already the first raw pixels
+            if (avail < 8 && avail < this.captureBytes) return false;
+            const rle = avail >= 8 && p === 0x42 && this.buf[this.pos + 1] === 0x4d && this.buf[this.pos + 6] === 8
+                && this.buf[this.pos + 7] === 1 && this._u16(2) * this._u16(4) * 2 === this.captureBytes;
+            if (!rle) { this.state = 'capture'; return true; }
+            this.rle = [this.buf.slice(this.pos, this.pos + 8)];
+            this.rleRows = this._u16(4);
+            this.pos += 8;
+            this.state = 'rle8Palette';
+            return true;
+        }
+        case 'capture':
+            if (avail < this.captureBytes) return false;
+            out.push({ type: 'pixels', data: this.buf.slice(this.pos, this.pos + this.captureBytes), rle8: false });
+            this.pos += this.captureBytes;
+            this.state = 'text';
+            return true;
+        case 'rle8Palette':
+        case 'rle8Rows': { // u16 length + that many bytes: the palette, then each row
+            if (avail < 2) return false;
+            const n = this._u16(0);
+            if (n > 4096) { this.state = 'text'; this.rleRegion = false; return true; } // not sane: give up
+            if (avail < 2 + n) return false;
+            this.rle.push(this.buf.slice(this.pos, this.pos + 2 + n));
+            this.pos += 2 + n;
+            if (this.state === 'rle8Palette') {
+                this.state = this.rleRegion ? 'rle8Stream' : 'rle8Rows';
+            } else if (--this.rleRows === 0) {
+                out.push({ type: 'pixels', data: concatBytes(this.rle), rle8: true });
+                this.rle = [];
+                this.state = 'text';
+            }
+            return true;
+        }
+        case 'rle8Stream': { // "rle8" push: PackBits blocks until w*h indices
+            const n = (p << 24) >> 24;
+            const need = n >= 0 ? n + 2 : n === -128 ? 1 : 2;
+            if (avail < need) return false;
+            this.pos += need;
+            this.rleLeft -= n >= 0 ? n + 1 : n === -128 ? 0 : 1 - n;
+            if (this.rleLeft <= 0) {
+                out.push({ type: 'region', rect: this.region });
+                this.rleRegion = false;
+                this.swallowPrompt = true; // the push ends with its own "ch> "
+                this.state = 'text';
+            }
+            return true;
+        }
+        case 'regionHeader': {
+            if (avail < 8) return false;
+            this.region = { x: this._i16(0), y: this._i16(2), w: this._i16(4), h: this._i16(6) };
+            this.pos += 8;
+            const r = this.region;
+            const sane = r.x >= 0 && r.y >= 0 && r.w > 0 && r.h > 0 && r.x + r.w <= 1024 && r.y + r.h <= 1024;
+            this.state = !sane ? 'text' : this.push === 'r' ? 'rle8Palette' : 'regionBody';
+            if (sane && this.push === 'r') { this.rle = []; this.rleLeft = r.w * r.h; this.rleRegion = true; }
+            return true;
+        }
+        case 'regionBody': {
+            const need = this.push === 'b' ? this.region.w * this.region.h * 2 : 2;
+            if (avail < need) return false;
+            this.pos += need;
+            out.push({ type: 'region', rect: this.region });
+            this.swallowPrompt = true;
+            this.state = 'text';
+            return true;
+        }
+        }
+        return false;
+    }
+
+    _textStep(out) {
+        if (this._atPrompt()) {
+            this.pos += 4;
+            if (this.swallowPrompt) this.swallowPrompt = false;
+            else out.push({ type: 'prompt' });
+            return true;
+        }
+        if (this._atPromptPrefix()) return false;
+        const nl = this.buf.subarray(0, this.len).indexOf(10, this.pos);
+        if (nl < 0) return false;
+        let line = this._text(this.pos, nl);
+        this.pos = nl + 1;
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        // The unit echoes typed characters one by one while another thread pushes screen
+        // regions, so a push can land inside a line ("re" + "bulk..." + "fresh off"): keep the
+        // fragment and finish the line after the push.
+        for (const push of ['bulk', 'fill', 'rle8', 'scrl']) {
+            if (line.endsWith(push)) {
+                this.fragment += line.slice(0, -4);
+                this.push = push[0];
+                this.state = 'regionHeader';
+                return true;
+            }
+        }
+        line = this.fragment + line;
+        this.fragment = '';
+        if (this.echo && line.endsWith(this.echo)) {
+            this.echo = '';
+            out.push({ type: 'echo', text: line });
+            if (this.body === 'scanraw') this.state = 'scanStart';
+            else if (this.body === 'capture') this.state = 'captureHead';
+            return true;
+        }
+        out.push({ type: 'line', text: line });
+        return true;
+    }
+
+    _scanStep(out) {
+        const avail = this.len - this.pos;
+        const p = this.buf[this.pos];
+        if (p === 0x78) { // 'x'
+            if (avail < 3) return false;
+            this.scan.push(((this.buf[this.pos + 1] | this.buf[this.pos + 2] << 8) << 16) >> 16);
+            this.scanCount++;
+            this.pos += 3;
+            return true;
+        }
+        if (p === 0x7d) { // '}'
+            this.pos++;
+            this._flushScan(out);
+            out.push({ type: 'scanend', count: this.scanCount });
+            this.state = 'text';
+            return true;
+        }
+        // Out-of-band text between 20-point chunks, e.g. the echo of `abort` or "Command
+        // timeout" + prompt from the shell thread while a scan runs. Logged, prompt swallowed.
+        if (this._atPrompt()) { this.pos += 4; return true; }
+        if (this._atPromptPrefix()) return false;
+        const nl = this.buf.subarray(0, this.len).indexOf(10, this.pos);
+        if (nl < 0) return false;
+        const line = this._text(this.pos, nl).trim();
+        this.pos = nl + 1;
+        this._flushScan(out);
+        out.push({ type: 'line', text: line });
+        return true;
+    }
+
+    _flushScan(out) {
+        if (!this.scan.length) return;
+        out.push({ type: 'scandata', values: this.scan });
+        this.scan = [];
+    }
+}
+
+function concatBytes(parts) {
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let at = 0;
+    for (const p of parts) { out.set(p, at); at += p.length; }
+    return out;
+}
+
+// PackBits as DiSlord's packbits(): n >= 0: n+1 literal bytes; n < 0: next byte 1-n times
+function unpackBits(src, srcStart, srcLen, outLen) {
+    const out = new Uint8Array(outLen);
+    let o = 0;
+    for (let i = srcStart, end = srcStart + srcLen; i < end && o < outLen;) {
+        const n = (src[i++] << 24) >> 24;
+        if (n >= 0) {
+            const k = Math.min(n + 1, end - i, outLen - o);
+            out.set(src.subarray(i, i + k), o);
+            o += k; i += k;
+        } else if (n !== -128 && i < end) {
+            const k = Math.min(1 - n, outLen - o);
+            out.fill(src[i++], o, o + k);
+            o += k;
+        }
+    }
+    return out;
+}
+
+// Capture payload (raw big-endian RGB565, or RLE8) -> ImageData of w x h
+function decodeCapture(data, rle8, w, h) {
+    const img = new ImageData(w, h);
+    const put = (i, v) => {
+        const r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31;
+        img.data[i * 4] = (r << 3) | (r >> 2);
+        img.data[i * 4 + 1] = (g << 2) | (g >> 4);
+        img.data[i * 4 + 2] = (b << 3) | (b >> 2);
+        img.data[i * 4 + 3] = 255;
+    };
+    if (!rle8) {
+        if (data.length < w * h * 2) return null;
+        for (let i = 0; i < w * h; i++) put(i, data[2 * i] << 8 | data[2 * i + 1]);
+        return img;
+    }
+    const u16 = (k) => data[k] | data[k + 1] << 8;
+    if (data.length < 10 || data[0] !== 0x42 || data[1] !== 0x4d || u16(2) !== w || u16(4) !== h) return null;
+    const paletteBytes = u16(8);
+    let at = 10;
+    if (data.length < at + paletteBytes) return null;
+    const palette = [];
+    for (let i = 0; i + 1 < paletteBytes; i += 2) palette.push(data[at + i] << 8 | data[at + i + 1]); // big-endian
+    at += paletteBytes;
+    for (let y = 0; y < h; y++) {
+        if (data.length < at + 2) return null;
+        const n = u16(at);
+        at += 2;
+        if (data.length < at + n) return null;
+        const idx = unpackBits(data, at, n, w);
+        at += n;
+        for (let x = 0; x < w; x++) put(y * w + x, palette[idx[x]] || 0);
+    }
+    return img;
+}
+
+// -------------------------------------------------------------- 4. transports
+// A transport has write(string|Uint8Array), async close(), and the callbacks onData(Uint8Array)
+// and onClose(reason). The link only talks to this interface.
+const TINYSA_USB_FILTERS = [
+    { usbVendorId: 0x0483, usbProductId: 0x5740 }, // STM32 virtual COM port: tinySA, older Ultra firmware
+    { usbVendorId: 0x1781, usbProductId: 0x0A44 }, // newer tinySA Ultra firmware
+];
+
+class SerialTransport {
+    constructor(port) { this.port = port; this.name = 'USB serial'; this.onData = () => {}; this.onClose = () => {}; this.closing = false; }
+    async open() {
+        await this.port.open({ baudRate: 115200, bufferSize: 1 << 18 }); // baud rate is ignored by USB CDC
+        this.writer = this.port.writable.getWriter();
+        this.reader = this.port.readable.getReader();
+        this.readLoop();
+    }
+    async readLoop() {
+        let reason = 'Connection lost';
+        try {
+            for (;;) {
+                const { value, done } = await this.reader.read();
+                if (done) break;
+                if (value && value.length) this.onData(value);
+            }
+        } catch (e) { reason = `Connection lost: ${e.message || e}`; }
+        try { this.reader.releaseLock(); } catch (e) { /* already released */ }
+        if (!this.closing) this.onClose(reason);
+    }
+    write(data) {
+        return this.writer.write(typeof data === 'string' ? new TextEncoder().encode(data) : data);
+    }
+    async close() {
+        this.closing = true;
+        try { await this.reader.cancel(); } catch (e) { /* closed already */ }
+        try { this.writer.releaseLock(); } catch (e) { /* closed already */ }
+        try { await this.port.close(); } catch (e) { /* closed already */ }
+    }
+}
+
+// A simulated tinySA ("Demo"): speaks the shell protocol of the real unit, with a few
+// signals and noise, so the app can be tried and tested without hardware.
+class SimTransport {
+    constructor(kind = 'ultra') {
+        this.kind = kind;
+        this.name = `simulated ${kind === 'basic' ? 'tinySA' : 'tinySA Ultra'}`;
+        this.onData = () => {}; this.onClose = () => {};
+        this.model = kind === 'basic' ? MODELS.basic : MODELS.ultra;
+        this.zero = this.model.defaultZero;
+        this.sweep = { start: 88e6, stop: 108e6, points: 450 };
+        this.rbwKHz = 0; this.input = 'low';
+        this.line = '';
+        this.scan = null;
+        this.vbat = 4100;
+        this.vbatOffset = 300;
+        this.closed = false;
+    }
+    async open() {}
+    async close() { this.closed = true; if (this.scan) clearInterval(this.scan.timer); this.scan = null; }
+    out(text) { if (!this.closed) setTimeout(() => !this.closed && this.onData(new TextEncoder().encode(text)), 0); }
+    outBytes(b) { if (!this.closed) setTimeout(() => !this.closed && this.onData(b), 0); }
+
+    write(data) {
+        const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
+        for (const ch of text) {
+            if (ch === '\r' || ch === '\n') {
+                if (ch === '\r' || this.line) { const l = this.line; this.line = ''; this.command(l.trim()); }
+            } else this.line += ch;
+        }
+        return Promise.resolve();
+    }
+
+    // dBm at frequency f: noise floor and a handful of signals (CAL harmonics, FM, ISM)
+    level(f, bwHz) {
+        const sig = [[30e6, -26], [60e6, -34], [90e6, -41], [120e6, -49], [150e6, -57], [180e6, -64], [210e6, -71],
+            [91.5e6, -52], [95.8e6, -61], [98.4e6, -47], [101.1e6, -58], [104.9e6, -66], [433.92e6, -72]];
+        let p = Math.pow(10, (-106 + (Math.random() - 0.5) * 2.5) / 10);
+        for (const [f0, db] of sig) {
+            const d = (f - f0) / bwHz;
+            p += Math.pow(10, (db - Math.min(60, 12 * d * d)) / 10);
+        }
+        return 10 * Math.log10(p);
+    }
+
+    command(line) {
+        const [cmd, ...a] = line.split(/\s+/);
+        if (this.scan && cmd === 'abort') {  // the shell echoes the abort inside the scan data
+            clearInterval(this.scan.timer);
+            this.scan = null;
+            return this.out('abort\r\n}ch> ');
+        }
+        if (cmd === 'scanraw') return this.scanraw(line, a.map(Number));
+        let r = [];
+        switch (cmd) {
+        case '': break;
+        case 'abort': case 'pause': case 'resume': case 'saveconfig': case 'clearconfig': case 'touch': case 'release': case 'ui': case 'refresh': break;
+        case 'version':
+            r = this.kind === 'basic' ? ['tinySA_v1.4-311-g0c1b0a3'] : ['tinySA4_v1.4-341-g5ab3f5c', 'HW Version:V0.5.4 (1.34inch,PCB)'];
+            break;
+        case 'info':
+            r = [this.kind === 'basic' ? 'tinySA v0.3ZS304' : 'tinySA ULTRA ZS405', '2019-2025 Copyright @Erik Kaashoek',
+                '2016-2020 Copyright @edy555', 'SW licensed under GPL. See: https://github.com/erikkaashoek/tinySA',
+                'Version: ' + (this.kind === 'basic' ? 'tinySA_v1.4-311-g0c1b0a3' : 'tinySA4_v1.4-341-g5ab3f5c'),
+                'Build Time: Nov 10 2025 - 12:00:00', 'Kernel: 4.0.0', 'Compiler: GCC 9.3.1 20200408',
+                'Architecture: ARMv7E-M Core Variant: Cortex-M4F', 'Port Info: Advanced kernel mode',
+                'Platform: STM32F303xC Analog & DSP', 'Simulated device'];
+            break;
+        case 'help':
+            r = ['commands: help info version reset freq offset time dac saveconfig clearconfig touchcal touchtest pause resume',
+                'mode lna attenuate rbw sweep scanraw zero vbat vbat_offset capture ext_gain ui refresh touch release abort',
+                'Other commands: hop'];
+            break;
+        case 'zero': r = [`${this.zero}dBm`]; break;
+        case 'sweep':
+            if (!a.length) r = [`${this.sweep.start} ${this.sweep.stop} ${this.sweep.points}`];
+            else if (a[0] === 'start') this.sweep.start = +a[1];
+            else if (a[0] === 'stop') this.sweep.stop = +a[1];
+            break;
+        case 'rbw': this.rbwKHz = a[0] === 'auto' ? 0 : +a[0]; break;
+        case 'mode': this.input = a[1] || 'low'; break;
+        case 'lna': case 'attenuate': case 'ext_gain': break;
+        case 'vbat': r = [`${this.vbat + Math.round((Math.random() - 0.5) * 20)} mV`]; break;
+        case 'vbat_offset': if (a.length) this.vbatOffset = +a[0]; else r = [String(this.vbatOffset)]; break;
+        case 'time': break;
+        case 'capture': return this.capture(line);
+        default: r = [`${cmd}?`];
+        }
+        this.out(line + '\r\n' + r.map((l) => l + '\r\n').join('') + 'ch> ');
+    }
+
+    scanraw(line, [start, stop, points]) {
+        this.out(line + '\r\n{');
+        const step = (stop - start) / points;
+        const bw = this.rbwKHz > 0 ? this.rbwKHz * 1e3 : Math.max(3e3, step * 3);
+        let i = 0;
+        const timer = setInterval(() => {
+            const n = Math.min(20, points - i);
+            const b = new Uint8Array(n * 3);
+            for (let k = 0; k < n; k++, i++) {
+                const raw = Math.round((this.level(start + i * step, bw) + this.zero) * 32);
+                b[k * 3] = 0x78; b[k * 3 + 1] = raw & 255; b[k * 3 + 2] = (raw >> 8) & 255;
+            }
+            this.outBytes(b);
+            if (i >= points) {
+                clearInterval(timer);
+                this.scan = null;
+                this.out('}ch> ');
+            }
+        }, 4);
+        this.scan = { timer };
+    }
+
+    // a small, few-coloured screen: grid, a trace, a few text blocks; RLE8 when asked for
+    capture(line) {
+        const [w, h] = this.model.lcd;
+        const colours = [0x0000, 0xffff, 0xffe0, 0x7bef, 0x07e0];
+        const px = new Uint8Array(w * h);
+        const set = (x, y, c) => { if (x >= 0 && x < w && y >= 0 && y < h) px[y * w + x] = c; };
+        for (let y = 20; y < h - 20; y += (h - 40) / 10) for (let x = 20; x < w - 20; x++) set(x, Math.round(y), 3);
+        for (let x = 20; x < w - 20; x += (w - 40) / 10) for (let y = 20; y < h - 20; y++) set(Math.round(x), y, 3);
+        for (let x = 20; x < w - 20; x++) {
+            const f = this.sweep.start + (this.sweep.stop - this.sweep.start) * (x - 20) / (w - 40);
+            const y = clamp(Math.round(20 + (-10 - this.level(f, 50e3)) / 100 * (h - 40)), 20, h - 20);
+            set(x, y, 2); set(x, y + 1, 2);
+        }
+        for (let x = 4; x < 120; x++) for (let y = 4; y < 12; y++) if ((x + y) % 3) set(x, y, 1);
+        for (let x = 4; x < 60; x++) set(x, h - 6, 4);
+        const head = new Uint8Array(line.includes('rle') ? 10 : 0);
+        let body;
+        if (head.length) {
+            const rows = [];
+            for (let y = 0; y < h; y++) {
+                const row = px.subarray(y * w, (y + 1) * w), packed = [];
+                for (let x = 0; x < w;) {
+                    let run = 1;
+                    while (x + run < w && row[x + run] === row[x] && run < 128) run++;
+                    if (run > 1) { packed.push((1 - run) & 255, row[x]); x += run; }
+                    else { packed.push(0, row[x]); x++; }
+                }
+                rows.push(Uint8Array.of(packed.length & 255, packed.length >> 8, ...packed));
+            }
+            const pal = new Uint8Array(colours.length * 2);
+            colours.forEach((c, i) => { pal[2 * i] = c >> 8; pal[2 * i + 1] = c & 255; });
+            head.set([0x42, 0x4d, w & 255, w >> 8, h & 255, h >> 8, 8, 1, pal.length & 255, pal.length >> 8]);
+            body = concatBytes([head, pal, ...rows]);
+        } else {
+            body = new Uint8Array(w * h * 2);
+            for (let i = 0; i < w * h; i++) { body[2 * i] = colours[px[i]] >> 8; body[2 * i + 1] = colours[px[i]] & 255; }
+        }
+        this.out(line + '\r\n');
+        this.outBytes(body);
+        this.out('ch> ');
+    }
+}
+
+// ----------------------------------------------------------- 5. device link
+class Emitter {
+    constructor() { this.handlers = {}; }
+    on(ev, fn) { (this.handlers[ev] ||= []).push(fn); return this; }
+    emit(ev, ...args) { for (const fn of this.handlers[ev] || []) fn(...args); }
+}
+
+// Connection to one tinySA. One command in flight; replies are recognised by their echo and
+// end at the prompt (RxParser). A sweep is one `scanraw S E N` (a log sweep: one per piece);
+// queued work (user commands, config changes, battery polls) runs between sweeps.
+// The unit is an analyzer or a signal generator, never both: `activity` selects the pump in
+// `activities`; the generator pump is to be added there.
+class DeviceLink extends Emitter {
+    constructor() {
+        super();
+        this.activities = { analyzer: () => this.pumpAnalyzer() };
+        this.screenOffWanted = true;
+        this.resetState();
+    }
+
+    resetState() {
+        this.io = null; this.rx = new RxParser();
+        this.queue = []; this.cur = null; this.ready = false; this.draining = false; this.drainP = null;
+        this.info = { port: '', version: '', hardware: '', info: '', commands: [], zeroDbm: 0, model: null,
+            deviceGrid: null, vbatOffset: null };
+        this.want = defaultConfig(); this.have = {};
+        this.mode = 'off'; this.activity = 'analyzer';
+        this.paused = false; this.uiOff = false; this.aborting = false;
+        this.frame = null; this.frameSeq = 0; this.sweepPiece = -1; this.scanExpect = 0;
+        this.batteryDue = false; this.wake = null; this.lastRx = 0;
+        clearInterval(this.batteryTimer); clearTimeout(this.timeout);
+    }
+
+    get isOpen() { return !!this.io; }
+
+    async open(io) {
+        this.resetState();
+        this.io = io;
+        this.info.port = io.name;
+        io.onData = (bytes) => this.onBytes(bytes);
+        io.onClose = (reason) => this.close(reason, false);
+        try {
+            // a scan left running by an earlier session: stop it and drop its output
+            await io.write('abort\r');
+            await this.drain();
+            if (!this.io) return false;
+            if (!(await this.handshake()) || !this.io) return false;
+        } catch (e) {
+            await this.close(`Cannot talk to the tinySA: ${e.message || e}`, false);
+            return false;
+        }
+        this.ready = true;
+        this.batteryTimer = setInterval(() => { this.batteryDue = true; this.poke(); }, 6000);
+        this.emit('opened', this.info);
+        this.loop();
+        return true;
+    }
+
+    async handshake() {
+        const info = this.info, step = (line) => this.exec({ line, timeout: 3000 });
+        let r = await step('version');
+        for (const l of r.lines) {
+            const at = l.indexOf('tinySA'); // skip junk left in the line
+            if (at >= 0 && !info.version) info.version = l.slice(at).trim();
+            if (l.startsWith('HW Version:')) info.hardware = l.slice(11).trim();
+        }
+        if (!r.ok) { await this.close(`No reply from ${info.port}`, false); return false; }
+        r = await step('info');
+        info.info = r.lines.join('\n');
+        info.model = r.ok ? detectModel(info.info, info.version) : null;
+        if (!info.model) { await this.close(`No tinySA on ${info.port} ${info.version}`.trim(), false); return false; }
+        const zs = /ZS\d{3}/.exec(r.lines[0] || '');
+        if (zs) info.hardware = zs[0];
+        r = await step('help');
+        info.commands = parseHelp(r.lines);
+        r = await step('zero');
+        info.zeroDbm = parseZero(r.lines, info.model.defaultZero);
+        r = await step('sweep'); // "start stop points"
+        const v = (r.lines[0] || '').split(/\s+/);
+        if (r.ok && v.length >= 3) info.deviceGrid = new ScanGrid(+v[0], +v[1], +v[2]);
+        r = await step('vbat_offset');
+        if (r.ok && /^\s*-?\d+\s*$/.test(r.lines[0] || '')) info.vbatOffset = +r.lines[0];
+        this.want = clampConfig(this.want, info.model);
+        return true;
+    }
+
+    title() {
+        const i = this.info;
+        let t = i.model ? i.model.name : 'unknown';
+        if (i.hardware && !t.includes(i.hardware)) t += ' ' + i.hardware;
+        return i.version ? `${t} - ${i.version}` : t;
+    }
+
+    // --- raw I/O
+    onBytes(bytes) {
+        if (this.draining) { this.lastRx = performance.now(); return; }
+        if (!this.io) return;
+        for (const e of this.rx.feed(bytes)) {
+            this.handle(e);
+            if (!this.io) return;
+        }
+    }
+
+    async drain() { // discard input until the line has been quiet for a while
+        this.draining = true;
+        const t0 = performance.now();
+        for (;;) {
+            this.lastRx = 0;
+            await sleep(150);
+            if (!this.lastRx || performance.now() - t0 > 3000) break;
+        }
+        this.draining = false;
+        this.rx.reset();
+    }
+
+    exec(c) {
+        return new Promise((resolve) => {
+            if (!this.io) return resolve({ ok: false, lines: [] });
+            this.cur = { ...c, lines: [], echoSeen: false, scanDone: false, pixels: null, rle8: false, resolve };
+            this.rx.expect(c.line, c.body || 'text', c.bytes || 0);
+            this.io.write(c.line + '\r').catch((e) => this.close(`Connection lost: ${e.message || e}`, false));
+            this.sentAt = performance.now();
+            if (c.line === 'pause' || c.line === 'resume') this.paused = c.line === 'pause'; // the unit's state from now on
+            if (c.line.startsWith('ui off') || c.line === 'ui on') this.uiOff = c.line !== 'ui on';
+            if (c.body === 'scanraw') { this.scanExpect = c.points; this.aborting = false; }
+            else this.emit('traffic', true, c.line, !!c.user);
+            this.armTimeout(c.timeout || 3000);
+        });
+    }
+
+    armTimeout(ms) { clearTimeout(this.timeout); this.timeout = setTimeout(() => this.onTimeout(), ms); }
+
+    finish(ok) {
+        clearTimeout(this.timeout);
+        const c = this.cur;
+        this.cur = null;
+        if (c) c.resolve({ ok, lines: c.lines, pixels: c.pixels, rle8: c.rle8 });
+    }
+
+    onTimeout() {
+        const c = this.cur;
+        if (!c) return;
+        if (c.scanDone) return this.finish(true); // complete sweep whose prompt never came
+        if (!this.ready) return this.finish(false); // handshake step: its caller decides
+        this.emit('message', `No reply to '${c.line}' - resynchronising`, true);
+        this.drainP = this.drain().then(() => { this.drainP = null; });
+        this.finish(false);
+    }
+
+    handle(e) {
+        const cur = this.cur;
+        const scanning = cur && cur.body === 'scanraw';
+        switch (e.type) {
+        case 'echo':
+            if (cur) cur.echoSeen = true;
+            break;
+        case 'line':
+            // "ui on" that is no reply to our own ui command: a touch or the jog on the unit
+            // gave its screen back, the user takes over
+            if (e.text === 'ui on' && this.uiOff && !(cur && cur.line.startsWith('ui'))) {
+                this.uiOff = false;
+                if (this.mode !== 'off') { this.emit('message', 'Scan stopped on the tinySA'); this.setMode('off'); }
+            }
+            this.emit('traffic', false, e.text, !!(cur && cur.user && cur.echoSeen));
+            if (cur && cur.echoSeen) cur.lines.push(e.text);
+            break;
+        case 'prompt':
+            if (cur && cur.echoSeen) this.finish(true); // prompts before our echo are stale
+            break;
+        case 'scandata': {
+            if (!scanning) break;
+            this.armTimeout(cur.timeout);
+            const f = this.frame, zero = this.info.zeroDbm;
+            for (const v of e.values) if (f.received < f.dBm.length) f.dBm[f.received++] = v / 32 - zero;
+            if (performance.now() - this.emitAt > 50) { this.emitAt = performance.now(); this.emit('frame', f); } // live progress
+            break;
+        }
+        case 'scanend':
+            if (!scanning) break;
+            if (e.count < this.scanExpect) { // our abort, or touch/jog: no prompt follows
+                cur.scanDone = true;
+                if (!this.aborting) { this.emit('message', 'Scan stopped on the tinySA'); this.setMode('off'); }
+                this.finish(true);
+            } else {
+                const f = this.frame;
+                if (cur.sweep && f.received >= f.grid.points) {
+                    f.complete = true;
+                    f.seconds = (performance.now() - this.sweepStart) / 1000;
+                    this.emit('frame', f);
+                }
+                cur.scanDone = true;
+                this.armTimeout(500); // the prompt follows at once unless aborted late
+            }
+            break;
+        case 'pixels':
+            if (cur) { cur.pixels = e.data; cur.rle8 = e.rle8; }
+            break;
+        default: // 'region': screen push of a unit left in remote mode, not used here
+        }
+    }
+
+    // --- main loop: one command at a time
+    poke() { const w = this.wake; this.wake = null; if (w) w(); }
+
+    async loop() {
+        while (this.io && this.ready) {
+            if (this.drainP) { await this.drainP; continue; }
+            if (this.queue.length) {
+                const c = this.queue.shift();
+                const r = await this.exec(c);
+                if (c.done) c.done(r);
+                continue;
+            }
+            if (this.batteryDue) {
+                this.batteryDue = false;
+                const r = await this.exec({ line: 'vbat' });
+                const m = /(\d+)\s*mV/.exec(r.lines[0] || '');
+                if (r.ok && m) this.emit('battery', +m[1]);
+                continue;
+            }
+            if (await this.activities[this.activity]()) continue;
+            await new Promise((resolve) => { this.wake = resolve; });
+        }
+    }
+
+    // returns true when it did something (the loop runs again at once)
+    async pumpAnalyzer() {
+        if (this.mode === 'off') {
+            if (this.uiOff) { await this.exec({ line: 'ui on' }); return true; }
+            if (this.paused) { await this.exec({ line: 'resume' }); return true; }
+            return false;
+        }
+        if (!this.paused) { await this.exec({ line: 'pause' }); return true; } // the unit's own sweeping would compete
+        // screen off: no redraw after every command (firmware with `ui`, tinySA Ultra v1.4-314)
+        const uiOff = this.screenOffWanted && this.info.commands.includes('ui');
+        if (uiOff !== this.uiOff) { await this.exec({ line: uiOff ? 'ui off' : 'ui on' }); return true; }
+        const cmds = configCommands(this.want, this.have, this.info.model, this.info);
+        if (cmds.length) {
+            this.sweepPiece = -1; // a sweep starts again with the new settings
+            for (const c of cmds) {
+                const r = await this.exec({ line: c });
+                const l = r.lines[0] || '';
+                if (l.endsWith('?') || l.startsWith('usage')) this.emit('message', `tinySA refused '${c}': ${l}`, true);
+            }
+            return true;
+        }
+        await this.sweep();
+        return true;
+    }
+
+    async sweep() {
+        this.aborting = false;
+        const g = ScanGrid.from(this.want.grid);
+        if (g.log) g.pieces = logPieces(g.startHz, g.stopHz, g.points);
+        if (this.sweepPiece < 0 || !this.frame || !this.frame.grid.equals(g) || this.frame.complete) { // a new sweep
+            this.frame = { seq: ++this.frameSeq, grid: g, dBm: new Float64Array(g.points).fill(NaN), received: 0, complete: false, seconds: 0 };
+            this.sweepPiece = 0;
+            this.sweepStart = this.emitAt = performance.now();
+        }
+        const k = this.sweepPiece, f = this.frame, p = g.piece(k);
+        f.received = g.pieceStart(k); // its values land from here on
+        const r = await this.exec({
+            line: `scanraw ${Math.round(p.startHz)} ${p.scanrawStop()} ${p.points}`,
+            body: 'scanraw', points: p.points, sweep: true,
+            timeout: 15000, // inactivity watchdog, restarted by every data chunk
+        });
+        if (f !== this.frame) return;
+        if (f.received === g.pieceStart(k) && r.lines.length) { // refused, e.g. range invalid
+            this.sweepPiece = -1;
+            this.emit('message', 'Scan failed: ' + r.lines.join(' '), true);
+            this.setMode('off');
+        } else if (f.received < g.pieceStart(k + 1)) { // stopped or lost: from the start again
+            this.sweepPiece = -1;
+        } else if (k + 1 < g.pieceCount) { // the next piece
+            this.sweepPiece = k + 1;
+            this.emit('frame', f);
+        } else {
+            this.sweepPiece = -1;
+            if (this.mode === 'once') this.setMode('off');
+        }
+    }
+
+    // --- API
+    setConfig(c) {
+        this.want = this.info.model ? clampConfig(c, this.info.model) : c;
+        this.poke();
+    }
+
+    setScreenOffWhileScanning(on) { this.screenOffWanted = on; this.poke(); }
+
+    setMode(mode) { // 'off' | 'once' | 'continuous'
+        if (mode === this.mode) return;
+        this.mode = mode;
+        this.emit('scanChanged', mode);
+        if (mode === 'off') {
+            // Stop now rather than after a possibly minutes-long sweep. The shell reads the
+            // abort when the scan ends or within 5 s; its echo inside the data is tolerated.
+            const c = this.cur;
+            if (c && c.body === 'scanraw' && !c.scanDone && !this.aborting) {
+                this.aborting = true;
+                this.io.write('abort\r').catch(() => {});
+            }
+            this.sweepPiece = -1;
+        }
+        this.poke();
+    }
+
+    send(command) { // console / dialog command; resolves with the reply lines
+        if (/^capture(\s|$)/.test(command.trim())) return this.capture().then(() => []);
+        return new Promise((resolve) => {
+            this.queue.push({ line: command.trim(), user: true, done: (r) => { this.emit('reply', command, r.lines); resolve(r.lines); } });
+            this.poke();
+        });
+    }
+
+    // `capture rle` (DiSlord RLE8) when the firmware has it; older firmware ignores the
+    // argument and sends raw RGB565, which the parser recognises by the missing RLE8 header
+    capture() {
+        const [w, h] = this.info.model.lcd;
+        return new Promise((resolve) => {
+            this.queue.push({
+                line: 'capture rle', body: 'capture', bytes: w * h * 2, timeout: 5000,
+                done: (r) => {
+                    const img = r.ok && r.pixels ? decodeCapture(r.pixels, r.rle8, w, h) : null;
+                    if (img) {
+                        this.emit('traffic', false, `<screen ${w}x${h}, ${r.rle8 ? 'RLE8' : 'raw'} ${r.pixels.length} bytes, ${Math.round(performance.now() - this.sentAt)} ms>`, false);
+                        this.emit('screen', img);
+                    } else this.emit('message', 'Screen capture failed', true);
+                    resolve(img);
+                },
+            });
+            this.poke();
+        });
+    }
+
+    // Leave the unit sweeping on its own: stop our scan (the shell reads the abort within
+    // 5 s) and undo our pause and screen-off. They wait in the unit's input buffer if needed.
+    async close(reason = '', graceful = true) {
+        const io = this.io;
+        if (!io) return;
+        this.io = null;
+        const c = this.cur, wasReady = this.ready;
+        if (graceful) {
+            let t = '';
+            if (c && c.body === 'scanraw' && !c.scanDone && !this.aborting) t += 'abort\r';
+            if (this.uiOff && wasReady) t += 'ui on\r';
+            if (this.paused && wasReady) t += 'resume\r';
+            if (t) { try { await io.write(t); await sleep(100); } catch (e) { /* port gone */ } }
+        }
+        try { await io.close(); } catch (e) { /* already closed */ }
+        const pending = this.queue;
+        this.queue = [];
+        if (c) c.resolve({ ok: false, lines: [], pixels: null });
+        for (const q of pending) if (q.done) q.done({ ok: false, lines: [] });
+        const wasScanning = this.mode !== 'off';
+        const poke = this.wake;
+        this.resetState();
+        if (wasScanning) this.emit('scanChanged', 'off');
+        this.emit('closed', reason);
+        if (poke) poke();
+    }
+}
+
+// ------------------------------------------------ 6. traces, markers and CSV
+class Trace {
+    constructor(grid, dBm) { this.grid = grid; this.dBm = dBm; }
+    get isEmpty() { return !this.dBm || this.dBm.length === 0; }
+    clone() { return new Trace(ScanGrid.from(this.grid), Float64Array.from(this.dBm)); }
+    at(hz) { // linear interpolation between points, NaN outside
+        const n = this.dBm.length;
+        if (!n || hz < this.grid.startHz || hz > this.grid.stopHz) return NaN;
+        if (n === 1) return this.dBm[0];
+        const x = this.grid.index(hz), i = clamp(Math.floor(x), 0, n - 2), t = x - i;
+        return this.dBm[i] * (1 - t) + this.dBm[i + 1] * t;
+    }
+}
+
+const toLin = (dBm) => Math.pow(10, dBm / 10);
+const toDb = (p) => 10 * Math.log10(p);
+
+// The live trace: power averaging over the last N sweeps, max/min hold, memories M1-M3 and
+// normalisation. Sweeps arrive as partial frames, so the display follows the sweep cursor.
+class TraceSet {
+    constructor() {
+        this.live = null; this.hold = 'off'; this.avgN = 1;
+        this.mem = [null, null, null];
+        this.norm = null;
+        this.restartAverage();
+    }
+    setHold(h) { this.hold = h; this.holdVals = null; }
+    setAverage(n) { this.avgN = Math.max(1, n | 0); this.ring = []; this.sum = null; this.done = 0; }
+    restartAverage() { this.holdVals = null; this.ring = []; this.sum = null; this.done = 0; }
+    restart() { this.live = null; this.restartAverage(); }
+
+    add(f) {
+        const n = f.grid.points;
+        if (!this.live || !f.grid.equals(this.live.grid) || this.live.dBm.length !== n) {
+            this.restart();
+            this.live = new Trace(ScanGrid.from(f.grid), new Float64Array(n).fill(NaN));
+        }
+        if (!this.sum || this.sum.length !== n) this.sum = new Float64Array(n);
+        if (this.hold !== 'off' && (!this.holdVals || this.holdVals.length !== n)) this.holdVals = new Float64Array(n).fill(NaN);
+        const count = Math.min(f.received, n), k = 1 / (this.ring.length + 1);
+        for (let i = 0; i < count; i++) {
+            let v = f.dBm[i];
+            if (this.avgN > 1) v = toDb((this.sum[i] + toLin(v)) * k);
+            if (this.hold !== 'off') {
+                const h = this.holdVals[i];
+                this.holdVals[i] = v = Number.isNaN(h) ? v : this.hold === 'max' ? Math.max(h, v) : Math.min(h, v);
+            }
+            this.live.dBm[i] = v;
+        }
+        if (f.complete && this.avgN > 1) {
+            const p = new Float64Array(n);
+            for (let i = 0; i < n; i++) this.sum[i] += p[i] = toLin(f.dBm[i]);
+            this.ring.push(p);
+            if (this.ring.length > this.avgN - 1) {
+                const old = this.ring.shift();
+                for (let i = 0; i < n; i++) this.sum[i] -= old[i];
+            }
+        }
+        if (f.complete) this.done++;
+    }
+
+    store(m) { this.mem[m] = this.live ? this.live.clone() : null; }
+    setNormalize(on) { this.norm = on && this.live ? this.live.clone() : null; }
+
+    // levels relative to the reference trace (interpolated after a range change)
+    view(t) {
+        if (!this.norm || !t || t.isEmpty) return t;
+        const out = t.clone(), same = t.grid.equals(this.norm.grid);
+        for (let i = 0; i < out.dBm.length; i++) out.dBm[i] -= same ? this.norm.dBm[i] : this.norm.at(t.grid.freq(i));
+        return out;
+    }
+}
+
+// Peak position by a least-squares parabola through the points within 6 dB of the extreme (at
+// least the two neighbours, at most 8 each side): robust against the unit's 0.5 dB level steps.
+function interpolatePeak(t, k) {
+    const n = t.dBm.length, f = t.grid.freq(k), top = t.dBm[k];
+    const usable = (i) => i >= 0 && i < n && !Number.isNaN(t.dBm[i]);
+    if (!usable(k - 1) || !usable(k + 1)) return { hz: f, dBm: top };
+    let lo = k - 1, hi = k + 1;
+    while (usable(lo - 1) && k - lo < 8 && Math.abs(t.dBm[lo - 1] - top) <= 6) lo--;
+    while (usable(hi + 1) && hi - k < 8 && Math.abs(t.dBm[hi + 1] - top) <= 6) hi++;
+    const s = [0, 0, 0, 0, 0], sy = [0, 0, 0]; // sums of x^0..x^4 and y*x^0..x^2, x = i - k
+    for (let i = lo; i <= hi; i++) {
+        const x = i - k, y = t.dBm[i];
+        let p = 1;
+        for (let e = 0; e < 5; e++, p *= x) s[e] += p;
+        sy[0] += y; sy[1] += y * x; sy[2] += y * x * x;
+    }
+    const det3 = (a, b, c, d, e, f2, g, h, i) => a * (e * i - f2 * h) - b * (d * i - f2 * g) + c * (d * h - e * g);
+    const D = det3(s[0], s[1], s[2], s[1], s[2], s[3], s[2], s[3], s[4]);
+    if (Math.abs(D) < 1e-12) return { hz: f, dBm: top };
+    const a = det3(sy[0], s[1], s[2], sy[1], s[2], s[3], sy[2], s[3], s[4]) / D;
+    const b = det3(s[0], sy[0], s[2], s[1], sy[1], s[3], s[2], sy[2], s[4]) / D;
+    const c = det3(s[0], s[1], sy[0], s[1], s[2], sy[1], s[2], s[3], sy[2]) / D;
+    if (Math.abs(c) < 1e-12) return { hz: f, dBm: top };
+    const d = clamp(-b / (2 * c), -1, 1); // vertex offset in points
+    return { hz: t.grid.freqAt(k + d), dBm: a + b * d + c * d * d };
+}
+
+function tracePeak(t, max = true) {
+    let best = -1;
+    for (let i = 0; i < t.dBm.length; i++) {
+        const v = t.dBm[i];
+        if (!Number.isNaN(v) && (best < 0 || (max ? v > t.dBm[best] : v < t.dBm[best]))) best = i;
+    }
+    return best < 0 ? null : interpolatePeak(t, best);
+}
+
+// Normal markers and delta markers (relative to the first normal marker).
+class MarkerSet {
+    constructor() { this.list = []; this.selected = -1; }
+    get count() { return this.list.length; }
+    add(hz) { this.list.push({ hz, delta: false }); return (this.selected = this.list.length - 1); }
+    remove(i) {
+        if (i < 0 || i >= this.count) return;
+        this.list.splice(i, 1);
+        if (this.selected === i) this.selected = -1;
+        else if (this.selected > i) this.selected--;
+    }
+    clear() { this.list = []; this.selected = -1; }
+    move(i, hz) { if (this.list[i]) this.list[i].hz = hz; }
+    select(i) { this.selected = i >= 0 && i < this.count ? i : -1; }
+    reference() { return this.list.findIndex((m) => !m.delta); }
+    near(hz, tolHz) {
+        let best = -1;
+        this.list.forEach((m, i) => {
+            const d = Math.abs(m.hz - hz);
+            if (d <= tolHz && (best < 0 || d < Math.abs(this.list[best].hz - hz))) best = i;
+        });
+        return best;
+    }
+    read(i, t) {
+        const m = this.list[i];
+        const r = { name: (m.delta ? 'D' : '') + (i + 1), hz: m.hz, dBm: NaN, dHz: NaN, dDb: NaN };
+        if (t && !t.isEmpty && m.hz >= t.grid.startHz && m.hz <= t.grid.stopHz) {
+            const k = t.grid.nearest(m.hz);
+            r.hz = t.grid.freq(k);
+            r.dBm = t.dBm[k];
+        }
+        const ref = this.reference();
+        if (m.delta && ref >= 0 && ref !== i) {
+            const base = this.read(ref, t);
+            r.dHz = r.hz - base.hz;
+            r.dDb = r.dBm - base.dBm;
+        }
+        return r;
+    }
+    serialize() { return this.list.map((m) => ({ ...m })); }
+    deserialize(a) {
+        this.list = Array.isArray(a) ? a.filter((m) => Number.isFinite(m.hz)).map((m) => ({ hz: m.hz, delta: !!m.delta })) : [];
+        this.selected = -1;
+    }
+}
+
+// CSV: "Frequency (Hz),Level (dBm)" rows, or the firmware's MHz CSV without header lines
+function traceToCsv(t, fmt, title) {
+    const sep = fmt.separator;
+    if (fmt.mhz) {
+        return Array.from(t.dBm, (v, i) => `${(t.grid.freq(i) / 1e6).toFixed(6)},${v.toFixed(2)}\n`).join('');
+    }
+    let s = title ? `# ${title}\n` : '';
+    s += `Frequency (Hz)${sep}Level (dBm)\n`;
+    for (let i = 0; i < t.dBm.length; i++) {
+        let level = t.dBm[i].toFixed(2);
+        if (fmt.decimalComma) level = level.replace('.', ',');
+        s += `${Math.round(t.grid.freq(i))}${sep}${level}\n`;
+    }
+    return s;
+}
+
+// Two numbers per row; separators ; , tab or space; decimal ',' allowed with ; or tab.
+// Throws with a message when the rows are not on one of the app's grids.
+function parseTraceCsv(text) {
+    const row = /^\s*([-+]?\d+(?:[.,]\d*)?(?:[eE][-+]?\d+)?)\s*[;,\t ]\s*([-+]?(?:\d+(?:[.,]\d*)?(?:[eE][-+]?\d+)?|nan))\s*$/i;
+    const hz = [], db = [];
+    const num = (s) => parseFloat(s.replace(',', '.'));
+    for (const line of text.split(/\r?\n/)) {
+        const m = row.exec(line);
+        if (!m) continue; // header, comment
+        const mhz = /[.,]/.test(m[1]) && !/e/i.test(m[1]); // Hz are written without decimals, MHz with
+        hz.push(mhz ? Math.round(num(m[1]) * 1e6) : num(m[1]));
+        db.push(/nan/i.test(m[2]) ? NaN : num(m[2]));
+    }
+    const n = hz.length;
+    if (n < 2) throw new Error('no frequency/level rows found');
+    const firstOff = (g) => {
+        const tol = Math.max(1, g.step() * 1e-3);
+        for (let i = 0; i < n; i++) if (Math.abs(hz[i] - g.freq(i)) > tol) return i;
+        return -1;
+    };
+    const linear = new ScanGrid(hz[0], hz[n - 1], n);
+    const off = firstOff(linear);
+    if (off < 0) return new Trace(linear, Float64Array.from(db));
+    for (const pieces of [logPieces(hz[0], hz[n - 1], n), 0]) {
+        const g = new ScanGrid(hz[0], hz[n - 1], n, true, pieces);
+        if (hz[0] > 0 && firstOff(g) < 0) return new Trace(g, Float64Array.from(db));
+    }
+    throw new Error(`frequencies are neither evenly nor logarithmically spaced (row ${off + 1})`);
+}
+
+// ----------------------------------------------------------- 7. graph view
+const MEM_COLORS = ['#4fc3f7', '#81c784', '#ff8a65'];
+const MARKER_COLOR = '#ff5252';
+
+// Spectrum plot on a canvas. It only draws what it is given and reports user gestures through
+// callbacks: onRange(a, b, kind) for pan/zoom, onY(top, bottom), onSelect, onMarkerMove,
+// onMarkerAdd. The x axis follows the sweep range, so a pan or zoom is a new sweep.
+class SpectrumView {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.a = 88e6; this.b = 108e6; this.log = false;
+        this.top = -20; this.bottom = -120;
+        this.layers = []; // { trace, color }
+        this.markers = new MarkerSet(); this.readTrace = null;
+        this.showPeak = true; this.title = ''; this.hover = null;
+        this.m = { l: 56, r: 14, t: 24, b: 28 };
+        this.drag = null; this.pending = false;
+        for (const k of ['onRange', 'onY', 'onSelect', 'onMarkerMove', 'onMarkerAdd', 'onDelete']) this[k] = () => {};
+        new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
+        canvas.addEventListener('pointerdown', (e) => this.down(e));
+        canvas.addEventListener('pointermove', (e) => this.move(e));
+        canvas.addEventListener('pointerup', (e) => this.up(e));
+        canvas.addEventListener('pointerleave', () => { if (!this.drag) { this.hover = null; this.redraw(); } });
+        canvas.addEventListener('wheel', (e) => this.wheel(e), { passive: false });
+        canvas.addEventListener('dblclick', (e) => {
+            const p = this.pos(e);
+            if (!this.inPlot(p)) return;
+            const i = this.markers.near(this.hzOf(p.x), this.tolHz(p.x));
+            if (i >= 0) this.onDelete(i); else this.onMarkerAdd(this.hzOf(p.x));
+        });
+        this.resize();
+    }
+
+    get w() { return this.canvas.clientWidth; }
+    get h() { return this.canvas.clientHeight; }
+    plot(w = this.w, h = this.h) { return { x: this.m.l, y: this.m.t, w: w - this.m.l - this.m.r, h: h - this.m.t - this.m.b }; }
+
+    resize() {
+        const dpr = window.devicePixelRatio || 1, p = this.canvas.parentElement;
+        this.canvas.style.width = p.clientWidth + 'px'; this.canvas.style.height = p.clientHeight + 'px';
+        this.canvas.width = Math.max(1, Math.round(p.clientWidth * dpr));
+        this.canvas.height = Math.max(1, Math.round(p.clientHeight * dpr));
+        this.redraw();
+    }
+
+    redraw() {
+        if (this.pending) return;
+        this.pending = true;
+        requestAnimationFrame(() => { this.pending = false; this.paint(); });
+    }
+
+    paint() {
+        const dpr = this.canvas.width / Math.max(1, this.w);
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        this.render(this.ctx, this.w, this.h, true);
+    }
+
+    // coordinates
+    xOf(hz, pl = this.plot()) {
+        const t = this.log ? Math.log(hz / this.a) / Math.log(this.b / this.a) : (hz - this.a) / (this.b - this.a);
+        return pl.x + t * pl.w;
+    }
+    hzOf(x, pl = this.plot()) {
+        const t = (x - pl.x) / pl.w;
+        return this.log ? this.a * Math.pow(this.b / this.a, t) : this.a + t * (this.b - this.a);
+    }
+    yOf(db, pl = this.plot()) { return pl.y + (this.top - db) / (this.top - this.bottom) * pl.h; }
+    dbOf(y, pl = this.plot()) { return this.top - (y - pl.y) / pl.h * (this.top - this.bottom); }
+    tolHz(x) { return Math.abs(this.hzOf(x + 10) - this.hzOf(x)); }
+
+    css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+    xTicks() {
+        const out = [];
+        if (this.log && this.a > 0) {
+            const dec = Math.log10(this.b / this.a);
+            const mult = dec > 3 ? [1] : dec > 1 ? [1, 2, 5] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            for (let e = Math.floor(Math.log10(this.a)); e <= Math.ceil(Math.log10(this.b)); e++)
+                for (const m of mult) { const v = m * Math.pow(10, e); if (v >= this.a && v <= this.b) out.push(v); }
+            return { values: out, res: this.a / 10 };
+        }
+        const step = nice125((this.b - this.a) / 8);
+        for (let v = Math.ceil(this.a / step - 1e-9) * step; v <= this.b + 1e-6; v += step) out.push(v);
+        return { values: out, res: step };
+    }
+
+    render(ctx, w, h, interactive) {
+        const pl = this.plot(w, h), m = this.m;
+        const bg = this.css('--plot-bg'), grid = this.css('--plot-grid'), fg = this.css('--plot-text');
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+        ctx.font = '12px system-ui, sans-serif';
+        ctx.lineWidth = 1; ctx.strokeStyle = grid; ctx.fillStyle = fg;
+        // y grid
+        const span = this.top - this.bottom, ystep = span > 100 ? 20 : span > 40 ? 10 : 5;
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        for (let v = Math.ceil(this.bottom / ystep) * ystep; v <= this.top + 1e-9; v += ystep) {
+            const y = Math.round(this.yOf(v, pl)) + 0.5;
+            ctx.beginPath(); ctx.moveTo(pl.x, y); ctx.lineTo(pl.x + pl.w, y); ctx.stroke();
+            ctx.fillText(String(v), pl.x - 6, y);
+        }
+        ctx.save(); ctx.translate(12, pl.y + pl.h / 2); ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = 'center'; ctx.fillText('dBm', 0, 0); ctx.restore();
+        // x grid
+        const xt = this.xTicks();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        let lastLabel = -1e9;
+        for (const v of xt.values) {
+            const x = Math.round(this.xOf(v, pl)) + 0.5;
+            ctx.beginPath(); ctx.moveTo(x, pl.y); ctx.lineTo(x, pl.y + pl.h); ctx.stroke();
+            if (x - lastLabel > 60 && x > pl.x + 20 && x < pl.x + pl.w - 20) { ctx.fillText(formatHz(v, xt.res), x, pl.y + pl.h + 6); lastLabel = x; }
+        }
+        ctx.textAlign = 'left'; ctx.fillText(formatHz(this.a, xt.res), pl.x, pl.y + pl.h + 6);
+        ctx.textAlign = 'right'; ctx.fillText(formatHz(this.b, xt.res), pl.x + pl.w, pl.y + pl.h + 6);
+        ctx.strokeStyle = fg; ctx.strokeRect(pl.x + 0.5, pl.y + 0.5, pl.w, pl.h);
+        // traces
+        ctx.save();
+        ctx.beginPath(); ctx.rect(pl.x, pl.y, pl.w, pl.h); ctx.clip();
+        for (const L of this.layers) {
+            const t = L.trace;
+            if (!t || t.isEmpty) continue;
+            ctx.strokeStyle = L.color; ctx.lineWidth = L.width || 1.5;
+            ctx.beginPath();
+            let pen = false;
+            for (let i = 0; i < t.dBm.length; i++) {
+                const v = t.dBm[i];
+                if (!Number.isFinite(v)) { pen = false; continue; }
+                const x = this.xOf(t.grid.freq(i), pl), y = this.yOf(v, pl);
+                if (pen) ctx.lineTo(x, y); else { ctx.moveTo(x, y); pen = true; }
+            }
+            ctx.stroke();
+        }
+        // markers
+        const rt = this.readTrace;
+        ctx.font = '12px system-ui, sans-serif'; ctx.textBaseline = 'alphabetic';
+        this.markers.list.forEach((mk, i) => {
+            const r = this.markers.read(i, rt);
+            const x = this.xOf(r.hz, pl);
+            if (x < pl.x - 1 || x > pl.x + pl.w + 1) return;
+            const sel = i === this.markers.selected;
+            ctx.strokeStyle = MARKER_COLOR; ctx.fillStyle = MARKER_COLOR; ctx.lineWidth = sel ? 2 : 1;
+            ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x, pl.y); ctx.lineTo(x, pl.y + pl.h); ctx.stroke(); ctx.setLineDash([]);
+            const y = Number.isFinite(r.dBm) ? this.yOf(r.dBm, pl) : pl.y + 10;
+            ctx.beginPath(); ctx.moveTo(x, y - 2); ctx.lineTo(x - 6, y - 12); ctx.lineTo(x + 6, y - 12); ctx.closePath();
+            mk.delta ? ctx.stroke() : ctx.fill();
+            ctx.textAlign = 'center'; ctx.fillText(r.name, x, y - 15);
+        });
+        ctx.restore();
+        // max peak and hover readout
+        ctx.textBaseline = 'middle';
+        if (this.showPeak && rt && !rt.isEmpty) {
+            const pk = tracePeak(rt);
+            if (pk) {
+                ctx.fillStyle = this.css('--trace-live'); ctx.textAlign = 'left';
+                ctx.fillText(`Max ${pk.dBm.toFixed(1)} dBm @ ${formatHz(pk.hz, rt.grid.step())}`, pl.x + 8, pl.y + 12);
+            }
+        }
+        ctx.fillStyle = fg; ctx.textAlign = 'left';
+        ctx.fillText(this.title, pl.x, 11);
+        if (interactive && this.hover && rt && !rt.isEmpty) {
+            const hz = this.hover.hz, v = rt.at(hz);
+            ctx.textAlign = 'right';
+            ctx.fillText(`${formatHz(hz, rt.grid.step())}${Number.isFinite(v) ? `  ${v.toFixed(1)} dBm` : ''}`, pl.x + pl.w, 11);
+        }
+    }
+
+    // gestures
+    pos(e) { const r = this.canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    inPlot(p) { const pl = this.plot(); return p.x >= pl.x && p.x <= pl.x + pl.w && p.y >= pl.y && p.y <= pl.y + pl.h; }
+
+    down(e) {
+        const p = this.pos(e), pl = this.plot();
+        this.canvas.focus();
+        if (this.inPlot(p)) {
+            const i = this.markers.near(this.hzOf(p.x), this.tolHz(p.x));
+            if (i >= 0) { this.onSelect(i); this.drag = { kind: 'marker', i }; }
+            else this.drag = { kind: 'pan', x: p.x, a: this.a, b: this.b, moved: false };
+        } else if (p.x < pl.x) this.drag = { kind: 'y', y: p.y, top: this.top, bottom: this.bottom };
+        if (this.drag) this.canvas.setPointerCapture(e.pointerId);
+    }
+
+    move(e) {
+        const p = this.pos(e), pl = this.plot(), d = this.drag;
+        this.hover = this.inPlot(p) ? { hz: this.hzOf(p.x) } : null;
+        if (d && d.kind === 'pan') {
+            const dx = p.x - d.x;
+            if (Math.abs(dx) > 3) d.moved = true;
+            if (d.moved) {
+                const f = -dx / pl.w;
+                if (this.log) this.onRange(d.a * Math.pow(d.b / d.a, f), d.b * Math.pow(d.b / d.a, f), 'pan');
+                else this.onRange(d.a + f * (d.b - d.a), d.b + f * (d.b - d.a), 'pan');
+            }
+        } else if (d && d.kind === 'marker') {
+            this.onMarkerMove(d.i, clamp(this.hzOf(clamp(p.x, pl.x, pl.x + pl.w)), this.a, this.b));
+        } else if (d && d.kind === 'y') {
+            const s = (p.y - d.y) / pl.h * (d.top - d.bottom);
+            this.onY(d.top + s, d.bottom + s);
+        }
+        this.redraw();
+    }
+
+    up() {
+        const d = this.drag;
+        this.drag = null;
+        if (d && d.kind === 'pan' && !d.moved) this.onSelect(-1);
+    }
+
+    wheel(e) {
+        const p = this.pos(e), pl = this.plot();
+        e.preventDefault();
+        const f = e.deltaY < 0 ? 0.8 : 1.25;
+        if (this.inPlot(p)) {
+            const hz = this.hzOf(p.x);
+            if (this.log) this.onRange(hz * Math.pow(this.a / hz, f), hz * Math.pow(this.b / hz, f), 'zoom');
+            else this.onRange(hz - (hz - this.a) * f, hz + (this.b - hz) * f, 'zoom');
+        } else if (p.x < pl.x) {
+            const s = e.deltaY < 0 ? 10 : -10;
+            this.onY(this.top + s, this.bottom + s);
+        }
+    }
+}
+
+// ------------------------------------------------------ 8. application glue
+const $ = (id) => document.getElementById(id);
+const link = new DeviceLink();
+const view = new SpectrumView($('graph'));
+const traces = new TraceSet();
+const markers = view.markers;
+const SETTINGS_KEY = 'tinysa-app-settings', THEME_KEY = 'tinysa-app-theme';
+const POINT_CHOICES = [51, 101, 145, 290, 450, 500, 1000, 2000, 5000, 10000];
+
+let cfg = defaultConfig();
+const settings = { screenOff: true, csvFormat: 'hz', sep: ',', comma: false, name: '', auto: true, yTop: -20, yBottom: -120 };
+const memShow = [true, true, true];
+let showLive = true, sweeps = 0, lastSweepSeconds = 0, uiPending = false;
+let batteryHistory = [], lastMv = null, lastScreen = null;
+let recordDir = null, recordCount = 0;
+
+const model = () => link.info.model || MODELS.ultra;
+
+function loadSettings() {
+    try {
+        const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+        if (!s) return;
+        Object.assign(settings, s.settings);
+        if (s.cfg) {
+            const g = s.cfg.grid;
+            cfg = { ...defaultConfig(), ...s.cfg, grid: new ScanGrid(g.startHz, g.stopHz, g.points, !!g.log) };
+        }
+        markers.deserialize(s.markers);
+    } catch (e) { /* ignore broken storage */ }
+}
+
+function saveSettings() {
+    try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+            settings, markers: markers.serialize(),
+            cfg: { ...cfg, grid: { startHz: cfg.grid.startHz, stopHz: cfg.grid.stopHz, points: cfg.grid.points, log: cfg.grid.log } },
+        }));
+    } catch (e) { /* storage full or disabled */ }
+}
+
+function setMsg(text, isError = false) {
+    $('msg').textContent = text;
+    $('msg').style.color = isError ? 'var(--error)' : '';
+}
+
+// --- refresh of everything derived from the traces (at most once per animation frame)
+function scheduleUi() {
+    if (uiPending) return;
+    uiPending = true;
+    requestAnimationFrame(() => { uiPending = false; refreshUi(); });
+}
+
+function refreshUi() {
+    const live = traces.live ? traces.view(traces.live) : null;
+    view.a = cfg.grid.startHz; view.b = cfg.grid.stopHz; view.log = cfg.grid.log;
+    view.layers = [];
+    traces.mem.forEach((t, i) => { if (t && memShow[i]) view.layers.push({ trace: traces.view(t), color: MEM_COLORS[i] }); });
+    if (live && showLive) view.layers.push({ trace: live, color: view.css('--trace-live'), width: 1.8 });
+    view.readTrace = live;
+    view.title = settings.name;
+    if (settings.auto && live) {
+        let lo = Infinity, hi = -Infinity;
+        for (const v of live.dBm) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; }
+        if (hi >= lo) {
+            view.top = Math.ceil((hi + 5) / 10) * 10;
+            view.bottom = Math.min(Math.floor((lo - 5) / 10) * 10, view.top - 30);
+            $('yTopIn').value = view.top; $('yBotIn').value = view.bottom;
+        }
+    }
+    view.redraw();
+    renderMarkerTable(live);
+    $('stSweeps').textContent = sweeps ? `Sweeps: ${sweeps}${lastSweepSeconds ? ` (${lastSweepSeconds.toFixed(2)} s)` : ''}` : '';
+    $('stAvg').textContent = traces.avgN > 1 ? `Avg: ${Math.min(traces.ring.length + 1, traces.avgN)}/${traces.avgN}` : '';
+    $('stStep').textContent = cfg.grid.points > 1 ? `Step: ${formatHz(cfg.grid.step())}` : '';
+    $('stBattery').textContent = lastMv ? `Battery: ${(lastMv / 1000).toFixed(2)} V` : '';
+    $('stDevice').textContent = link.isOpen ? link.title() : '';
+}
+
+// --- config <-> inputs
+function mkRange() {
+    const m = model(), r = new FreqRange(cfg.grid.startHz, cfg.grid.stopHz), lo = lowLimit(m, cfg.input);
+    r.setLimits(cfg.grid.log ? Math.max(K_LOG_MIN_HZ, lo) : lo, highLimit(m, cfg.input));
+    return r;
+}
+
+function fillSelects() {
+    const m = model();
+    const opts = (sel, list) => { sel.innerHTML = ''; for (const [v, t] of list) sel.add(new Option(t, v)); };
+    opts($('pointsSel'), POINT_CHOICES.filter((n) => m !== MODELS.basic || n <= 290).map((n) => [n, String(n)]));
+    opts($('rbwSel'), [[0, 'Auto'], ...m.rbwKHz.map((v) => [v, `${v} kHz`])]);
+    const att = [[-1, 'Auto']];
+    for (let a = 0; a <= m.maxAtten; a++) att.push([a, `${a} dB`]);
+    opts($('attenSel'), att);
+    for (const id of ['inputSel', 'inputLabel']) $(id).style.display = m.hasInputMode ? '' : 'none';
+    for (const id of ['lnaChk', 'lnaLabel']) $(id).style.display = m.hasLna ? '' : 'none';
+}
+
+function syncInputs() {
+    const g = cfg.grid;
+    $('startIn').value = formatMHz(g.startHz); $('stopIn').value = formatMHz(g.stopHz);
+    $('centerIn').value = formatMHz((g.startHz + g.stopHz) / 2); $('spanIn').value = formatMHz(g.stopHz - g.startHz);
+    if (![...$('pointsSel').options].some((o) => +o.value === g.points)) $('pointsSel').add(new Option(String(g.points), g.points));
+    $('pointsSel').value = g.points;
+    $('logChk').checked = g.log;
+    $('rbwSel').value = cfg.rbwKHz; $('attenSel').value = cfg.atten;
+    $('inputSel').value = cfg.input; $('lnaChk').checked = cfg.lna; $('extGainIn').value = cfg.extGainDb;
+    $('autoChk').checked = settings.auto;
+    $('yTopIn').value = view.top; $('yBotIn').value = view.bottom;
+}
+
+function configChanged() {
+    cfg = clampConfig(cfg, model());
+    syncInputs();
+    if (link.isOpen) link.setConfig(cfg);
+    saveSettings();
+    scheduleUi();
+}
+
+function applyRange(r) { cfg.grid.startHz = r.start; cfg.grid.stopHz = r.stop; configChanged(); }
+
+function bindConfigInputs() {
+    const edit = (id, fn) => $(id).addEventListener('change', () => {
+        const hz = parseHz($(id).value, 1e6);
+        if (hz === null) return syncInputs();
+        const r = mkRange();
+        fn(r, hz);
+        applyRange(r);
+    });
+    edit('startIn', (r, hz) => r.setStart(hz));
+    edit('stopIn', (r, hz) => r.setStop(hz));
+    edit('centerIn', (r, hz) => r.setCenter(hz));
+    edit('spanIn', (r, hz) => r.setSpan(hz));
+    $('pointsSel').onchange = () => { cfg.grid.points = +$('pointsSel').value; configChanged(); };
+    $('logChk').onchange = () => { cfg.grid.log = $('logChk').checked; configChanged(); };
+    $('rbwSel').onchange = () => { cfg.rbwKHz = +$('rbwSel').value; configChanged(); };
+    $('attenSel').onchange = () => { cfg.atten = +$('attenSel').value; configChanged(); };
+    $('inputSel').onchange = () => { cfg.input = $('inputSel').value; configChanged(); };
+    $('lnaChk').onchange = () => { cfg.lna = $('lnaChk').checked; configChanged(); };
+    $('extGainIn').onchange = () => { cfg.extGainDb = parseFloat($('extGainIn').value) || 0; configChanged(); };
+    $('fromUnitBtn').onclick = () => {
+        const g = link.info.deviceGrid;
+        if (!g) return;
+        cfg.grid = new ScanGrid(g.startHz, g.stopHz, cfg.grid.points, false);
+        configChanged();
+    };
+}
+
+// --- traces
+function bindTraceInputs() {
+    $('avgIn').onchange = () => { traces.setAverage(Math.max(1, parseInt($('avgIn').value, 10) || 1)); $('avgIn').value = traces.avgN; scheduleUi(); };
+    $('restartBtn').onclick = () => { traces.restartAverage(); scheduleUi(); };
+    document.querySelectorAll('input[name=hold]').forEach((r) => { r.onchange = () => { traces.setHold(r.value); scheduleUi(); }; });
+    $('normChk').onchange = () => {
+        traces.setNormalize($('normChk').checked);
+        $('normChk').checked = !!traces.norm;
+        scheduleUi();
+    };
+    $('autoChk').onchange = () => { settings.auto = $('autoChk').checked; saveSettings(); scheduleUi(); };
+    const setY = () => {
+        const t = parseFloat($('yTopIn').value), b = parseFloat($('yBotIn').value);
+        if (Number.isFinite(t) && Number.isFinite(b) && t > b) { view.top = t; view.bottom = b; }
+        settings.auto = false; settings.yTop = view.top; settings.yBottom = view.bottom;
+        syncInputs(); saveSettings(); scheduleUi();
+    };
+    $('yTopIn').onchange = setY; $('yBotIn').onchange = setY;
+    $('liveChk').onchange = () => { showLive = $('liveChk').checked; scheduleUi(); };
+
+    const rows = $('memRows');
+    for (let i = 0; i < 3; i++) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<label><input type="checkbox" checked><b style="color:${MEM_COLORS[i]}">M${i + 1}</b></label>` +
+            '<button class="small" data-a="store" title="Store the live trace">Store</button>' +
+            '<button class="small" data-a="clear">Clear</button>' +
+            '<button class="small" data-a="save" title="Save as CSV">Save</button>' +
+            '<button class="small" data-a="load" title="Load a CSV file">Load</button>';
+        row.querySelector('input').onchange = (e) => { memShow[i] = e.target.checked; scheduleUi(); };
+        row.querySelector('[data-a=store]').onclick = () => { traces.store(i); memShow[i] = true; row.querySelector('input').checked = true; scheduleUi(); };
+        row.querySelector('[data-a=clear]').onclick = () => { traces.mem[i] = null; scheduleUi(); };
+        row.querySelector('[data-a=save]').onclick = () => saveCsv(traces.mem[i], `tinysa-m${i + 1}`);
+        row.querySelector('[data-a=load]').onclick = () => loadCsv(i);
+        rows.appendChild(row);
+    }
+}
+
+function csvFormat() { return { separator: settings.sep, decimalComma: settings.comma && settings.sep !== ',', mhz: settings.csvFormat === 'mhz' }; }
+
+function stamp() {
+    const d = new Date(), p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+function download(blob, name) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+function saveCsv(trace, base = 'tinysa') {
+    if (!trace || trace.isEmpty) return setMsg('No trace to save.', true);
+    download(new Blob([traceToCsv(trace, csvFormat(), settings.name)], { type: 'text/csv' }), `${base}-${stamp()}.csv`);
+}
+
+function loadCsv(slot) {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.csv,.txt,text/csv,text/plain';
+    inp.onchange = async () => {
+        const f = inp.files[0];
+        if (!f) return;
+        try {
+            traces.mem[slot] = parseTraceCsv(await f.text());
+            memShow[slot] = true;
+            document.querySelectorAll('#memRows input')[slot].checked = true;
+            setMsg(`Loaded ${f.name} into M${slot + 1}.`);
+        } catch (e) { setMsg(`${f.name}: ${e.message}`, true); }
+        scheduleUi();
+    };
+    inp.click();
+}
+
+// --- markers
+function renderMarkerTable(live) {
+    const tb = $('markerRows'), step = live ? live.grid.step() : 1;
+    let html = '';
+    markers.list.forEach((m, i) => {
+        const r = markers.read(i, live);
+        const f = (v) => (Number.isFinite(v) ? v : null);
+        html += `<tr data-i="${i}"${i === markers.selected ? ' class="sel"' : ''}><td>${r.name}</td><td>${formatHz(r.hz, step)}</td>` +
+            `<td>${f(r.dBm) === null ? '-' : r.dBm.toFixed(2) + ' dBm'}</td>` +
+            `<td>${f(r.dHz) === null ? '' : (r.dHz > 0 ? '+' : '') + formatHz(r.dHz, step)}</td>` +
+            `<td>${f(r.dDb) === null ? '' : (r.dDb > 0 ? '+' : '') + r.dDb.toFixed(2) + ' dB'}</td></tr>`;
+    });
+    tb.innerHTML = html;
+    $('mkDeltaChk').checked = markers.selected >= 0 && markers.list[markers.selected].delta;
+}
+
+function bindMarkers() {
+    const changed = () => { saveSettings(); scheduleUi(); };
+    view.onSelect = (i) => { markers.select(i); changed(); };
+    view.onMarkerMove = (i, hz) => { markers.move(i, hz); scheduleUi(); };
+    view.onMarkerAdd = (hz) => { markers.add(hz); changed(); };
+    view.onDelete = (i) => { markers.remove(i); changed(); };
+    view.onRange = (a, b, kind) => {
+        const r = mkRange();
+        if (kind === 'pan') r.place(a, b - a); else r.set(a, b);
+        applyRange(r);
+    };
+    view.onY = (top, bottom) => {
+        view.top = top; view.bottom = bottom; settings.auto = false;
+        settings.yTop = top; settings.yBottom = bottom;
+        syncInputs(); saveSettings(); scheduleUi();
+    };
+    $('markerRows').onclick = (e) => {
+        const tr = e.target.closest('tr');
+        if (tr) { markers.select(+tr.dataset.i); scheduleUi(); }
+    };
+    $('mkAddBtn').onclick = () => { markers.add((cfg.grid.startHz + cfg.grid.stopHz) / 2); changed(); };
+    $('mkDelBtn').onclick = () => { markers.remove(markers.selected); changed(); };
+    $('mkClearBtn').onclick = () => { markers.clear(); changed(); };
+    $('mkPeakBtn').onclick = () => {
+        const t = view.readTrace, pk = t && tracePeak(t);
+        if (!pk) return;
+        if (markers.selected < 0) markers.add(pk.hz); else markers.move(markers.selected, pk.hz);
+        changed();
+    };
+    $('mkDeltaChk').onchange = () => {
+        const m = markers.list[markers.selected];
+        if (m) m.delta = $('mkDeltaChk').checked;
+        changed();
+    };
+    $('peakChk').onchange = () => { view.showPeak = $('peakChk').checked; view.redraw(); };
+    document.addEventListener('keydown', (e) => {
+        if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || document.querySelector('dialog[open]')) return;
+        if (e.key === 'Escape') link.setMode('off');
+        else if ((e.key === 'Delete' || e.key === 'Backspace') && markers.selected >= 0) { markers.remove(markers.selected); changed(); e.preventDefault(); }
+        else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && markers.selected >= 0) {
+            const step = cfg.grid.step() * (e.shiftKey ? 10 : 1) * (e.key === 'ArrowLeft' ? -1 : 1);
+            const m = markers.list[markers.selected];
+            m.hz = clamp(m.hz + step, cfg.grid.startHz, cfg.grid.stopHz);
+            changed(); e.preventDefault();
+        }
+    });
+}
+
+// --- images
+function renderImageCanvas() {
+    const dpr = window.devicePixelRatio || 1, c = document.createElement('canvas');
+    c.width = Math.round(view.w * dpr); c.height = Math.round(view.h * dpr);
+    const x = c.getContext('2d');
+    x.scale(dpr, dpr);
+    view.render(x, view.w, view.h, false);
+    return c;
+}
+const canvasBlob = (c) => new Promise((resolve) => c.toBlob(resolve, 'image/png'));
+
+async function copyCanvas(c) {
+    try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': canvasBlob(c) })]);
+        setMsg('Image copied to the clipboard.');
+    } catch (e) { setMsg(`Cannot copy the image: ${e.message || e}`, true); }
+}
+
+async function toggleRecord() {
+    if (recordDir) { recordDir = null; $('recordBtn').classList.remove('on'); setMsg(`Recording stopped, ${recordCount} files.`); return; }
+    if (!window.showDirectoryPicker) return setMsg('Recording needs showDirectoryPicker (Chrome or Edge).', true);
+    try { recordDir = await window.showDirectoryPicker({ mode: 'readwrite' }); } catch (e) { return; }
+    recordCount = 0;
+    $('recordBtn').classList.add('on');
+    setMsg('Recording: every completed sweep is saved as CSV.');
+}
+
+async function recordSweep() {
+    const t = traces.live && traces.view(traces.live);
+    if (!recordDir || !t) return;
+    try {
+        const fh = await recordDir.getFileHandle(`tinysa-${stamp()}-${String(++recordCount).padStart(4, '0')}.csv`, { create: true });
+        const w = await fh.createWritable();
+        await w.write(traceToCsv(t, csvFormat(), settings.name));
+        await w.close();
+    } catch (e) { recordDir = null; $('recordBtn').classList.remove('on'); setMsg(`Recording failed: ${e.message || e}`, true); }
+}
+
+// --- dialogs
+const consoleLines = [], cmdHistory = [];
+let histPos = 0;
+
+function consoleAdd(text) {
+    consoleLines.push(text);
+    if (consoleLines.length > 1500) consoleLines.splice(0, 300);
+    if ($('consoleDlg').open) {
+        const el = $('consoleLog'), stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+        el.textContent = consoleLines.join('\n');
+        if (stick) el.scrollTop = el.scrollHeight;
+    }
+}
+
+function sendConsole() {
+    const c = $('consoleIn').value.trim();
+    if (!c || !link.isOpen) return;
+    cmdHistory.push(c); histPos = cmdHistory.length;
+    $('consoleIn').value = '';
+    link.send(c);
+}
+
+function showScreen() {
+    if (!lastScreen) return;
+    const c = $('screenCanvas'), img = new ImageData(new Uint8ClampedArray(lastScreen.data), lastScreen.width, lastScreen.height);
+    if ($('screenInvertChk').checked) for (let i = 0; i < img.data.length; i += 4) { img.data[i] ^= 255; img.data[i + 1] ^= 255; img.data[i + 2] ^= 255; }
+    c.width = img.width; c.height = img.height;
+    c.getContext('2d', { willReadFrequently: true }).putImageData(img, 0, 0);
+}
+
+function drawBattery() {
+    const c = $('batteryCanvas'), x = c.getContext('2d'), W = c.width, H = c.height, L = 56, B = 26, T = 10, R = 10;
+    x.fillStyle = view.css('--plot-bg'); x.fillRect(0, 0, W, H);
+    x.font = '12px system-ui, sans-serif'; x.fillStyle = view.css('--plot-text'); x.strokeStyle = view.css('--plot-grid');
+    if (batteryHistory.length < 1) { x.textAlign = 'center'; x.fillText('No readings yet', W / 2, H / 2); return; }
+    const vs = batteryHistory.map((p) => p.mV);
+    const lo = Math.floor(Math.min(...vs, 3300) / 100) * 100, hi = Math.max(Math.ceil(Math.max(...vs) / 100) * 100, lo + 100);
+    const t0 = batteryHistory[0].t, t1 = Math.max(batteryHistory[batteryHistory.length - 1].t, t0 + 60000);
+    const X = (t) => L + (t - t0) / (t1 - t0) * (W - L - R), Y = (v) => T + (hi - v) / (hi - lo) * (H - T - B);
+    x.textAlign = 'right'; x.textBaseline = 'middle';
+    for (let v = lo; v <= hi; v += 100) { x.beginPath(); x.moveTo(L, Y(v)); x.lineTo(W - R, Y(v)); x.stroke(); x.fillText(`${(v / 1000).toFixed(1)} V`, L - 6, Y(v)); }
+    x.textAlign = 'center'; x.textBaseline = 'top';
+    x.fillText('0', L, H - B + 6); x.fillText(`${((t1 - t0) / 60000).toFixed(1)} min`, W - R - 20, H - B + 6);
+    x.strokeStyle = view.css('--trace-live'); x.lineWidth = 2; x.beginPath();
+    batteryHistory.forEach((p, i) => (i ? x.lineTo(X(p.t), Y(p.mV)) : x.moveTo(X(p.t), Y(p.mV))));
+    x.stroke();
+}
+
+function updateInfo() {
+    const i = link.info;
+    $('infoText').textContent = link.isOpen
+        ? [link.title(), `Port: ${i.port}`, `Zero level: ${i.zeroDbm} dBm`, '', i.info, '', `Commands: ${i.commands.join(' ')}`].join('\n')
+        : 'Not connected.';
+    $('vbatIn').value = i.vbatOffset ?? '';
+}
+
+function bindDialogs() {
+    document.querySelectorAll('[data-close]').forEach((b) => { b.onclick = () => b.closest('dialog').close(); });
+    $('consoleBtn').onclick = () => { $('consoleLog').textContent = consoleLines.join('\n'); $('consoleDlg').showModal(); $('consoleLog').scrollTop = 1e9; $('consoleIn').focus(); };
+    $('consoleSend').onclick = sendConsole;
+    $('consoleClear').onclick = () => { consoleLines.length = 0; $('consoleLog').textContent = ''; };
+    $('consoleIn').onkeydown = (e) => {
+        if (e.key === 'Enter') sendConsole();
+        else if (e.key === 'ArrowUp' && histPos > 0) { $('consoleIn').value = cmdHistory[--histPos]; e.preventDefault(); }
+        else if (e.key === 'ArrowDown' && histPos < cmdHistory.length) { $('consoleIn').value = cmdHistory[++histPos] || ''; e.preventDefault(); }
+    };
+    $('screenBtn').onclick = () => { $('screenDlg').showModal(); if (!lastScreen) link.capture(); else showScreen(); };
+    $('captureBtn').onclick = () => link.capture();
+    $('screenInvertChk').onchange = showScreen;
+    $('screenSaveBtn').onclick = async () => { const b = await canvasBlob($('screenCanvas')); download(b, `tinysa-screen-${stamp()}.png`); };
+    $('screenCopyBtn').onclick = () => copyCanvas($('screenCanvas'));
+    $('batteryBtn').onclick = () => { $('batteryDlg').showModal(); drawBattery(); };
+
+    $('settingsBtn').onclick = () => {
+        $('screenOffChk').checked = settings.screenOff; $('csvFormatSel').value = settings.csvFormat;
+        $('csvSepSel').value = settings.sep; $('csvCommaChk').checked = settings.comma; $('nameIn').value = settings.name;
+        updateInfo();
+        $('settingsDlg').showModal();
+    };
+    const store = () => {
+        settings.screenOff = $('screenOffChk').checked; settings.csvFormat = $('csvFormatSel').value;
+        settings.sep = $('csvSepSel').value; settings.comma = $('csvCommaChk').checked; settings.name = $('nameIn').value;
+        link.setScreenOffWhileScanning(settings.screenOff);
+        saveSettings(); scheduleUi();
+    };
+    for (const id of ['screenOffChk', 'csvFormatSel', 'csvSepSel', 'csvCommaChk', 'nameIn']) $(id).onchange = store;
+    $('nameIn').oninput = store;
+    $('vbatSetBtn').onclick = () => { const v = parseInt($('vbatIn').value, 10); if (Number.isFinite(v)) link.send(`vbat_offset ${v}`); };
+    $('timeBtn').onclick = () => {
+        const d = new Date(), p = (n) => String(n).padStart(2, '0'), y = String(d.getFullYear()).slice(2);
+        link.send(`time b 0x${y}${p(d.getMonth() + 1)}${p(d.getDate())} 0x${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`);
+    };
+    $('saveCfgBtn').onclick = () => link.send('saveconfig');
+    $('clearCfgBtn').onclick = () => {
+        if (confirm('Reset the tinySA configuration (calibration included) to factory defaults?') &&
+            confirm('This cannot be undone. Really clear the configuration?')) link.send('clearconfig 1234');
+    };
+}
+
+// --- connection
+function setConnected(open) {
+    $('connectBtn').textContent = open ? 'Disconnect' : 'Connect';
+    $('demoBtn').disabled = open;
+    for (const id of ['onceBtn', 'scanBtn', 'screenBtn', 'consoleBtn']) $(id).disabled = !open;
+    $('stopBtn').disabled = !open;
+    $('fromUnitBtn').disabled = !open || !link.info.deviceGrid;
+}
+
+async function connectIo(io) {
+    setMsg('Connecting...');
+    try { await io.open(); } catch (e) { return setMsg(`Cannot open the port: ${e.message || e}`, true); }
+    await link.open(io);
+}
+
+async function toggleConnect() {
+    if (link.isOpen) return link.close('Disconnected');
+    if (!navigator.serial) return setMsg('WebSerial is not available in this browser. Use Chrome or Edge, or try the Demo.', true);
+    let port;
+    try { port = await navigator.serial.requestPort({ filters: TINYSA_USB_FILTERS }); } catch (e) { return; }
+    await connectIo(new SerialTransport(port));
+}
+
+function bindLink() {
+    link.on('opened', () => {
+        fillSelects();
+        link.setScreenOffWhileScanning(settings.screenOff);
+        link.batteryDue = true;
+        batteryHistory = []; lastMv = null; sweeps = 0; lastScreen = null;
+        traces.restart();
+        setConnected(true);
+        configChanged();
+        updateInfo();
+        setMsg(`Connected: ${link.title()}`);
+    });
+    link.on('closed', (reason) => {
+        setConnected(false);
+        $('onceBtn').classList.remove('on'); $('scanBtn').classList.remove('on');
+        updateInfo();
+        setMsg(reason || 'Disconnected.', !!reason && /lost|cannot|no /i.test(reason));
+        scheduleUi();
+    });
+    link.on('message', (t, err) => setMsg(t, !!err));
+    link.on('scanChanged', (mode) => {
+        $('onceBtn').classList.toggle('on', mode === 'once');
+        $('scanBtn').classList.toggle('on', mode === 'continuous');
+    });
+    link.on('frame', (f) => {
+        traces.add(f);
+        if (f.complete) { sweeps++; lastSweepSeconds = f.seconds; recordSweep(); }
+        scheduleUi();
+    });
+    link.on('battery', (mV) => {
+        lastMv = mV; batteryHistory.push({ t: Date.now(), mV });
+        if (batteryHistory.length > 5000) batteryHistory.shift();
+        if ($('batteryDlg').open) drawBattery();
+        scheduleUi();
+    });
+    link.on('screen', (img) => { lastScreen = img; if ($('screenDlg').open) showScreen(); });
+    link.on('traffic', (tx, text, user) => { if (user || tx) consoleAdd(`${tx ? '> ' : '  '}${text}`); });
+    link.on('reply', () => {});
+
+    $('connectBtn').onclick = toggleConnect;
+    $('demoBtn').onclick = () => connectIo(new SimTransport('ultra'));
+    $('onceBtn').onclick = () => link.setMode('once');
+    $('scanBtn').onclick = () => link.setMode('continuous');
+    $('stopBtn').onclick = () => link.setMode('off');
+    $('saveCsvBtn').onclick = () => saveCsv(view.readTrace);
+    $('saveImgBtn').onclick = async () => download(await canvasBlob(renderImageCanvas()), `tinysa-${stamp()}.png`);
+    $('copyImgBtn').onclick = () => copyCanvas(renderImageCanvas());
+    $('recordBtn').onclick = toggleRecord;
+    window.addEventListener('beforeunload', () => { if (link.isOpen) link.close('', true); });
+}
+
+// --- theme
+function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    $('themeBtn').textContent = t === 'dark' ? 'Light theme' : 'Dark theme';
+    view.redraw();
+    if ($('batteryDlg').open) drawBattery();
+}
+function preferredTheme() {
+    const s = localStorage.getItem(THEME_KEY);
+    return s === 'dark' || s === 'light' ? s : window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+$('themeBtn').onclick = () => {
+    const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    localStorage.setItem(THEME_KEY, t);
+    applyTheme(t);
+};
+
+// --- start
+loadSettings();
+view.top = settings.yTop; view.bottom = settings.yBottom; view.showPeak = $('peakChk').checked;
+bindConfigInputs(); bindTraceInputs(); bindMarkers(); bindDialogs(); bindLink();
+fillSelects();
+cfg = clampConfig(cfg, model());
+syncInputs();
+applyTheme(preferredTheme());
+setConnected(false);
+if (!navigator.serial) {
+    setMsg('WebSerial is not available in this browser (use Chrome or Edge). The Demo works anywhere.', true);
+    $('connectBtn').title = 'WebSerial is not available in this browser';
+} else setMsg('Not connected. Connect a tinySA or try the Demo.');
+if (!window.showDirectoryPicker) $('recordBtn').disabled = true;
+scheduleUi();
+
+    </script>
+</body>
+</html>
