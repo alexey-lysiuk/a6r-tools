@@ -172,6 +172,21 @@
 
         .modes { display: flex; gap: 4px; }
         .modes button { flex: 1; }
+        [hidden] { display: none !important; }
+        .ana, .gen { display: contents; }
+        .layout[data-mode="generator"] .ana, .layout[data-mode="generator"] .main { display: none; }
+        .layout:not([data-mode="generator"]) .gen, .layout:not([data-mode="generator"]) #genMain { display: none; }
+        .layout[data-mode="generator"] #genMain { display: flex; }
+        #genMain {
+            display: none;
+            flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+            border: 1px solid var(--surface-border); border-radius: 10px; background: var(--plot-bg); color: var(--plot-text);
+        }
+        #genMain .big { font-size: clamp(2rem, 6vw, 4.5rem); font-variant-numeric: tabular-nums; color: var(--trace-live); }
+        #genMain .mid { font-size: clamp(1.2rem, 3vw, 2rem); font-variant-numeric: tabular-nums; }
+        #genRf { padding: 4px 16px; border-radius: 999px; font-weight: 700; background: var(--button-bg); color: var(--button-text); }
+        #genRf.on { background: #c62828; color: #fff; }
+        #genNote { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
 
         .graph-wrap {
             position: relative;
@@ -259,9 +274,33 @@
         <div class="side">
             <div class="modes" id="modes">
                 <button id="modeAnalyzer" class="on" title="Spectrum analyzer: the tinySA measures">Analyzer</button>
-                <button id="modeGenerator" disabled title="Signal generator: not available yet">Generator</button>
+                <button id="modeGenerator" disabled title="Signal generator: the tinySA makes a signal">Generator</button>
             </div>
 
+            <div class="gen">
+                <fieldset>
+                    <legend>Generator</legend>
+                    <div class="form">
+                        <label for="genPathSel" id="genPathLabel">Output</label>
+                        <select id="genPathSel"><option value="low">Low</option><option value="high">High</option></select>
+                        <label for="genMixerSel" id="genMixerLabel">Path</label>
+                        <select id="genMixerSel"><option value="mixer">Accurate (mixer)</option><option value="normal">Cleanest</option></select>
+                        <label for="genTypeSel">Signal</label><select id="genTypeSel"></select>
+                        <label for="genFreqIn" id="genFreqLabel">Frequency (MHz)</label><input id="genFreqIn" type="text" inputmode="decimal">
+                        <label for="genSpanIn" id="genSpanLabel">Span (MHz)</label><input id="genSpanIn" type="text" inputmode="decimal">
+                        <label for="genTimeIn" id="genTimeLabel">Sweep time (s)</label><input id="genTimeIn" type="number" min="0" max="600" step="0.1" title="0 = as fast as possible">
+                        <label for="genLevelIn">Level (dBm)</label><input id="genLevelIn" type="number" step="0.5">
+                        <label for="genExtGainIn">Ext. gain</label><input id="genExtGainIn" type="number" step="0.1" min="-100" max="100" title="External amplifier (+) or attenuator (-), dB; shared with the analyzer">
+                        <label for="genModHzIn" id="genModHzLabel">Mod. freq (Hz)</label><input id="genModHzIn" type="number" min="1" step="1">
+                        <label for="genDepthIn" id="genDepthLabel">AM depth (%)</label><input id="genDepthIn" type="number" min="0" max="100" step="1">
+                        <label for="genDevIn" id="genDevLabel">FM dev. (Hz)</label><input id="genDevIn" type="number" min="1000" max="300000" step="500">
+                        <button id="genOnBtn" class="span2" title="Switch the RF output on or off">RF on</button>
+                    </div>
+                    <div id="genNote"></div>
+                </fieldset>
+            </div>
+
+            <div class="ana">
             <fieldset>
                 <legend>Sweep (MHz)</legend>
                 <div class="form">
@@ -318,6 +357,14 @@
                     <label><input id="peakChk" type="checkbox" checked>Show max</label>
                 </div>
             </fieldset>
+            </div>
+        </div>
+
+        <div id="genMain">
+            <span id="genRf">RF off</span>
+            <div class="big" id="genFreqBig">-</div>
+            <div class="mid" id="genLevelBig">-</div>
+            <div id="genDesc"></div>
         </div>
 
         <div class="main">
@@ -355,8 +402,9 @@
             <button id="screenSaveBtn">Save image</button>
             <button id="screenCopyBtn">Copy image</button>
             <label><input id="screenInvertChk" type="checkbox">Invert colours</label>
+            <label title="Capture the screen about once a second"><input id="screenAutoChk" type="checkbox">Auto refresh</label>
             <span class="grow"></span>
-            <a href="tinysa-remote-control.html" target="_blank" rel="noopener" title="Live mirror with touch control">Live remote control</a>
+            <a href="tinysa-remote-control.html" target="_blank" rel="noopener" title="Faster live mirror with touch control">Live remote control</a>
             <button data-close>Close</button>
         </div>
     </dialog>
@@ -563,21 +611,35 @@ function parseHz(text, defaultUnitHz = 1e6) {
 // Everything model-specific is one row here; code asks the descriptor instead of testing
 // the model type. `gen` is the place for the signal generator description (output limits,
 // modulation types) once generator support is added.
+// Generator limits (upstream model.cpp, from the firmware's level_min/level_max and the unit's menus;
+// the firmware clamps further at run time). `highMaxHz` 0: no HIGH output.
+const GEN_BASIC = {
+    minHz: 10e3, maxHz: 350e6, minDbm: -76, maxDbm: -7, highMinHz: 240e6, highMaxHz: 960e6, highMinDbm: -38, highMaxDbm: 9,
+    hasMixer: false, needsSweepGo: false, adjustableModulation: false,
+    types: ['cw', 'sweep', 'am', 'nfm', 'wfm', 'ext'], maxModHz: 5000,
+};
+const GEN_ULTRA = {
+    minHz: 10e3, maxHz: 5.327e9, minDbm: -115, maxDbm: -18.5, highMinHz: 0, highMaxHz: 0, highMinDbm: 0, highMaxDbm: 0,
+    hasMixer: true, needsSweepGo: true, adjustableModulation: true,
+    types: ['cw', 'sweep', 'am', 'fm'], maxModHz: 3500,
+};
+const GEN_TYPE_NAMES = { cw: 'CW', sweep: 'Sweep', am: 'AM', fm: 'FM', nfm: 'NFM', wfm: 'WFM', ext: 'External' };
+
 const MODELS = {
     basic: {
         name: 'tinySA', lcd: [320, 240], defaultZero: 128, hasLna: false, hasInputMode: true,
         minHz: 0, maxHz: 350e6, highMinHz: 240e6, highMaxHz: 960e6,
-        rbwKHz: [3, 10, 30, 100, 300, 600], maxAtten: 30, gen: null,
+        rbwKHz: [3, 10, 30, 100, 300, 600], maxAtten: 30, gen: GEN_BASIC,
     },
     ultra: {
         name: 'tinySA Ultra', lcd: [480, 320], defaultZero: 174, hasLna: true, hasInputMode: false,
         minHz: 0, maxHz: 9.9e9, highMinHz: 0, highMaxHz: 0,
-        rbwKHz: [0.2, 1, 3, 10, 30, 100, 300, 600, 850], maxAtten: 30, gen: null,
+        rbwKHz: [0.2, 1, 3, 10, 30, 100, 300, 600, 850], maxAtten: 30, gen: GEN_ULTRA,
     },
     ultraPlus: {
         name: 'tinySA Ultra+', lcd: [480, 320], defaultZero: 174, hasLna: true, hasInputMode: false,
         minHz: 0, maxHz: 9.9e9, highMinHz: 0, highMaxHz: 0,
-        rbwKHz: [0.2, 1, 3, 10, 30, 100, 300, 600, 850], maxAtten: 30, gen: null,
+        rbwKHz: [0.2, 1, 3, 10, 30, 100, 300, 600, 850], maxAtten: 30, gen: GEN_ULTRA,
     },
 };
 const lowLimit = (m, input) => (input === 'high' && m.hasInputMode ? m.highMinHz : m.minHz);
@@ -676,6 +738,101 @@ function configCommands(want, have, m, info) {
         cmds.push(`sweep start ${sweep[0]}`, `sweep stop ${sweep[1]}`);
         have.sweep = sweep;
     }
+    return cmds;
+}
+
+// --- generator configuration (port of upstream genconfig.cpp, without burst, CTCSS, level change)
+function defaultGenConfig() {
+    return {
+        path: 'low',      // basic: 'low' | 'high' output connector
+        mixer: true,      // Ultra: `output mixer` (accurate) | `normal` (cleanest)
+        type: 'cw',       // GEN_TYPE_NAMES
+        freqHz: 433.92e6, // carrier, the centre of a sweep
+        levelDbm: -40,    // at the DUT: port level + extGainDb
+        extGainDb: 0,
+        on: false,
+        spanHz: 10e6, sweepS: 2,
+        modHz: 1000, amDepth: 80, fmDevHz: 3000,
+    };
+}
+
+// The Ultra output paths' maxima by hardware (upstream ultraMaxHz, without the LO harmonic)
+function ultraMaxHz(hardware, mixer) {
+    const id = +((/ZS(\d{3})/.exec(hardware || '') || [])[1] || 0);
+    if (id >= 407) return mixer ? 7.37e9 : 6.3e9;
+    if (!mixer) return 4.35e9;
+    return id === 406 ? 5.42e9 : 5.327e9;
+}
+
+function genLimits(c, m, info) {
+    const g = m.gen;
+    const l = c.path === 'high' && g.highMaxHz > 0
+        ? { minHz: g.highMinHz, maxHz: g.highMaxHz, minDbm: g.highMinDbm, maxDbm: g.highMaxDbm }
+        : { minHz: g.minHz, maxHz: g.hasMixer ? ultraMaxHz(info && info.hardware, c.mixer) : g.maxHz, minDbm: g.minDbm, maxDbm: g.maxDbm };
+    l.minDbm += c.extGainDb; l.maxDbm += c.extGainDb;
+    return l;
+}
+
+function clampGenConfig(c, m, info) {
+    c = { ...defaultGenConfig(), ...c };
+    const g = m.gen, fin = (v, d) => (Number.isFinite(+v) ? +v : d);
+    c.extGainDb = clamp(Math.round(fin(c.extGainDb, 0) * 10) / 10, -100, 100);
+    c.sweepS = clamp(fin(c.sweepS, 2), 0, 600);
+    c.modHz = clamp(Math.round(fin(c.modHz, 1000)), 1, g.maxModHz);
+    c.amDepth = clamp(Math.round(fin(c.amDepth, 80)), 0, 100);
+    c.fmDevHz = clamp(Math.round(fin(c.fmDevHz, 3000)), 1000, 300000);
+    if (g.highMaxHz <= 0) c.path = 'low';
+    if (!g.hasMixer) c.mixer = true;
+    if (!g.types.includes(c.type)) c.type = /fm$/.test(c.type) ? g.types.find((t) => /fm$/.test(t)) : 'cw';
+    if (c.path === 'high' && (c.type === 'am' || c.type === 'ext')) c.type = 'cw'; // HIGH output: no AM or external modulation
+    const l = genLimits(c, m, info);
+    c.levelDbm = clamp(Math.round(fin(c.levelDbm, -40) * 10) / 10, l.minDbm, l.maxDbm);
+    c.spanHz = clamp(Math.round(fin(c.spanHz, 0)), 0, l.maxHz - l.minHz);
+    c.freqHz = clamp(Math.round(fin(c.freqHz, l.minHz)), l.minHz, l.maxHz);
+    if (c.type === 'sweep') c.freqHz = clamp(c.freqHz, l.minHz + c.spanHz / 2, l.maxHz - c.spanHz / 2);
+    c.on = !!c.on;
+    return c;
+}
+
+// Commands that bring the unit from `have` (undefined = unknown) to `want`, in an order that is
+// safe for the firmware (level before `output on`, a modulation's parameters before it starts).
+// Updates `have`. Port of upstream genCommands.
+function genCommands(w, h, m, info) {
+    const g = m.gen, cmds = [];
+    const path = g.highMaxHz > 0 ? w.path : 'low';
+    if (h.mode !== path) {
+        cmds.push(`mode ${path} output`);
+        // a mode switch resets the unit: output off, no modulation (1 kHz, 80 %, 3 kHz), not sweeping, level at maximum
+        for (const k of Object.keys(h)) delete h[k];
+        Object.assign(h, { mode: path, on: false, modulation: 'off', modHz: 1000, amDepth: 80, fmDevHz: 3000, sweeping: false });
+        if (g.hasMixer) h.mixer = true;
+    }
+    const sweep = w.type === 'sweep';
+    const mod = ['am', 'fm', 'nfm', 'wfm'].includes(w.type) ? w.type : w.type === 'ext' ? 'extern' : 'off';
+    if (g.needsSweepGo && !sweep && h.sweeping !== false) { cmds.push('sweep abort'); h.sweeping = false; } // stop before the span goes
+    if (mod === 'off' && h.modulation !== 'off') { cmds.push('modulation off'); h.modulation = 'off'; } // before a span: the basic sweeps at once
+    // the path only matters above 1.13 GHz (below, both make the same signal)
+    const pathMatters = w.freqHz + (sweep ? w.spanHz / 2 : 0) > 1130e6;
+    if (g.hasMixer && h.mixer !== w.mixer && (h.mixer || pathMatters)) { cmds.push(w.mixer ? 'output mixer' : 'output normal'); h.mixer = w.mixer; }
+    if (info.commands.includes('ext_gain') && h.extGainDb !== w.extGainDb) { cmds.push(`ext_gain ${w.extGainDb}`); h.extGainDb = w.extGainDb; }
+    // centre then span: `sweep center` keeps the centre, `sweep span` too
+    const span = sweep ? Math.round(w.spanHz) : 0, centre = Math.round(w.freqHz);
+    if (h.centre !== centre || h.span !== span) {
+        if (span === 0) cmds.push(`sweep cw ${centre}`); else cmds.push(`sweep center ${centre}`, `sweep span ${span}`);
+        h.centre = centre; h.span = span;
+        delete h.level; delete h.sweepS; // the Ultra lowers the level for good where it cannot reach it; a span change resets the time
+    }
+    const port = w.levelDbm - w.extGainDb; // `level` is the absolute level at the port
+    if (h.level !== port) { cmds.push(`level ${port}`); h.level = port; }
+    if (sweep && h.sweepS !== w.sweepS) { cmds.push(`sweeptime ${w.sweepS}`); h.sweepS = w.sweepS; }
+    if (mod !== 'off' && mod !== 'extern') { // parameters first: the modulation starts right
+        if (h.modHz !== w.modHz) { cmds.push(`modulation freq ${w.modHz}`); h.modHz = w.modHz; }
+        if (g.adjustableModulation && mod === 'am' && h.amDepth !== w.amDepth) { cmds.push(`modulation depth ${w.amDepth}`); h.amDepth = w.amDepth; }
+        if (g.adjustableModulation && mod === 'fm' && h.fmDevHz !== w.fmDevHz) { cmds.push(`modulation deviation ${w.fmDevHz}`); h.fmDevHz = w.fmDevHz; }
+    }
+    if (h.modulation !== mod) { cmds.push(`modulation ${mod}`); h.modulation = mod; }
+    if (g.needsSweepGo && sweep && h.sweeping !== true) { cmds.push('sweep go'); h.sweeping = true; }
+    if (h.on !== w.on) { cmds.push(w.on ? 'output on' : 'output off'); h.on = w.on; } // last: everything is in place when the signal appears
     return cmds;
 }
 
@@ -1060,8 +1217,8 @@ class SimTransport {
             break;
         case 'help':
             r = ['commands: help info version reset freq offset time dac saveconfig clearconfig touchcal touchtest pause resume',
-                'mode lna attenuate rbw sweep scanraw zero vbat vbat_offset capture ext_gain ui refresh touch release abort',
-                'Other commands: hop'];
+                'Other commands: mode lna attenuate rbw sweep scanraw zero vbat vbat_offset capture ext_gain ui refresh touch release abort',
+                'output level modulation sweeptime hop'];
             break;
         case 'zero': r = [`${this.zero}dBm`]; break;
         case 'sweep':
@@ -1071,7 +1228,8 @@ class SimTransport {
             break;
         case 'rbw': this.rbwKHz = a[0] === 'auto' ? 0 : +a[0]; break;
         case 'mode': this.input = a[1] || 'low'; break;
-        case 'lna': case 'attenuate': case 'ext_gain': break;
+        case 'lna': case 'attenuate': case 'ext_gain': case 'level': case 'modulation': case 'sweeptime': break;
+        case 'output': if (a[0] === 'on' || a[0] === 'off') this.rfOn = a[0] === 'on'; break;
         case 'vbat': r = [`${this.vbat + Math.round((Math.random() - 0.5) * 20)} mV`]; break;
         case 'vbat_offset': if (a.length) this.vbatOffset = +a[0]; else r = [String(this.vbatOffset)]; break;
         case 'time': break;
@@ -1157,11 +1315,11 @@ class Emitter {
 // end at the prompt (RxParser). A sweep is one `scanraw S E N` (a log sweep: one per piece);
 // queued work (user commands, config changes, battery polls) runs between sweeps.
 // The unit is an analyzer or a signal generator, never both: `activity` selects the pump in
-// `activities`; the generator pump is to be added there.
+// `activities`. In generator mode the link only sends GenConfig differences and never scans.
 class DeviceLink extends Emitter {
     constructor() {
         super();
-        this.activities = { analyzer: () => this.pumpAnalyzer() };
+        this.activities = { analyzer: () => this.pumpAnalyzer(), generator: () => this.pumpGenerator() };
         this.screenOffWanted = true;
         this.resetState();
     }
@@ -1172,6 +1330,7 @@ class DeviceLink extends Emitter {
         this.info = { port: '', version: '', hardware: '', info: '', commands: [], zeroDbm: 0, model: null,
             deviceGrid: null, vbatOffset: null };
         this.want = defaultConfig(); this.have = {};
+        this.genWant = defaultGenConfig(); this.genHave = {};
         this.mode = 'off'; this.activity = 'analyzer';
         this.paused = false; this.uiOff = false; this.aborting = false;
         this.frame = null; this.frameSeq = 0; this.sweepPiece = -1; this.scanExpect = 0;
@@ -1396,6 +1555,21 @@ class DeviceLink extends Emitter {
         return true;
     }
 
+    // Returns true when it did something. The scan was stopped by setActivity (abort).
+    async pumpGenerator() {
+        if (this.uiOff) { await this.exec({ line: 'ui on' }); return true; }
+        if (this.paused) { await this.exec({ line: 'resume' }); return true; } // output changes need the unit's sweep loop
+        const cmds = genCommands(this.genWant, this.genHave, this.info.model, this.info);
+        for (const c of cmds) {
+            const r = await this.exec({ line: c, generator: true });
+            const l = r.lines[0] || '';
+            if (!r.ok) { this.genHave = {}; break; } // may not have arrived: send it all again
+            if (l.endsWith('?') || l.startsWith('usage')) this.emit('message', `tinySA refused '${c}': ${l}`, true);
+        }
+        if (cmds.length) this.emit('genApplied', this.genWant);
+        return cmds.length > 0;
+    }
+
     async sweep() {
         this.aborting = false;
         const g = ScanGrid.from(this.want.grid);
@@ -1437,7 +1611,7 @@ class DeviceLink extends Emitter {
     setScreenOffWhileScanning(on) { this.screenOffWanted = on; this.poke(); }
 
     setMode(mode) { // 'off' | 'once' | 'continuous'
-        if (mode === this.mode) return;
+        if (mode === this.mode || (this.activity === 'generator' && mode !== 'off')) return;
         this.mode = mode;
         this.emit('scanChanged', mode);
         if (mode === 'off') {
@@ -1450,6 +1624,32 @@ class DeviceLink extends Emitter {
             }
             this.sweepPiece = -1;
         }
+        this.poke();
+    }
+
+    // --- generator
+    setGenConfig(c) {
+        this.genWant = this.info.model ? clampGenConfig(c, this.info.model, this.info) : c;
+        this.poke();
+    }
+
+    // 'analyzer' | 'generator'. Leaving the generator: RF off and back to input mode at once,
+    // so the unit shows its own spectrum again (the mode switch resets its settings).
+    setActivity(activity) {
+        if (!this.ready || activity === this.activity) return;
+        if (activity === 'generator') {
+            this.setMode('off'); // abort + resume: a paused unit does not apply output changes
+            this.activity = 'generator';
+            this.genHave = {}; // unknown: the diff starts with the mode switch
+        } else {
+            this.activity = 'analyzer';
+            this.queue = this.queue.filter((c) => !c.generator);
+            const input = this.info.model.hasInputMode ? this.want.input : 'low';
+            this.queue.push({ line: `mode ${input} input` });
+            this.have = { input };
+            this.genHave = {};
+        }
+        this.emit('activityChanged', this.activity);
         this.poke();
     }
 
@@ -1491,6 +1691,7 @@ class DeviceLink extends Emitter {
         if (graceful) {
             let t = '';
             if (c && c.body === 'scanraw' && !c.scanDone && !this.aborting) t += 'abort\r';
+            if (this.activity === 'generator' && wasReady) t += `output off\rmode ${this.info.model.hasInputMode ? this.want.input : 'low'} input\r`;
             if (this.uiOff && wasReady) t += 'ui on\r';
             if (this.paused && wasReady) t += 'resume\r';
             if (t) { try { await io.write(t); await sleep(100); } catch (e) { /* port gone */ } }
@@ -1960,13 +2161,14 @@ function loadSettings() {
             cfg = { ...defaultConfig(), ...s.cfg, grid: new ScanGrid(g.startHz, g.stopHz, g.points, !!g.log) };
         }
         markers.deserialize(s.markers);
+        if (s.gen) genCfg = { ...defaultGenConfig(), ...s.gen, on: false };
     } catch (e) { /* ignore broken storage */ }
 }
 
 function saveSettings() {
     try {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-            settings, markers: markers.serialize(),
+            settings, markers: markers.serialize(), gen: genCfg,
             cfg: { ...cfg, grid: { startHz: cfg.grid.startHz, stopHz: cfg.grid.stopHz, points: cfg.grid.points, log: cfg.grid.log } },
         }));
     } catch (e) { /* storage full or disabled */ }
@@ -2044,7 +2246,8 @@ function syncInputs() {
 
 function configChanged() {
     cfg = clampConfig(cfg, model());
-    syncInputs();
+    if (genCfg.extGainDb !== cfg.extGainDb) { genCfg.extGainDb = cfg.extGainDb; genCfg = clampGenConfig(genCfg, model(), link.info); if (link.isOpen) link.setGenConfig(genCfg); }
+    syncInputs(); syncGenInputs();
     if (link.isOpen) link.setConfig(cfg);
     saveSettings();
     scheduleUi();
@@ -2324,6 +2527,28 @@ function bindDialogs() {
     $('screenBtn').onclick = () => { $('screenDlg').showModal(); if (!lastScreen) link.capture(); else showScreen(); };
     $('captureBtn').onclick = () => link.capture();
     $('screenInvertChk').onchange = showScreen;
+    // click = touch (the unit's touchscreen); a screen refresh follows so the result shows
+    $('screenCanvas').onclick = async (e) => {
+        if (!link.isOpen) return;
+        const c = $('screenCanvas'), r = c.getBoundingClientRect();
+        const x = Math.round((e.clientX - r.left) * c.width / r.width), y = Math.round((e.clientY - r.top) * c.height / r.height);
+        if (x < 0 || y < 0 || x >= c.width || y >= c.height) return;
+        await link.send(`touch ${x} ${y}`);
+        await link.send('release');
+        setTimeout(() => link.capture(), 250);
+    };
+    let autoTimer = null, capturing = false;
+    const autoTick = async () => {
+        if (capturing || !link.isOpen || !$('screenDlg').open) return;
+        capturing = true;
+        try { await link.capture(); } finally { capturing = false; }
+    };
+    const autoSync = () => {
+        clearInterval(autoTimer);
+        autoTimer = $('screenAutoChk').checked && $('screenDlg').open ? setInterval(autoTick, 1000) : null;
+    };
+    $('screenAutoChk').onchange = autoSync;
+    $('screenDlg').addEventListener('close', autoSync);
     $('screenSaveBtn').onclick = async () => { const b = await canvasBlob($('screenCanvas')); download(b, `tinysa-screen-${stamp()}.png`); };
     $('screenCopyBtn').onclick = () => copyCanvas($('screenCanvas'));
     $('batteryBtn').onclick = () => { $('batteryDlg').showModal(); drawBattery(); };
@@ -2354,8 +2579,95 @@ function bindDialogs() {
     };
 }
 
+// --- generator
+let genCfg = defaultGenConfig(), appMode = 'analyzer';
+
+function fillGenSelects() {
+    const m = model(), g = m.gen, sel = $('genTypeSel');
+    sel.innerHTML = '';
+    for (const t of g.types) sel.add(new Option(GEN_TYPE_NAMES[t], t));
+    for (const id of ['genPathSel', 'genPathLabel']) $(id).style.display = g.highMaxHz > 0 ? '' : 'none';
+    for (const id of ['genMixerSel', 'genMixerLabel']) $(id).style.display = g.hasMixer ? '' : 'none';
+}
+
+function syncGenInputs() {
+    const m = model(), g = m.gen, c = genCfg, sweep = c.type === 'sweep';
+    const fm = /fm$/.test(c.type), mod = c.type === 'am' || fm;
+    const show = (ids, on) => { for (const id of ids) $(id).style.display = on ? '' : 'none'; };
+    show(['genSpanIn', 'genSpanLabel', 'genTimeIn', 'genTimeLabel'], sweep);
+    show(['genModHzIn', 'genModHzLabel'], mod);
+    show(['genDepthIn', 'genDepthLabel'], c.type === 'am' && g.adjustableModulation);
+    show(['genDevIn', 'genDevLabel'], c.type === 'fm' && g.adjustableModulation);
+    $('genFreqLabel').textContent = sweep ? 'Center (MHz)' : 'Frequency (MHz)';
+    $('genPathSel').value = c.path; $('genMixerSel').value = c.mixer ? 'mixer' : 'normal'; $('genTypeSel').value = c.type;
+    $('genFreqIn').value = formatMHz(c.freqHz); $('genSpanIn').value = formatMHz(c.spanHz);
+    $('genTimeIn').value = c.sweepS; $('genLevelIn').value = c.levelDbm; $('genExtGainIn').value = c.extGainDb;
+    $('genModHzIn').value = c.modHz; $('genDepthIn').value = c.amDepth; $('genDevIn').value = c.fmDevHz;
+    const l = genLimits(c, m, link.info);
+    $('genLevelIn').min = l.minDbm; $('genLevelIn').max = l.maxDbm;
+    $('genNote').textContent = `${formatHz(l.minHz)} - ${formatHz(l.maxHz)}, ${l.minDbm.toFixed(1)} ... ${l.maxDbm.toFixed(1)} dBm`;
+    $('genOnBtn').textContent = c.on ? 'RF off' : 'RF on';
+    $('genOnBtn').classList.toggle('on', c.on);
+    // the big readout
+    const span = sweep ? c.spanHz : 0;
+    $('genRf').textContent = c.on ? 'RF ON' : 'RF off'; $('genRf').classList.toggle('on', c.on);
+    $('genFreqBig').textContent = span ? `${formatHz(c.freqHz - span / 2)} - ${formatHz(c.freqHz + span / 2)}` : formatHz(c.freqHz);
+    $('genLevelBig').textContent = `${c.levelDbm} dBm`;
+    const parts = [GEN_TYPE_NAMES[c.type]];
+    if (sweep) parts.push(c.sweepS ? `${c.sweepS} s per sweep` : 'fastest sweep');
+    if (mod) parts.push(`${c.modHz} Hz`);
+    if (c.type === 'am' && g.adjustableModulation) parts.push(`${c.amDepth} % depth`);
+    if (c.type === 'fm' && g.adjustableModulation) parts.push(`${c.fmDevHz} Hz deviation`);
+    if (g.highMaxHz > 0) parts.push(c.path === 'high' ? 'HIGH output' : 'LOW output');
+    if (g.hasMixer && c.freqHz + span / 2 > 1130e6) parts.push(c.mixer ? 'accurate path' : 'cleanest path');
+    $('genDesc').textContent = parts.join(' \u00b7 ');
+}
+
+function genChanged() {
+    genCfg = clampGenConfig(genCfg, model(), link.info);
+    cfg.extGainDb = genCfg.extGainDb; // one external gain for analyzer and generator, as on the unit
+    syncGenInputs(); syncInputs();
+    if (link.isOpen) { link.setConfig(cfg); link.setGenConfig(genCfg); }
+    saveSettings();
+}
+
+function setAppMode(mode) {
+    if (mode === 'generator' && !link.isOpen) return;
+    appMode = mode;
+    document.querySelector('.layout').dataset.mode = mode;
+    $('modeAnalyzer').classList.toggle('on', mode === 'analyzer');
+    $('modeGenerator').classList.toggle('on', mode === 'generator');
+    if (mode === 'generator') { genCfg.on = false; genCfg.extGainDb = cfg.extGainDb; } // the unit starts with RF off; so do we
+    for (const id of ['onceBtn', 'scanBtn', 'stopBtn', 'saveCsvBtn', 'saveImgBtn', 'copyImgBtn', 'recordBtn']) $(id).hidden = mode === 'generator';
+    if (link.isOpen) {
+        link.setActivity(mode);
+        if (mode === 'generator') genChanged();
+    }
+    if (mode === 'analyzer') { view.redraw(); scheduleUi(); }
+}
+
+function bindGenInputs() {
+    const num = (id, key) => { $(id).onchange = () => { const v = parseFloat($(id).value); if (Number.isFinite(v)) genCfg[key] = v; genChanged(); }; };
+    const mhz = (id, key) => { $(id).onchange = () => { const hz = parseHz($(id).value, 1e6); if (hz !== null) genCfg[key] = hz; genChanged(); }; };
+    mhz('genFreqIn', 'freqHz'); mhz('genSpanIn', 'spanHz');
+    num('genTimeIn', 'sweepS'); num('genLevelIn', 'levelDbm'); num('genExtGainIn', 'extGainDb');
+    num('genModHzIn', 'modHz'); num('genDepthIn', 'amDepth'); num('genDevIn', 'fmDevHz');
+    $('genPathSel').onchange = () => {
+        genCfg.path = $('genPathSel').value;
+        genCfg.levelDbm = genCfg.path === 'high' ? model().gen.highMaxDbm - 20 : defaultGenConfig().levelDbm; // a sensible level for the new range
+        if (genCfg.path === 'high' && genCfg.freqHz < model().gen.highMinHz) genCfg.freqHz = model().gen.highMinHz;
+        genChanged();
+    };
+    $('genMixerSel').onchange = () => { genCfg.mixer = $('genMixerSel').value === 'mixer'; genChanged(); };
+    $('genTypeSel').onchange = () => { genCfg.type = $('genTypeSel').value; genChanged(); };
+    $('genOnBtn').onclick = () => { genCfg.on = !genCfg.on; genChanged(); };
+    $('modeAnalyzer').onclick = () => setAppMode('analyzer');
+    $('modeGenerator').onclick = () => setAppMode('generator');
+}
+
 // --- connection
 function setConnected(open) {
+    $('modeGenerator').disabled = !open || !model().gen;
     $('connectBtn').textContent = open ? 'Disconnect' : 'Connect';
     $('demoBtn').disabled = open;
     for (const id of ['onceBtn', 'scanBtn', 'screenBtn', 'consoleBtn']) $(id).disabled = !open;
@@ -2379,18 +2691,24 @@ async function toggleConnect() {
 
 function bindLink() {
     link.on('opened', () => {
-        fillSelects();
+        fillSelects(); fillGenSelects();
+        genCfg = clampGenConfig({ ...genCfg, on: false }, model(), link.info);
         link.setScreenOffWhileScanning(settings.screenOff);
         link.batteryDue = true;
         batteryHistory = []; lastMv = null; sweeps = 0; lastScreen = null;
         traces.restart();
         setConnected(true);
         configChanged();
+        setAppMode('analyzer');
+        syncGenInputs();
         updateInfo();
         setMsg(`Connected: ${link.title()}`);
     });
     link.on('closed', (reason) => {
         setConnected(false);
+        genCfg.on = false;
+        setAppMode('analyzer');
+        syncGenInputs();
         $('onceBtn').classList.remove('on'); $('scanBtn').classList.remove('on');
         updateInfo();
         setMsg(reason || 'Disconnected.', !!reason && /lost|cannot|no /i.test(reason));
@@ -2448,10 +2766,11 @@ $('themeBtn').onclick = () => {
 // --- start
 loadSettings();
 view.top = settings.yTop; view.bottom = settings.yBottom; view.showPeak = $('peakChk').checked;
-bindConfigInputs(); bindTraceInputs(); bindMarkers(); bindDialogs(); bindLink();
+bindGenInputs(); bindConfigInputs(); bindTraceInputs(); bindMarkers(); bindDialogs(); bindLink();
 fillSelects();
 cfg = clampConfig(cfg, model());
 syncInputs();
+syncGenInputs();
 applyTheme(preferredTheme());
 setConnected(false);
 if (!navigator.serial) {
