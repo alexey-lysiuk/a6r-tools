@@ -94,6 +94,16 @@ public:
         att.tooltip = "Used when auto attenuation is off";
         settings_.push_back(att);
 
+        DeviceSetting repeat;
+        repeat.id      = "repeat";
+        repeat.label   = "Repeat count";
+        repeat.type    = DeviceSetting::Int;
+        repeat.value   = 1;
+        repeat.min     = 1;
+        repeat.max     = 1000;
+        repeat.tooltip = "Measurements averaged per point; higher values reduce noise but slow the sweep";
+        settings_.push_back(repeat);
+
         DeviceSetting spur;
         spur.id      = "spur";
         spur.label   = "Spur removal";
@@ -232,6 +242,10 @@ private:
         else if (s.id == "lna")
         {
             snprintf(buf, sizeof(buf), "lna %s\r", s.value != 0.0 ? "on" : "off");
+        }
+        else if (s.id == "repeat")
+        {
+            snprintf(buf, sizeof(buf), "repeat %d\r", static_cast<int>(s.value));
         }
         else if (s.id == "spur")
         {
