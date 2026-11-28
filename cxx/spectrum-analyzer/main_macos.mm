@@ -169,17 +169,17 @@ ImTextureID platform_create_texture(int width, int height)
     return (ImTextureID)(intptr_t)CFBridgingRetain(texture);
 }
 
-void platform_update_texture(ImTextureID id, const uint32_t* rgba, int width, int height)
+void platform_update_texture(ImTextureID tex, const uint32_t* rgba, int width, int height)
 {
-    id<MTLTexture> texture = (__bridge id<MTLTexture>)(void*)(intptr_t)id;
+    id<MTLTexture> texture = (__bridge id<MTLTexture>)(void*)(intptr_t)tex;
     [texture replaceRegion:MTLRegionMake2D(0, 0, width, height)
                mipmapLevel:0
                  withBytes:rgba
                bytesPerRow:(NSUInteger)width * 4];
 }
 
-void platform_destroy_texture(ImTextureID id)
+void platform_destroy_texture(ImTextureID tex)
 {
-    if (id)
-        CFBridgingRelease((void*)(intptr_t)id);
+    if (tex)
+        CFBridgingRelease((void*)(intptr_t)tex);
 }
