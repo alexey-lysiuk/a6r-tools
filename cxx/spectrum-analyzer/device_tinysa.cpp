@@ -100,7 +100,7 @@ public:
         repeat.type    = DeviceSetting::Int;
         repeat.value   = 1;
         repeat.min     = 1;
-        repeat.max     = 1000;
+        repeat.max     = 20;
         repeat.tooltip = "Measurements averaged per point; higher values reduce noise but slow the sweep";
         settings_.push_back(repeat);
 
