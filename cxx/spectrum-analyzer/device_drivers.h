@@ -26,5 +26,10 @@ void enumerate_hackrf(std::vector<DeviceEntry>& out);
 std::unique_ptr<SpectrumDevice> create_hackrf(const DeviceEntry& entry);
 #endif
 
+#ifdef SA_HAVE_PLUTO
+void enumerate_pluto(std::vector<DeviceEntry>& out);
+std::unique_ptr<SpectrumDevice> create_pluto(const DeviceEntry& entry);
+#endif
+
 void enumerate_tinysa(std::vector<DeviceEntry>& out);
 std::unique_ptr<SpectrumDevice> create_tinysa(const DeviceEntry& entry);

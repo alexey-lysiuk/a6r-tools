@@ -20,10 +20,10 @@
 // the host only has to run an FFT over each block.
 
 #include "device_drivers.h"
+#include "fft.h"
 
 #include <algorithm>
 #include <cmath>
-#include <complex>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -41,99 +41,12 @@ constexpr uint32_t BLOCK_BYTES  = 16384;
 constexpr uint32_t MAX_FREQ_MHZ     = 7250;
 constexpr double   MIN_FREQ_HZ      = 1e6;
 constexpr double   MAX_FREQ_HZ      = 6e9;
-constexpr double   kPi              = 3.14159265358979323846;
 
 bool init_libhackrf()
 {
     static const bool ok = (hackrf_init() == HACKRF_SUCCESS);
     return ok;
 }
-
-class Fft
-{
-public:
-    void setup(int size)
-    {
-        size_ = size;
-
-        twiddle_.resize(size / 2);
-        for (int i = 0; i < size / 2; ++i)
-        {
-            const double angle = -2.0 * kPi * i / size;
-            twiddle_[i] = { static_cast<float>(std::cos(angle)), static_cast<float>(std::sin(angle)) };
-        }
-
-        bitrev_.resize(size);
-        int bits = 0;
-        while ((1 << bits) < size)
-            ++bits;
-        for (int i = 0; i < size; ++i)
-        {
-            int r = 0;
-            for (int b = 0; b < bits; ++b)
-                r |= ((i >> b) & 1) << (bits - 1 - b);
-            bitrev_[i] = r;
-        }
-
-        window_.resize(size);
-        window_sum_ = 0.0f;
-        for (int i = 0; i < size; ++i)
-        {
-            window_[i] = 0.5f * (1.0f - std::cos(static_cast<float>(2.0 * kPi * i / (size - 1))));
-            window_sum_ += window_[i];
-        }
-
-        data_.assign(size, {});
-        power_.assign(size, 0.0f);
-    }
-
-    int size() const { return size_; }
-
-    // Input: interleaved signed 8-bit I/Q. Output: power in dBFS per FFT bin (unshifted)
-    const std::vector<float>& transform(const int8_t* iq)
-    {
-        for (int i = 0; i < size_; ++i)
-        {
-            const float w = window_[i] / 128.0f;
-            data_[bitrev_[i]] = { iq[i * 2] * w, iq[i * 2 + 1] * w };
-        }
-
-        for (int len = 2; len <= size_; len <<= 1)
-        {
-            const int half = len / 2;
-            const int stride = size_ / len;
-
-            for (int base = 0; base < size_; base += len)
-            {
-                for (int k = 0; k < half; ++k)
-                {
-                    const std::complex<float> t = data_[base + k + half] * twiddle_[k * stride];
-                    const std::complex<float> u = data_[base + k];
-                    data_[base + k]        = u + t;
-                    data_[base + k + half] = u - t;
-                }
-            }
-        }
-
-        const float scale = 1.0f / (window_sum_ * window_sum_);
-        for (int i = 0; i < size_; ++i)
-        {
-            const float magsq = std::norm(data_[i]) * scale;
-            power_[i] = 10.0f * std::log10(magsq + 1e-20f);
-        }
-
-        return power_;
-    }
-
-private:
-    int size_ = 0;
-    float window_sum_ = 1.0f;
-    std::vector<std::complex<float>> twiddle_;
-    std::vector<std::complex<float>> data_;
-    std::vector<int>   bitrev_;
-    std::vector<float> window_;
-    std::vector<float> power_;
-};
 
 class HackRfDevice final : public SpectrumDevice
 {
@@ -406,7 +319,7 @@ private:
                 continue;
 
             // Last N samples of the block; the head is skipped to let the tuner settle
-            const std::vector<float>& pwr = fft_.transform(buf + BLOCK_BYTES - n * 2);
+            const std::vector<float>& pwr = fft_.transform(buf + BLOCK_BYTES - n * 2, 1.0f / 128.0f);
 
             const size_t base = static_cast<size_t>((frequency - first_header_) * n / SAMPLE_RATE_HZ);
             store(base + 1,         &pwr[1 + (n * 5) / 8], n / 4);
@@ -442,7 +355,7 @@ private:
 
     // Accessed from the USB callback thread, guarded by state_mutex_
     std::mutex         state_mutex_;
-    Fft                fft_;
+    sa::Fft            fft_;
     std::vector<float> level_;
     double             grid_start_hz_ = 0.0;
     double             bin_hz_        = 1.0;

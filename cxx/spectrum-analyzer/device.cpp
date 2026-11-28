@@ -108,6 +108,9 @@ std::vector<DeviceEntry> enumerate_devices()
 #ifdef SA_HAVE_HACKRF
     enumerate_hackrf(result);
 #endif
+#ifdef SA_HAVE_PLUTO
+    enumerate_pluto(result);
+#endif
     enumerate_tinysa(result);
 
     return result;
@@ -118,6 +121,10 @@ std::unique_ptr<SpectrumDevice> create_device(const DeviceEntry& entry)
 #ifdef SA_HAVE_HACKRF
     if (entry.driver == "hackrf")
         return create_hackrf(entry);
+#endif
+#ifdef SA_HAVE_PLUTO
+    if (entry.driver == "pluto")
+        return create_pluto(entry);
 #endif
     if (entry.driver == "tinysa")
         return create_tinysa(entry);
