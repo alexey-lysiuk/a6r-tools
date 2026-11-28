@@ -111,6 +111,9 @@ std::vector<DeviceEntry> enumerate_devices()
 #ifdef SA_HAVE_PLUTO
     enumerate_pluto(result);
 #endif
+#ifdef SA_HAVE_RTLSDR
+    enumerate_rtlsdr(result);
+#endif
     enumerate_tinysa(result);
 
     return result;
@@ -125,6 +128,10 @@ std::unique_ptr<SpectrumDevice> create_device(const DeviceEntry& entry)
 #ifdef SA_HAVE_PLUTO
     if (entry.driver == "pluto")
         return create_pluto(entry);
+#endif
+#ifdef SA_HAVE_RTLSDR
+    if (entry.driver == "rtlsdr")
+        return create_rtlsdr(entry);
 #endif
     if (entry.driver == "tinysa")
         return create_tinysa(entry);
