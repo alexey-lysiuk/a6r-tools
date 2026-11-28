@@ -114,6 +114,12 @@ std::vector<DeviceEntry> enumerate_devices()
 #ifdef SA_HAVE_RTLSDR
     enumerate_rtlsdr(result);
 #endif
+#ifdef SA_HAVE_FOBOS
+    enumerate_fobos(result);
+#endif
+#ifdef SA_HAVE_FOBOS_AGILE
+    enumerate_fobos_agile(result);
+#endif
     enumerate_tinysa(result);
 
     return result;
@@ -132,6 +138,14 @@ std::unique_ptr<SpectrumDevice> create_device(const DeviceEntry& entry)
 #ifdef SA_HAVE_RTLSDR
     if (entry.driver == "rtlsdr")
         return create_rtlsdr(entry);
+#endif
+#ifdef SA_HAVE_FOBOS
+    if (entry.driver == "fobos")
+        return create_fobos(entry);
+#endif
+#ifdef SA_HAVE_FOBOS_AGILE
+    if (entry.driver == "fobos-agile")
+        return create_fobos_agile(entry);
 #endif
     if (entry.driver == "tinysa")
         return create_tinysa(entry);

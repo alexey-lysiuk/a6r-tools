@@ -36,5 +36,15 @@ void enumerate_rtlsdr(std::vector<DeviceEntry>& out);
 std::unique_ptr<SpectrumDevice> create_rtlsdr(const DeviceEntry& entry);
 #endif
 
+#ifdef SA_HAVE_FOBOS
+void enumerate_fobos(std::vector<DeviceEntry>& out);
+std::unique_ptr<SpectrumDevice> create_fobos(const DeviceEntry& entry);
+#endif
+
+#ifdef SA_HAVE_FOBOS_AGILE
+void enumerate_fobos_agile(std::vector<DeviceEntry>& out);
+std::unique_ptr<SpectrumDevice> create_fobos_agile(const DeviceEntry& entry);
+#endif
+
 void enumerate_tinysa(std::vector<DeviceEntry>& out);
 std::unique_ptr<SpectrumDevice> create_tinysa(const DeviceEntry& entry);
