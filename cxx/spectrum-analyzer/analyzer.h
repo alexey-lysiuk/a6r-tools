@@ -48,7 +48,8 @@ private:
     void refresh_devices();
     void connect();
     void disconnect();
-    bool restart();
+    // keep_data preserves traces and waterfall; they are still cleared if the sweep geometry changes
+    bool restart(bool keep_data = false);
     void poll_device();
     void process_sweep(const Sweep& sweep);
     void reset_data();

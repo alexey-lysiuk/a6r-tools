@@ -214,13 +214,17 @@ void Analyzer::disconnect()
     }
 }
 
-bool Analyzer::restart()
+bool Analyzer::restart(bool keep_data)
 {
     if (!device_)
         return false;
 
     device_->stop();
-    reset_data();
+
+    if (keep_data)
+        last_sweep_time_ = ImGui::GetTime();   // do not count the pause as decay time
+    else
+        reset_data();
 
     SweepConfig config;
     config.start_hz = start_hz_;
@@ -531,7 +535,7 @@ void Analyzer::draw_device_section()
             {
                 device_->stop();
             }
-            else if (restart())
+            else if (restart(true))
             {
                 status_error_ = false;
             }
